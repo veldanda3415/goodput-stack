@@ -1,0 +1,13 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Benchmark raw outputs (summaries, manifests and per-point summary.json are committed)
+benchmarks/results/**/requests.jsonl
+benchmarks/results/**/metrics.jsonl
+benchmarks/results/**/bench.jsonl
+benchmarks/results/**/server.log
+benchmarks/results/**/server.log.gz
+benchmarks/results/**/probe.log.gz
+benchmarks/results/**/error.txt

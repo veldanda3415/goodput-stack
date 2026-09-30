@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help check-env cluster-info tree
+.PHONY: help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-du
 
 help: ## List targets
 > @grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
@@ -28,3 +28,27 @@ cluster-info: ## Show current kube context, nodes and Helm releases
 
 tree: ## Show repo layout (2 levels)
 > @find . -maxdepth 2 -not -path './.git*' -not -name '.gitkeep' | sort
+
+# ---- benchmarks -----------------------------------------------------------
+# engine = client -> one inference server directly (no router, no k8s)
+# system = client -> router -> backends on k8s (not built yet)
+PY  := .venv/bin/python
+EXP ?= smoke
+
+venv: ## Create .venv with benchmark deps
+> python3 -m venv .venv && $(PY) -m pip install -q -r benchmarks/requirements.txt
+
+bench-engine: ## Engine benchmark (direct llama-server): make bench-engine EXP=ttft [ARGS="--set client.requests=5"]
+> $(PY) -m benchmarks.engine.run $(EXP) $(ARGS)
+
+bench-engine-list: ## List engine experiments
+> @$(PY) -m benchmarks.engine.run --list
+
+bench-engine-dry: ## Show sweep points and server commands for EXP
+> @$(PY) -m benchmarks.engine.run $(EXP) --dry-run $(ARGS)
+
+bench-engine-prune: ## Prune raw files of old engine runs of EXP (summaries kept)
+> $(PY) -m benchmarks.engine.run $(EXP) --prune
+
+bench-du: ## Disk used by benchmark results
+> @du -sh benchmarks/results/* 2>/dev/null

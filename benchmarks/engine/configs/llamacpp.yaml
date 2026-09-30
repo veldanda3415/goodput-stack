@@ -1,0 +1,104 @@
+# ENGINE benchmarks: llama.cpp server driven directly (no router, no k8s). CPU, WSL2.
+#
+# Layering: `defaults` -> experiment overrides -> one point of the experiment's `sweep`.
+# Sweep keys are dotted paths into the merged config; the harness runs the cartesian
+# product and starts a FRESH server for every point (no cache/slot carry-over).
+#
+#   make bench-engine EXP=ttft                       # run one experiment
+#   make bench-engine EXP=ttft ARGS="--set client.requests=5 --dry-run"
+
+defaults:
+  server:
+    binary: ~/workspace/llama.cpp/build/bin/llama-server
+    # Local file is preferred (offline, checksummed). If empty, hf_repo is used instead.
+    model_path: ~/.cache/huggingface/hub/models--Qwen--Qwen2.5-0.5B-Instruct-GGUF/snapshots/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf
+    hf_repo: Qwen/Qwen2.5-0.5B-Instruct-GGUF:Q4_K_M
+    host: 127.0.0.1
+    port: 8080
+    ctx_size: 4096        # -c : TOTAL context; split across slots unless kv_unified
+    parallel: 1           # -np: number of slots
+    threads: 8            # -t : i7-10700 has 8 physical cores
+    kv_unified: null      # null = llama.cpp default; true/false forces -kvu / -no-kvu
+    cache_ram_mib: 0      # -cram: host-RAM prompt cache; 0 disables it so it can't skew memory/TTFT
+    log_verbosity: null   # -lv; keep null unless debugging (lv 4 logs are huge)
+    probe_memory: false   # extra short start at -lv 4 to read KV/model/compute buffer MiB
+    extra_args: ["--metrics", "--slots", "--no-webui"]
+    startup_timeout_s: 120
+
+  client:
+    endpoint: /completion  # raw prompt -> exact prompt token counts; returns server timings
+    prompt_tokens: 256     # exact, calibrated via /tokenize
+    max_tokens: 128
+    ignore_eos: true       # force exactly max_tokens so decode work is constant
+    temperature: 0.0
+    cache_prompt: false    # plus a unique prefix per request, so KV prefix reuse can't fake TTFT
+    concurrency: 1         # closed-loop workers in flight at once
+    requests: 20           # measured requests (after warmup)
+    warmup: 2              # discarded, sequential
+    timeout_s: 300
+
+  metrics:
+    scrape_interval_s: 1.0  # background /metrics + /slots sampler during load; 0 disables
+    rss_interval_s: 0.25    # server RSS sampler
+
+  guards:
+    min_free_ram_mib: 4096  # skip a point if MemAvailable is below this before starting
+
+  storage:
+    results_dir: benchmarks/results/engine
+    max_log_mib: 20          # server log cap per point (head kept + last 2000 lines)
+    keep_raw_runs: 10        # per experiment; older runs keep summaries, raw files are pruned
+
+experiments:
+  smoke:
+    description: Harness sanity check - 3 requests, tiny prompt.
+    client: {prompt_tokens: 32, max_tokens: 16, requests: 3, warmup: 1}
+
+  slot_limit:
+    description: >
+      Concurrency beyond -np queues requests. Expect TTFT to step up once
+      concurrency > parallel; watch requests_deferred.
+    client: {prompt_tokens: 256, max_tokens: 64, requests: 24}
+    sweep:
+      server.parallel: [1, 2, 4]
+      client.concurrency: [1, 2, 4, 8]
+
+  ctx_tradeoff:
+    description: >
+      Bigger -c costs KV memory (~12 KiB/token for Qwen2.5-0.5B f16 KV) and may
+      slow decode. Compare peak RSS and the KV size in the server log vs theory.
+    server: {probe_memory: true}
+    client: {prompt_tokens: 256, max_tokens: 128, requests: 10}
+    sweep:
+      server.ctx_size: [512, 2048, 8192, 32768]
+
+  ttft:
+    description: >
+      Client-side TTFT vs prompt length. Slope = prefill rate; compare to server
+      timings.prompt_ms to see HTTP/queue overhead.
+    server: {ctx_size: 8192}
+    client: {max_tokens: 32, requests: 15}
+    sweep:
+      client.prompt_tokens: [16, 128, 512, 2048, 4096]
+
+  metrics_semantics:
+    description: >
+      What do the /metrics gauges average over? Scrape at different intervals
+      under steady load and compare gauges with counter deltas and client numbers.
+    server: {parallel: 2}
+    client: {prompt_tokens: 256, max_tokens: 128, concurrency: 2, requests: 30}
+    sweep:
+      metrics.scrape_interval_s: [0.5, 2.0, 5.0]
+
+  mem_bandwidth:
+    description: >
+      Decode is memory-bound: tok/s x bytes read per token ~= effective bandwidth.
+      Uses llama-bench directly (no server).
+    kind: llama_bench
+    bench:
+      binary: ~/workspace/llama.cpp/build/bin/llama-bench
+      n_prompt: 0
+      n_gen: 128
+      repetitions: 5
+    sweep:
+      server.threads: [1, 2, 4, 8, 16]
