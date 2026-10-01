@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-du
+.PHONY: help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du
 
 help: ## List targets
 > @grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
@@ -40,6 +40,9 @@ venv: ## Create .venv with benchmark deps
 
 bench-engine: ## Engine benchmark (direct llama-server): make bench-engine EXP=ttft [ARGS="--set client.requests=5"]
 > $(PY) -m benchmarks.engine.run $(EXP) $(ARGS)
+
+bench-engine-all: ## Run every engine experiment back to back + index report [ARGS="--skip saturation"]
+> $(PY) -m benchmarks.engine.run --all $(ARGS)
 
 bench-engine-list: ## List engine experiments
 > @$(PY) -m benchmarks.engine.run --list

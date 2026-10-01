@@ -26,7 +26,17 @@ def dist(prefix: str, values: list[float]) -> dict:
     }
 
 
-def summarize_load(result: dict) -> dict:
+def meets_slo(r: dict, slo: dict) -> bool:
+    if not r.get("ok"):
+        return False
+    if slo.get("ttft_ms") is not None and r["ttft_ms"] > slo["ttft_ms"]:
+        return False
+    if slo.get("tpot_ms") is not None and (r.get("tpot_ms") or 0) > slo["tpot_ms"]:
+        return False
+    return True
+
+
+def summarize_load(result: dict, slo: dict | None = None) -> dict:
     recs = result["records"]
     ok = [r for r in recs if r.get("ok")]
     out_tokens = sum(r["n_tokens"] for r in ok)
@@ -36,12 +46,19 @@ def summarize_load(result: dict) -> dict:
         "requests_failed": len(recs) - len(ok),
         "wall_s": round(result["wall_s"], 3),
         "agg_output_tok_s": round(out_tokens / result["wall_s"], 2) if result["wall_s"] else None,
+        **result.get("steady", {}),
         "prompt_n_mean": round(statistics.fmean(t.get("prompt_n", 0) for t in timings), 1) if timings else None,
         "cache_n_mean": round(statistics.fmean(t.get("cache_n", 0) for t in timings), 1) if timings else None,
     }
     row |= dist("ttft_ms", [r["ttft_ms"] for r in ok])
     row |= dist("e2e_ms", [r["e2e_ms"] for r in ok])
     row |= dist("itl_ms", [x for r in ok for x in r["itl_ms"]])
+    row |= dist("tpot_ms", [r["tpot_ms"] for r in ok if r.get("tpot_ms") is not None])
+    if slo and (slo.get("ttft_ms") is not None or slo.get("tpot_ms") is not None):
+        good = [r for r in recs if meets_slo(r, slo)]
+        row["slo_attainment_pct"] = round(100 * len(good) / len(recs), 1) if recs else None
+        # Goodput: only tokens from requests that met the SLO count.
+        row["goodput_tok_s"] = round(sum(r["n_tokens"] for r in good) / result["wall_s"], 2) if result["wall_s"] else None
     row |= dist("srv_prompt_ms", [t["prompt_ms"] for t in timings if "prompt_ms" in t])
     # Client TTFT minus server prefill time = HTTP + queueing + first decode step.
     row |= dist("ttft_minus_srv_prompt_ms", [
@@ -81,7 +98,10 @@ def summarize_metrics(samples: list[dict], idle: list[dict]) -> dict:
             "m_gauge_pred_tok_s_mean_nonzero": round(statistics.fmean(nonzero), 2) if nonzero else 0,
             "m_gauge_zero_windows": zero_windows,
             "m_counter_per_slot_tok_s": round(statistics.fmean(per_slot), 2) if per_slot else None,
-            "m_counter_wall_tok_s": round(statistics.fmean(wall_rate), 2) if wall_rate else None,
+            # whole sampled span, not a mean of per-window ratios (counters only move when a request finishes)
+            "m_counter_wall_tok_s": round(
+                (ms[-1]["metrics"].get("tokens_predicted_total", 0) - ms[0]["metrics"].get("tokens_predicted_total", 0))
+                / (ms[-1]["t_mono"] - ms[0]["t_mono"]), 2) if ms[-1]["t_mono"] > ms[0]["t_mono"] else None,
             "m_deferred_max": max(s["metrics"].get("requests_deferred", 0) for s in ms),
             "m_processing_max": max(s["metrics"].get("requests_processing", 0) for s in ms),
             "m_busy_slots_per_decode_max": round(max(s["metrics"].get("n_busy_slots_per_decode", 0) for s in ms), 3),
@@ -90,3 +110,29 @@ def summarize_metrics(samples: list[dict], idle: list[dict]) -> dict:
         row["m_idle_gauge_1st"] = idle[0]["metrics"].get("predicted_tokens_seconds")
         row["m_idle_gauge_2nd"] = idle[1]["metrics"].get("predicted_tokens_seconds")
     return row
+
+
+SPREAD_KEYS = ("agg_output_tok_s", "steady_output_tok_s", "tpot_ms_p50", "ttft_ms_p95", "goodput_tok_s")
+
+
+def combine_repeats(reps: list[dict]) -> dict:
+    """Median of every numeric field across repeats, plus spread for the headline metrics.
+
+    <key>_spread_pct = (max - min) / median x 100: how much the repeats disagree.
+    """
+    ok = [r for r in reps if r.get("status") == "ok"]
+    if not ok:
+        return reps[-1] if reps else {}
+    out: dict = {"status": "ok", "repeats": len(ok)}
+    if len(ok) < len(reps):
+        out["repeats_failed"] = len(reps) - len(ok)
+    for key in ok[0]:
+        values = [r.get(key) for r in ok]
+        if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+            med = statistics.median(values)
+            out[key] = round(med, 3) if isinstance(med, float) else med
+            if key in SPREAD_KEYS and len(values) > 1 and med:
+                out[f"{key}_spread_pct"] = round((max(values) - min(values)) / med * 100, 1)
+        elif key not in out:
+            out[key] = values[-1]
+    return out

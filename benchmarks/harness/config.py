@@ -60,8 +60,10 @@ def resolve(doc: dict, experiment: str, overrides: list[str] | None = None) -> t
     cfg.setdefault("kind", "server_load")
     for expr in overrides or []:
         key, value = parse_override(expr)
-        if key in sweep:
-            sweep.pop(key)  # a --set pins a swept key to a single value
+        if isinstance(value, list):
+            sweep[key] = value  # a list replaces (or adds) that sweep axis
+            continue
+        sweep.pop(key, None)  # a scalar pins a swept key to a single value
         set_dotted(cfg, key, value)
     return cfg, sweep
 

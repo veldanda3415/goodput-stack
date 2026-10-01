@@ -11,3 +11,8 @@ benchmarks/results/**/server.log
 benchmarks/results/**/server.log.gz
 benchmarks/results/**/probe.log.gz
 benchmarks/results/**/error.txt
+benchmarks/results/**/batch-*.log
+benchmarks/results/**/summary.json
+benchmarks/results/**/manifest.json
+benchmarks/results/**/REPORT.md
+benchmarks/results/**/summary.csv
