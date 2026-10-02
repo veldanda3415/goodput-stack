@@ -1,0 +1,6 @@
+{{- $c := .Values.sim -}}
+{{- if and $c.enabled .Values.networkPolicy.enabled }}
+# Protects the simulator pods; same allowFrom list as llama.cpp (router + helm test).
+{{ include "inference.networkPolicy" (dict "root" . "name" (include "inference.sim.name" .)
+     "selector" (include "inference.sim.selector" .) "port" $c.port) }}
+{{- end }}

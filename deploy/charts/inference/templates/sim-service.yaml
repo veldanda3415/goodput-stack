@@ -1,0 +1,20 @@
+{{- $c := .Values.sim -}}
+{{- if $c.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "inference.sim.name" . }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- include "inference.sim.selector" . | nindent 4 }}
+    goodput-stack/pool: sim
+spec:
+  type: {{ $c.service.type }}
+  selector:
+    {{- include "inference.sim.selector" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $c.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}

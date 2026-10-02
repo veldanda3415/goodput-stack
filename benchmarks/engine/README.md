@@ -13,6 +13,7 @@ Numbers here are an **upper bound** for the full system, not what users see — 
 - [Parameters and their impact](#parameters-and-their-impact)
 - [Overriding and adding experiments](#overriding-and-adding-experiments)
 - [Try these](#try-these)
+- [Simulator target (vLLM sim in k3s)](#simulator-target-vllm-sim-in-k3s)
 - [Caveats](#caveats)
 - [Results and storage](#results-and-storage)
 
@@ -256,6 +257,45 @@ Each one answers a question. Write your prediction down **before** running, then
 10. **Predict the /metrics gauge.** Before running `EXP=metrics_semantics`, write down what
     `predicted_tokens_seconds` will read at 0.5 s vs 5 s scrape intervals with 2 clients. The
     report shows gauge vs per-slot vs wall-clock rates and how many windows read 0.
+
+## Simulator target (vLLM sim in k3s)
+
+The same runner drives the chart's **vLLM simulator** ([deploy/README.md](../../deploy/README.md#vllm-simulator-sim-in-valuesyaml))
+with [configs/sim.yaml](configs/sim.yaml): same experiment names, results in `results/sim/`,
+every report stamped **SIMULATED**. Use it to check the measurement path (client, Service,
+metrics) and the queueing model, and to see where a calibrated linear model departs from the
+real engine. It does not measure engine speed.
+
+```bash
+make bench-sim-list
+make bench-sim EXP=smoke                    # ~15 s
+make bench-sim EXP=ttft                     # ~2 min
+make bench-sim-all                          # smoke, ttft, slot_limit, ttft_load, saturation
+make bench-compare A=benchmarks/results/engine/<ts>_ttft B=benchmarks/results/sim/<ts>_ttft
+```
+
+Differences from the llama.cpp target (`server.runtime: k8s`, `client.api: openai`):
+
+| | llama.cpp (local) | simulator (k8s) |
+|---|---|---|
+| fresh server per point | new `llama-server` process | `kubectl rollout restart`, wait until the old pods are gone and the Service answers `/health/ready` 3× |
+| server knobs per experiment / sweep | CLI flags | `server.sim: {flag: value}` and sweep keys `server.sim.<flag>`: patched into the ConfigMap for the run, **restored at the end** (also on Ctrl-C) |
+| request | `POST /completion`, `n_predict` | `POST /v1/completions`, `model`, `max_tokens`, `stream_options.include_usage` |
+| prompt of N tokens | `/tokenize` + `/detokenize` | vLLM `/tokenize` count, word prefix fitted to N (dummy tokenizer ≈ 1 token/word) |
+| server-side timing | `timings.prompt_ms` per request | `vllm:*` histogram means over the measured requests (`m_srv_ttft_ms_mean`, `m_srv_queue_ms_mean`, ...) |
+| queue / running | `requests_deferred` / `requests_processing` | `num_requests_waiting` / `num_requests_running` (same `m_deferred_max` / `m_processing_max` columns) |
+| path | 127.0.0.1 | Service ClusterIP from the k3s host (kube-proxy, no tunnel); `server.base_url` for a port-forward elsewhere |
+| provenance | llama.cpp commit, model sha | image digest, helm revision, ConfigMap config, and the config the pod **logged** at start (`<point>/target.json`) |
+
+Extra columns: `ttft_minus_srv_ttft_ms_mean` (client TTFT − server TTFT = HTTP + Service hop,
+~3–6 ms here; the simulator's TTFT histogram starts when a request leaves the queue, so when requests queue this gap also holds the queue wait — compare `m_srv_queue_ms_mean`), `usage_token_mismatch` (streamed chunks vs server `completion_tokens`, must be 0).
+The `sim_model` derive prints measured TTFT/TPOT next to what the configured latency model
+predicts, including the simulator's load-factor quirk (prefill counts the other running
+requests, decode includes itself). A gap there is a measurement problem, not an engine finding.
+
+First result (2026-10-02, `ttft`, 1 client): the simulator matches llama.cpp within 5 % at 128–512
+prompt tokens and is 14 % / 24 % faster at 2048 / 4096 (llama.cpp prefill is super-linear on CPU,
+and its decode slows with context: TPOT 24 ms at 4096 vs a flat 15 ms in the sim).
 
 ## Caveats
 

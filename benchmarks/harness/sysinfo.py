@@ -1,4 +1,4 @@
-"""Provenance captured once per run: hardware, OS, llama.cpp build, model file."""
+"""Provenance captured once per run: hardware, OS, engine build, model file."""
 
 from __future__ import annotations
 
@@ -33,13 +33,11 @@ def sha256_head(path: Path, limit: int = 64 * 1024 * 1024) -> str:
     return h.hexdigest()
 
 
-def collect(cfg: dict) -> dict:
-    s = cfg["server"]
-    binary = Path(os.path.expanduser(s["binary"]))
-    llama_repo = binary.parents[2] if len(binary.parents) > 2 else binary.parent
+def host() -> dict:
+    """The machine the client (and, for local targets, the server) runs on."""
     cpu = next((l.split(":", 1)[1].strip() for l in Path("/proc/cpuinfo").read_text().splitlines()
                 if l.startswith("model name")), platform.processor())
-    info = {
+    return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "host": platform.node(),
         "kernel": platform.release(),
@@ -50,10 +48,21 @@ def collect(cfg: dict) -> dict:
                                   if l.startswith("MemTotal:")).split()[1]) // 1024,
         "mem_available_mib": mem_available_mib(),
         "python": platform.python_version(),
-        "llama_cpp_commit": _run(["git", "rev-parse", "--short", "HEAD"], cwd=str(llama_repo)),
+        "repo_commit": _run(["git", "rev-parse", "--short", "HEAD"]),
+    }
+
+
+def collect(cfg: dict) -> dict:
+    """Host + local llama.cpp build + model file. In-cluster targets: engine/k8s.py collect()."""
+    s = cfg["server"]
+    binary = Path(os.path.expanduser(s["binary"]))
+    llama_repo = binary.parents[2] if len(binary.parents) > 2 else binary.parent
+    commit = _run(["git", "rev-parse", "--short", "HEAD"], cwd=str(llama_repo))
+    info = host() | {
+        "engine": f"llama.cpp {commit}",
+        "llama_cpp_commit": commit,
         "llama_cpp_dirty": bool(_run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=str(llama_repo))),
         "llama_server_version": _run([str(binary), "--version"]),
-        "repo_commit": _run(["git", "rev-parse", "--short", "HEAD"]),
         "measurement": "real (CPU, local)",
     }
     if s.get("model_path"):

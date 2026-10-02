@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from pathlib import Path
 
 # key -> column header (unit in brackets). Unknown keys fall back to the raw key.
@@ -61,6 +62,18 @@ LABELS = {
     "m_counter_per_slot_tok_s": "counters: tokens / slot-seconds",
     "m_counter_wall_tok_s": "counters: tokens / wall-seconds",
     "m_idle_gauge_2nd": "gauge after 1 s idle",
+    "m_srv_ttft_ms_mean": "server TTFT mean [ms]",
+    "m_srv_queue_ms_mean": "server queue mean [ms]",
+    "m_srv_prefill_ms_mean": "server prefill mean [ms]",
+    "m_srv_tpot_ms_mean": "server TPOT mean [ms]",
+    "m_srv_itl_ms_mean": "server ITL mean [ms]",
+    "m_srv_e2e_ms_mean": "server E2E mean [ms]",
+    "ttft_minus_srv_ttft_ms_mean": "TTFT - server TTFT [ms]",
+    "ttft_ms_mean": "TTFT mean [ms]",
+    "tpot_ms_mean": "TPOT mean [ms]",
+    "usage_token_mismatch": "token count mismatches",
+    "prompt_n_mean": "prompt tokens (server)",
+    "max-num-seqs": "max-num-seqs",
     "gen_tok_s": "decode [tok/s]",
     "gen_tok_s_stddev": "± stddev",
     "effective_bw_gb_s": "effective bandwidth [GB/s]",
@@ -141,11 +154,15 @@ def kv_per_token(rows, manifest):
 def queueing(rows, manifest):
     out = []
     for r in _ok(rows):
-        slots, clients = _num(r.get("parallel")), _num(r.get("concurrency"))
+        # llama.cpp: slots (-np) and TTFT - server prefill; vLLM/sim: max-num-seqs and the server's queue-time histogram
+        slots, clients = _num(r.get("parallel")) or _num(r.get("max-num-seqs")), _num(r.get("concurrency"))
         wait = _num(r.get("ttft_minus_srv_prompt_ms_p50"))
+        label = "TTFT − prefill p50"
+        if wait is None:
+            wait, label = _num(r.get("m_srv_queue_ms_mean")), "server queue time mean"
         if slots and clients and clients > slots and wait is not None:
             out.append(f"slots={slots:.0f}, clients={clients:.0f}: {clients - slots:.0f} request(s) wait for a slot; "
-                       f"TTFT − prefill p50 = {wait:,.0f} ms")
+                       f"{label} = {wait:,.0f} ms")
     return out[:12]
 
 
@@ -243,24 +260,104 @@ def saturation(rows, manifest):
     return out
 
 
-DERIVE = {"saturation": saturation, "prefill_rate": prefill_rate, "kv_per_token": kv_per_token,
+def go_ms(v) -> float:
+    """Go duration string ("15ms", "2.4ms", "1.5s", "750us", "1m30s", "0s") -> milliseconds."""
+    if v in (None, ""):
+        return 0.0
+    if isinstance(v, (int, float)):
+        return v / 1e6   # bare numbers are nanoseconds in Go
+    unit = {"ns": 1e-6, "us": 1e-3, "µs": 1e-3, "ms": 1.0, "s": 1e3, "m": 6e4, "h": 3.6e6}
+    return sum(float(n) * unit[u] for n, u in re.findall(r"([\d.]+)(ns|us|µs|ms|s|m|h)", str(v)))
+
+
+def sim_config(manifest: dict, row: dict | None = None) -> dict:
+    """Simulator config in force for a row: release config + experiment `server.sim` + swept keys."""
+    cfg = {**(manifest.get("system", {}).get("sim_config") or {}),
+           **(manifest.get("config", {}).get("server", {}).get("sim") or {})}
+    for key in manifest.get("sweep", {}):
+        if key.startswith("server.sim.") and row is not None:
+            cfg[key.split(".", 2)[2]] = row.get(key.split(".")[-1])
+    return cfg
+
+
+def sim_model(rows, manifest):
+    """Measured client latency vs what the simulator was configured to produce.
+
+    prefill (per-token calculator) = prefill-overhead + prompt x prefill-time-per-token
+    decode  = inter-token-latency; both x load factor 1 + (F - 1) x (running - 1) / (max-num-seqs - 1)
+    As implemented (v0.10.2..v0.11.2), prefill reads `running` from an async counter that usually
+    does not include the new request yet (modelled here: running = others in flight); when it does,
+    TTFT comes out one load step higher than this model. Decode includes itself.
+    """
+    if not manifest.get("system", {}).get("sim_config"):
+        return []
+    client = manifest.get("config", {}).get("client", {})
+    out = []
+    for r in _ok(rows):
+        sc = sim_config(manifest, r)
+        n = _num(r.get("prompt_n_mean")) or _num(r.get("prompt_tokens")) or client.get("prompt_tokens") or 0
+        c = int(_num(r.get("concurrency")) or client.get("concurrency") or 1)
+        seqs = int(_num(sc.get("max-num-seqs")) or 5)
+        f_max = _num(sc.get("time-factor-under-load")) or 1.0
+        running = min(c, seqs)
+        load = lambda k: max(0.0, 1 + (f_max - 1) * (k - 1) / (seqs - 1)) if seqs > 1 else 1.0
+        f_prefill, f_decode = load(running - 1), load(running)
+        if sc.get("latency-calculator") == "per-token" or not go_ms(sc.get("time-to-first-token")):
+            prefill = go_ms(sc.get("prefill-overhead")) + n * go_ms(sc.get("prefill-time-per-token"))
+        else:
+            prefill = go_ms(sc.get("time-to-first-token"))
+        ttft, tpot = _num(r.get("ttft_ms_p50")), _num(r.get("tpot_ms_p50"))
+        itl = go_ms(sc.get("inter-token-latency"))
+        line = f"clients={c}, prompt≈{n:,.0f} tok, max-num-seqs={seqs}: "
+        if ttft and prefill * f_prefill:
+            line += (f"TTFT p50 {ttft:,.0f} ms vs model {prefill * f_prefill:,.0f} ms "
+                     f"({(ttft / (prefill * f_prefill) - 1) * 100:+.0f}%)")
+        if tpot and itl:
+            line += (f"; TPOT p50 {tpot:,.1f} ms vs model {itl * f_decode:,.1f} ms "
+                     f"({(tpot / (itl * f_decode) - 1) * 100:+.0f}%)")
+        if f_max != 1 and seqs > 1:
+            line += f" [load x{f_prefill:.2f} prefill / x{f_decode:.2f} decode]"
+        if c > seqs:
+            line += f"; {c - seqs} client(s) queue (TTFT includes waiting for a running request to finish)"
+        out.append(line)
+    if out:
+        out.append("Reading: within a few % at clients ≤ max-num-seqs means the harness (and the Service path) "
+                   "reports what the simulator was told to do; a constant offset is HTTP/Service overhead "
+                   "(see 'TTFT - server TTFT'). Load factor is applied linearly up to max-num-seqs. With a load "
+                   "factor, a TTFT one step ABOVE the model is the simulator's counter race (it counted the new "
+                   "request in time), not a measurement error.")
+    return out[:16]
+
+
+DERIVE = {"saturation": saturation, "sim_model": sim_model, "prefill_rate": prefill_rate, "kv_per_token": kv_per_token,
           "queueing": queueing, "bandwidth": bandwidth, "metrics_semantics": metrics_semantics}
 
 
 # ---------------------------------------------------------------- render
 
-def _fixed_settings(cfg: dict, swept: set[str]) -> list[str]:
+def _fixed_settings(cfg: dict, swept: set[str], manifest: dict | None = None) -> list[str]:
     keys = {
         "server": ["ctx_size", "parallel", "threads", "kv_unified", "cache_ram_mib"],
         "client": ["prompt_tokens", "max_tokens", "concurrency", "requests", "warmup", "cache_prompt", "ignore_eos"],
     }
     out = []
+    if manifest and manifest.get("system", {}).get("sim_config"):
+        sc = {k: v for k, v in sim_config(manifest).items() if f"server.sim.{k}" not in swept}
+        overridden = set(cfg.get("server", {}).get("sim") or {})
+        out.append("- **simulator config**: " + ", ".join(
+            f"{k}={v}{'*' if k in overridden else ''}" for k, v in sorted(sc.items())) + "  (* = set by this experiment)")
     for section, names in keys.items():
         vals = [f"{n}={cfg.get(section, {}).get(n)}" for n in names
                 if f"{section}.{n}" not in swept and n in cfg.get(section, {})]
         if vals and not (cfg.get("kind") == "llama_bench" and section == "client"):
             out.append(f"- **{section}**: " + ", ".join(vals))
     return out
+
+
+def _engine(si: dict) -> str:
+    if si.get("engine"):
+        return si["engine"] + (" (dirty)" if si.get("llama_cpp_dirty") else "")
+    return f"llama.cpp {si.get('llama_cpp_commit')}{' (dirty)' if si.get('llama_cpp_dirty') else ''}"   # older manifests
 
 
 def render(run_dir: Path, rows: list[dict] | None = None, view: dict | None = None) -> str:
@@ -289,10 +386,10 @@ def render(run_dir: Path, rows: list[dict] | None = None, view: dict | None = No
         f"- **target**: {manifest.get('target', '?')}  ·  **measurement**: {sysinfo.get('measurement', '?')}",
         f"- **when**: {sysinfo.get('timestamp_utc')}  ·  **host**: {sysinfo.get('cpu')}, "
         f"{sysinfo.get('mem_total_mib')} MiB RAM{', WSL2' if sysinfo.get('wsl2') else ''}",
-        f"- **llama.cpp**: {sysinfo.get('llama_cpp_commit')}{' (dirty)' if sysinfo.get('llama_cpp_dirty') else ''}  ·  "
-        f"**model**: {sysinfo.get('model_file') or sysinfo.get('model_hf_repo')}",
+        f"- **engine**: {_engine(sysinfo)}  ·  "
+        f"**model**: {sysinfo.get('model_file') or sysinfo.get('model_hf_repo') or (sysinfo.get('sim_config') or {}).get('model')}",
         f"- **swept**: {', '.join(f'`{k}` = {v}' for k, v in sweep.items()) or 'nothing'}",
-        *_fixed_settings(cfg, set(sweep)),
+        *_fixed_settings(cfg, set(sweep), manifest),
         "",
     ]
     if view.get("look_for"):
@@ -312,7 +409,8 @@ def render(run_dir: Path, rows: list[dict] | None = None, view: dict | None = No
     lines += ["## Files", "",
               "- `summary.csv` — every metric for every point (for pandas/notebooks); percentiles are p50/p95/p99/max",
               "- `<point>/summary.json` — same plus memory log lines; `<point>/requests.jsonl` — one line per request",
-              "- `<point>/metrics.jsonl` — /metrics + /slots samples; `<point>/server.log.gz` — server log (capped)",
+              "- `<point>/metrics.jsonl` — /metrics (+ /slots) samples; `<point>/server.log.gz` — server/pod log (capped)",
+              "- `<point>/target.json` — k8s targets only: pods, image digest, requested and effective simulator config",
               ""]
     return "\n".join(lines)
 
@@ -358,7 +456,7 @@ def render_index(done: list, total_s: float) -> str:
         si = m.get("system", {})
         lines += [f"- **started**: {si.get('timestamp_utc')}  ·  **total**: {total_s / 60:.0f} min",
                   f"- **host**: {si.get('cpu')}, {si.get('mem_total_mib')} MiB RAM{', WSL2' if si.get('wsl2') else ''}",
-                  f"- **llama.cpp**: {si.get('llama_cpp_commit')}  ·  **model**: {si.get('model_file')}",
+                  f"- **engine**: {_engine(si)}  ·  **model**: {si.get('model_file') or (si.get('sim_config') or {}).get('model')}",
                   f"- **target**: {m.get('target')}  ·  **measurement**: {si.get('measurement')}", ""]
     lines += ["| experiment | status | duration | report |", "|---|---|---:|---|"]
     for name, status, run_dir, secs in done:

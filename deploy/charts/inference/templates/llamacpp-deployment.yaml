@@ -30,6 +30,7 @@ spec:
         goodput-stack/server-config: {{ toJson $c.server | sha256sum | trunc 12 | quote }}
     spec:
       enableServiceLinks: false
+      {{- include "inference.spread" (dict "enabled" $c.spreadAcrossNodes "selector" (include "inference.llamacpp.selector" .)) | nindent 6 }}
       terminationGracePeriodSeconds: {{ $c.terminationGracePeriodSeconds }}
       {{- if eq $c.model.source "pvc" }}
       initContainers:

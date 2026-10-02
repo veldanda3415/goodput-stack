@@ -1,7 +1,10 @@
-"""Engine benchmark runner: for each sweep point, start a fresh llama-server,
-drive load DIRECTLY against it (no router), collect metrics, stop it, write results.
+"""Engine benchmark runner: for each sweep point, start a fresh server, drive load DIRECTLY
+against it (no router), collect metrics, stop it, write results. The server is a local
+llama-server (configs/llamacpp.yaml) or, with `server.runtime: k8s`, an existing in-cluster
+Deployment rolled per point - the vLLM simulator (configs/sim.yaml).
 
     python -m benchmarks.engine.run ttft
+    python -m benchmarks.engine.run --config benchmarks/engine/configs/sim.yaml saturation
     python -m benchmarks.engine.run slot_limit --set client.requests=8 --set server.threads=4
     python -m benchmarks.engine.run ttft --dry-run         # show points + server commands
     python -m benchmarks.engine.run --list
@@ -23,14 +26,28 @@ from datetime import datetime
 from pathlib import Path
 
 from ..harness import client, config, report, stats, storage, sysinfo
-from . import bench
+from . import bench, k8s
 from .server import LlamaServer, build_args, probe_memory
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent / "configs" / "llamacpp.yaml"
 
-def run_server_point(cfg: dict, point_dir: Path) -> dict:
+
+def in_cluster(cfg: dict) -> bool:
+    return cfg["server"].get("runtime") == "k8s"
+
+
+def target_label(cfg: dict) -> str:
+    s = cfg["server"]
+    if in_cluster(cfg):
+        how = f"via {s['base_url']}" if s.get("base_url") else "via ClusterIP from the node"
+        return f"k8s Service {s['namespace']}/{s['service']} {how} (no router)"
+    return "llama-server direct (no router)"
+
+
+def run_server_point(cfg: dict, point_dir: Path, session: "k8s.Session | None" = None) -> dict:
     probe = probe_memory(cfg, point_dir) if cfg["server"].get("probe_memory") else {}
-    with LlamaServer(cfg, point_dir) as srv:
+    srv_cm = k8s.K8sServer(cfg, point_dir, session) if session else LlamaServer(cfg, point_dir)
+    with srv_cm as srv:
         result = asyncio.run(client.run_point(srv.base_url, cfg))
     storage.write_jsonl(point_dir / "requests.jsonl", result["records"])
     storage.write_jsonl(point_dir / "metrics.jsonl", result["samples"] + [{"idle_probe": result["idle_probe"]}])
@@ -46,28 +63,29 @@ def run_bench_point(cfg: dict, point_dir: Path) -> dict:
     return bench.summarize_bench(rows)
 
 
-def run_once(cfg: dict, point_dir: Path) -> dict:
+def run_once(cfg: dict, point_dir: Path, session: "k8s.Session | None" = None) -> dict:
     try:
-        runner = run_bench_point if cfg["kind"] == "llama_bench" else run_server_point
-        return {"status": "ok"} | runner(cfg, point_dir)
+        if cfg["kind"] == "llama_bench":
+            return {"status": "ok"} | run_bench_point(cfg, point_dir)
+        return {"status": "ok"} | run_server_point(cfg, point_dir, session)
     except Exception as exc:  # keep sweeping; the failure is recorded
         (point_dir / "error.txt").write_text(traceback.format_exc())
         print(f"    error: {type(exc).__name__}: {exc}")
         return {"status": f"error: {type(exc).__name__}: {exc}"}
 
 
-def run_repeats(cfg: dict, point_dir: Path) -> dict:
+def run_repeats(cfg: dict, point_dir: Path, session: "k8s.Session | None" = None) -> dict:
     """Run a point `repeats` times, each on a fresh server, in rep-N/ subdirs; combine."""
     n = cfg.get("repeats") or 1
     if n == 1:
-        return run_once(cfg, point_dir)
+        return run_once(cfg, point_dir, session)
     reps = []
     for i in range(1, n + 1):
         rep_dir = point_dir / f"rep-{i}"
         rep_dir.mkdir()
         # memory probe only needs one start; later repeats skip it
         rep_cfg = cfg if i == 1 else {**cfg, "server": {**cfg["server"], "probe_memory": False}}
-        rep = run_once(rep_cfg, rep_dir)
+        rep = run_once(rep_cfg, rep_dir, session)
         storage.write_json(rep_dir / "summary.json", rep)
         reps.append({k: v for k, v in rep.items() if not k.startswith("_")})
         print(f"    rep {i}/{n}: {rep['status']}", flush=True)
@@ -87,8 +105,9 @@ def run_experiment(doc: dict, experiment: str, overrides: list[str], keep: bool 
     run_dir = storage.new_run_dir(results_dir, experiment)
     if keep:
         (run_dir / ".keep").touch()
-    manifest = {"suite": "engine", "target": "llama-server direct (no router)",
-                "system": sysinfo.collect(cfg), "config": cfg, "sweep": sweep,
+    system = sysinfo.host() | k8s.collect(cfg) if in_cluster(cfg) else sysinfo.collect(cfg)
+    manifest = {"suite": "engine", "target": target_label(cfg),
+                "system": system, "config": cfg, "sweep": sweep,
                 "overrides": overrides, "argv": sys.argv}
     if cfg["kind"] == "llama_bench":
         manifest["system"]["memcopy_1thread_gb_s"] = bench.memcopy_gb_s()
@@ -97,6 +116,7 @@ def run_experiment(doc: dict, experiment: str, overrides: list[str], keep: bool 
 
     rows = []
     interrupted = False
+    session = k8s.Session(cfg) if in_cluster(cfg) else None
     try:
         for n, (params, pcfg) in enumerate(points, 1):
             name = config.point_name(params)
@@ -108,13 +128,16 @@ def run_experiment(doc: dict, experiment: str, overrides: list[str], keep: bool 
             if free < cfg["guards"]["min_free_ram_mib"]:
                 row["status"] = f"skipped: MemAvailable {free} MiB"
             else:
-                row |= run_repeats(pcfg, point_dir)
+                row |= run_repeats(pcfg, point_dir, session)
             storage.write_json(point_dir / "summary.json", {"params": params, **row})
             rows.append({k: v for k, v in row.items() if not k.startswith("_")})
             storage.write_csv(run_dir / "summary.csv", rows)  # rewrite as we go: partial runs stay useful
     except KeyboardInterrupt:
         interrupted = True
         print("\ninterrupted - partial results kept")
+    finally:
+        if session:
+            session.close()   # put the simulator ConfigMap/pods back to the release's config
 
     print()
     print(report.terminal_table(rows, cfg, sweep))
@@ -209,7 +232,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{args.experiment}: {len(points)} point(s), kind={cfg['kind']}")
         for params, pcfg in points:
             print(f"  {config.point_name(params)}")
-            if cfg["kind"] == "server_load":
+            if cfg["kind"] == "server_load" and in_cluster(pcfg):
+                s = pcfg["server"]
+                print(f"    {target_label(pcfg)}; roll deploy/{s['deployment']}"
+                      f"{' each point' if s.get('restart_per_point', True) else ' on config change'}"
+                      f"; simulator overrides: {s.get('sim') or 'none'}")
+            elif cfg["kind"] == "server_load":
                 print(f"    {shlex.join(build_args(pcfg['server']))}")
         return 0
 

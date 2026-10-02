@@ -1,39 +1,7 @@
 {{- $c := .Values.llamacpp -}}
-{{- $np := .Values.networkPolicy -}}
-{{- if and $c.enabled $np.enabled }}
-# Protects the llama.cpp pods: once Ingress is listed in policyTypes, they drop all
-# inbound traffic except what the rules below allow. Policies only ever ALLOW; several
-# policies selecting the same pod add up (union), and there is no "deny" rule.
-# The API server only stores this object - in k3s the embedded kube-router network
-# policy controller enforces it with iptables on each node.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: {{ include "inference.llamacpp.name" . }}
-  labels:
-    {{- include "inference.labels" . | nindent 4 }}
-    {{- include "inference.llamacpp.selector" . | nindent 4 }}
-spec:
-  # Which pods this policy protects: the llama.cpp server pods of this release.
-  podSelector:
-    matchLabels:
-      {{- include "inference.llamacpp.selector" . | nindent 6 }}
-  policyTypes:
-    - Ingress            # inbound only; outbound (egress) stays unrestricted
-  ingress:
-    {{- if $np.allowFrom }}
-    - from:
-        # One podSelector per allowFrom item: a pod matching ANY of them is allowed.
-        # podSelector alone (no namespaceSelector) = only pods in THIS namespace.
-        {{- range $np.allowFrom }}
-        - podSelector:
-            matchLabels:
-              {{- toYaml . | nindent 14 }}
-        {{- end }}
-      ports:
-        - protocol: TCP
-          port: {{ $c.server.port }}
-    {{- else }}
-    []                   # allowFrom empty: nothing may connect
-    {{- end }}
+{{- if and $c.enabled .Values.networkPolicy.enabled }}
+# Protects the llama.cpp pods. The API server only stores this object - in k3s the embedded
+# kube-router network policy controller enforces it with iptables on each node.
+{{ include "inference.networkPolicy" (dict "root" . "name" (include "inference.llamacpp.name" .)
+     "selector" (include "inference.llamacpp.selector" .) "port" $c.server.port) }}
 {{- end }}

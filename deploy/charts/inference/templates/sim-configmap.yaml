@@ -1,0 +1,15 @@
+{{- $c := .Values.sim -}}
+{{- if $c.enabled }}
+# The simulator's --config file. Flags given on the command line (only --port) win over it.
+# The benchmark harness may patch this for an experiment and restores it afterwards.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inference.sim.name" . }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- include "inference.sim.selector" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- toYaml $c.config | nindent 4 }}
+{{- end }}

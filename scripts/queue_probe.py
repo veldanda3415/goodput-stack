@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """scripts/queue_probe.py — Week 1 D4 queueing probe (stdlib only).
 
-Fires N concurrent streaming requests at a llama.cpp server and prints, per request:
-  client TTFT (what the user waits)  vs  engine prompt_ms (what the server reports).
-While they run, samples /metrics for requests_processing / requests_deferred.
+Fires N concurrent streaming requests at a llama.cpp server (or vLLM / the vLLM simulator)
+and prints, per request: client TTFT (what the user waits) vs engine prompt_ms (llama.cpp only).
+While they run, samples /metrics for running / queued requests (llamacpp:requests_processing /
+requests_deferred, or vllm:num_requests_running / num_requests_waiting).
 
 Usage:
   python3 scripts/queue_probe.py --url http://127.0.0.1:8080 --n 6 --max-tokens 80
+  make sim-probe ARGS="--n 6"     # simulator Service (model name is required by vLLM APIs)
 """
 import argparse
 import json
@@ -17,13 +19,15 @@ import urllib.request
 PROMPT = "Request {i}: list three facts about the number {i}. Nonce {nonce}."
 
 
-def stream_one(url, i, max_tokens, t0, out):
+def stream_one(url, i, max_tokens, t0, out, model=None):
     body = {
         "messages": [{"role": "user", "content": PROMPT.format(i=i, nonce=time.time_ns())}],
         "stream": True,
         "max_tokens": max_tokens,
         "cache_prompt": False,   # defeat prefix cache (open issue #1)
     }
+    if model:
+        body["model"] = model
     req = urllib.request.Request(
         f"{url}/v1/chat/completions",
         data=json.dumps(body).encode(),
@@ -65,10 +69,14 @@ def sample_metrics(url, stop, samples, t0):
         try:
             txt = urllib.request.urlopen(f"{url}/metrics", timeout=2).read().decode()
             vals = {}
+            names = {"llamacpp:requests_processing": "requests_processing",
+                     "llamacpp:requests_deferred": "requests_deferred",
+                     "vllm:num_requests_running": "requests_processing",   # same meaning
+                     "vllm:num_requests_waiting": "requests_deferred"}
             for ln in txt.splitlines():
-                for k in ("requests_processing", "requests_deferred"):
-                    if ln.startswith(f"llamacpp:{k} "):
-                        vals[k] = float(ln.split()[-1])
+                key = names.get(ln.split("{", 1)[0].split(" ", 1)[0])
+                if key:
+                    vals[key] = vals.get(key, 0.0) + float(ln.split()[-1])
             samples.append((time.perf_counter() - t0, vals))
         except Exception as e:  # metrics off or server busy
             samples.append((time.perf_counter() - t0, {"error": str(e)}))
@@ -80,13 +88,14 @@ def main():
     ap.add_argument("--url", default="http://127.0.0.1:8080")
     ap.add_argument("--n", type=int, default=6)
     ap.add_argument("--max-tokens", type=int, default=80)
+    ap.add_argument("--model", help="model name to send (needed for vLLM / the simulator)")
     a = ap.parse_args()
 
     t0 = time.perf_counter()
     results, samples, stop = {}, [], threading.Event()
     mt = threading.Thread(target=sample_metrics, args=(a.url, stop, samples, t0), daemon=True)
     mt.start()
-    threads = [threading.Thread(target=stream_one, args=(a.url, i, a.max_tokens, t0, results))
+    threads = [threading.Thread(target=stream_one, args=(a.url, i, a.max_tokens, t0, results, a.model))
                for i in range(a.n)]
     for t in threads:
         t.start()

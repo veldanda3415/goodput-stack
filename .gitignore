@@ -23,3 +23,5 @@ benchmarks/results/**/init.log
 benchmarks/results/**/prober.log
 benchmarks/results/**/diagnostics/
 benchmarks/results/bringup
+benchmarks/results/sim
+benchmarks/results/engine

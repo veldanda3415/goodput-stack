@@ -10,3 +10,12 @@ Reach it:
 
 Queue signal:
   curl -s http://127.0.0.1:8080/metrics | grep -E 'requests_(processing|deferred)'
+{{- if .Values.sim.enabled }}
+
+vLLM simulator (SIMULATED latency, no model): {{ include "inference.sim.name" . }}  (model={{ .Values.sim.config.model }}, max-num-seqs={{ index .Values.sim.config "max-num-seqs" }}, replicas={{ .Values.sim.replicas }}, image {{ .Values.sim.image.tag }})
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/name=vllm-sim
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "inference.sim.name" . }} 18000:{{ .Values.sim.port }}
+  curl -N http://127.0.0.1:18000/v1/completions -H 'Content-Type: application/json' \
+    -d '{"model":"{{ .Values.sim.config.model }}","prompt":"Say hi","stream":true,"max_tokens":16}'
+  curl -s http://127.0.0.1:18000/metrics | grep -E '^vllm:num_requests_(running|waiting)'
+{{- end }}

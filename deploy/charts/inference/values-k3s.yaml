@@ -1,0 +1,18 @@
+# values-k3s.yaml — single-node k3s on the WSL2 workstation (kube context: default).
+# Only what differs from values.yaml. Deploy: make deploy ENV=k3s
+#
+# One node, so a ReadWriteOnce local-path PVC is fine and there is nothing to spread across.
+# The benchmark harness reaches Service ClusterIPs directly from this host (it IS the node).
+
+llamacpp:
+  replicas: 1
+  spreadAcrossNodes: false
+  model:
+    source: pvc            # filled once by the init container, survives pod restarts and uninstall
+    pvc:
+      storageClass: local-path
+      size: 2Gi
+
+sim:
+  replicas: 1
+  spreadAcrossNodes: false

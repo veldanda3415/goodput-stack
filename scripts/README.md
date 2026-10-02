@@ -1,12 +1,13 @@
 # scripts/
 
-Small client-side probes that run against a llama.cpp server (usually via port-forward). **Week 1.**
+Small client-side probes that run against a llama.cpp server (usually via port-forward) or the in-cluster vLLM simulator. **Week 1.**
 
 | Script | Question it answers | Load shape | Deps |
 |---|---|---|---|
 | [`stream_client.py`](stream_client.py) | What is the real TTFT / ITL a user sees, and how does it compare to the engine's `prompt_ms`? | 1..N streams, each sending `--runs` requests back to back, staggered starts | `httpx` (`make venv`) |
 | [`queue_probe.py`](queue_probe.py) | When more requests arrive than the server has slots, who waits and for how long? | one burst: N requests fired at the same instant, one each | stdlib only |
-| [`bringup_timing.sh`](bringup_timing.sh) | After a chart change: how long until a new pod is serving, warm vs cold, and is there downtime? | restarts/deletes/scales the deployment; a prober pod hits the Service every ~0.1 s | kubectl, helm, curl, python3 |
+| [`bringup_timing.sh`](bringup_timing.sh) | After a chart change: how long until a new pod is serving, warm vs cold, and is there downtime? `--backend sim` for the vLLM simulator (no model: the pure k8s + probe overhead) | restarts/deletes/scales the deployment; a prober pod hits the Service every ~0.1 s | kubectl, helm, curl, python3 |
+| [`watch_metrics.py`](watch_metrics.py) | What is the server doing *right now*: running vs waiting requests, tok/s, and (vLLM/sim) its own TTFT / queue time / ITL per interval? Leave it open beside a benchmark. | read-only, scrapes /metrics every `--interval` s | stdlib only |
 
 ```bash
 kubectl -n inference port-forward svc/inf-llamacpp 18080:8080 &
@@ -14,6 +15,26 @@ kubectl -n inference port-forward svc/inf-llamacpp 18080:8080 &
 .venv/bin/python scripts/stream_client.py --runs 5             # + p50/p95 summary
 .venv/bin/python scripts/stream_client.py -np 4 --runs 3       # 4 parallel streams
 python3 scripts/queue_probe.py --url http://127.0.0.1:18080 --n 4 --max-tokens 64
+```
+
+Simulator (from the k3s host the Service ClusterIP is reachable directly, no port-forward):
+
+```bash
+make sim-test                                   # helm test: sanity pods for both backends
+make sim-watch                                  # live running/waiting/tok/s/server TTFT; Ctrl-C to stop
+make sim-probe ARGS="--n 6 --max-tokens 64"     # burst of 6 against max-num-seqs 2: 4 must queue
+scripts/bringup_timing.sh --backend sim         # pod bring-up without a model = pure k8s + probe overhead
+make bench-sim EXP=smoke                        # harness run (see benchmarks/engine/README.md)
+```
+
+`watch_metrics.py` output while `ttft_load` ran (max-num-seqs 4, load factor 2.4, 8 clients, 512-token
+prompts): the queue shows up as `waiting 4` and ~2.7 s of server queue time, and with 4 running the
+ITL is 15.5 ms × 2.4 ≈ 37 ms:
+
+```
+        time      running      waiting        tok/s  srv TTFT ms srv queue ms   srv ITL ms
+    11:01:45            4            4         32.0       1238.0            -         14.3
+    11:01:48            4            4         63.9       2683.0       2694.2         36.5
 ```
 
 Port-forward is fine for engine measurements, but it adds a hop through the kube API server.

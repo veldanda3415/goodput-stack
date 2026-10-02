@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# scripts/bringup_timing.sh — how long until a new llama.cpp pod is actually serving?
+# scripts/bringup_timing.sh — how long until a new backend pod is actually serving?
 #
-# Measures the bring-up timeline of the inference chart's llama.cpp pod, from a trigger
-# to the Service answering, for warm and cold starts. Run it on demand after a chart
-# change (do your `helm upgrade` first; this script only measures).
+# Measures the bring-up timeline of one of the inference chart's backends (llama.cpp by default,
+# or the vLLM simulator with --backend sim), from a trigger to the Service answering, for warm
+# and cold starts. Run it on demand after a chart change (do your `helm upgrade` first; this
+# script only measures).
 #
+#   scripts/bringup_timing.sh --backend sim                # simulator: no model, so this is the
+#                                                          # pure k8s + probe overhead baseline
 #   scripts/bringup_timing.sh                              # warm, rollout restart, 3 runs
 #   scripts/bringup_timing.sh --trigger delete             # warm, pod delete -> measures the outage
 #   scripts/bringup_timing.sh --trigger scale              # warm scale-from-zero
@@ -25,6 +28,10 @@
 #   Cold modes force `scale`: llama.cpp mmaps the model, and pages mapped by a running
 #   process can't be evicted, so the old pod must be gone before the cache is dropped.
 #
+# Backends: llamacpp (port 8080, /health, model load from the llama-server log) and sim (port 8000,
+#   /health/ready, warm only; "model load" = process start -> HTTP listening, from the container
+#   runtime's log timestamps; with sim.config.startup-duration set, Ready waits that long more).
+#
 # Timeline sources: Kubernetes timestamps (whole seconds, rounded DOWN, so they can read up to
 # 1 s before the trigger), the script's own polling of pod/EndpointSlice state (~0.5 s),
 # llama-server's log (ms, relative to process start), and a prober pod hitting the Service
@@ -33,7 +40,7 @@
 # Exit codes: 0 all runs ok · 1 a run failed or timed out (diagnostics saved) · 2 usage/preflight.
 set -uo pipefail
 
-MODE=warm TRIGGER="" RUNS="" NS=inference RELEASE=inf TIMEOUT=300 YES=0 KEEP_PROBER=0
+MODE=warm TRIGGER="" RUNS="" NS=inference RELEASE=inf TIMEOUT=300 YES=0 KEEP_PROBER=0 BACKEND=llamacpp
 OUT_ROOT=benchmarks/results/bringup
 PROBER_IMAGE=curlimages/curl:8.10.1
 
@@ -45,6 +52,7 @@ now() { date +%s.%N; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --mode) MODE=$2; shift 2 ;;
+    --backend) BACKEND=$2; shift 2 ;;
     --trigger) TRIGGER=$2; shift 2 ;;
     --runs) RUNS=$2; shift 2 ;;
     --namespace|-n) NS=$2; shift 2 ;;
@@ -59,6 +67,12 @@ while [ $# -gt 0 ]; do
 done
 
 case "$MODE" in warm|cold-cache|cold-model) ;; *) die "--mode must be warm|cold-cache|cold-model" ;; esac
+case "$BACKEND" in
+  llamacpp) NAME=llamacpp PORT=8080 HEALTH=/health CONTAINER=llama-server ;;
+  sim)      NAME=vllm-sim PORT=8000 HEALTH=/health/ready CONTAINER=vllm-sim
+            [ "$MODE" = warm ] || die "--backend sim has no model to make cold: use --mode warm" ;;
+  *) die "--backend must be llamacpp|sim" ;;
+esac
 if [ "$MODE" = warm ]; then
   TRIGGER=${TRIGGER:-restart}; RUNS=${RUNS:-3}
 else
@@ -68,9 +82,9 @@ fi
 case "$TRIGGER" in restart|delete|scale) ;; *) die "--trigger must be restart|delete|scale" ;; esac
 [[ "$RUNS" =~ ^[1-9][0-9]*$ ]] || die "--runs must be a positive integer"
 
-DEPLOY="${RELEASE}-llamacpp"
-SVC="${RELEASE}-llamacpp"
-SEL="app.kubernetes.io/name=llamacpp,app.kubernetes.io/instance=${RELEASE}"
+DEPLOY="${RELEASE}-${NAME}"
+SVC="${RELEASE}-${NAME}"
+SEL="app.kubernetes.io/name=${NAME},app.kubernetes.io/instance=${RELEASE}"
 PROBER="bringup-prober-$$"
 K="kubectl -n $NS"
 
@@ -82,7 +96,7 @@ $K rollout status deploy/"$DEPLOY" --timeout=5s >/dev/null 2>&1 || die "deployme
 REPLICAS=$($K get deploy "$DEPLOY" -o jsonpath='{.spec.replicas}')
 [ "$REPLICAS" = 1 ] || die "expects 1 replica (found $REPLICAS); the timeline follows a single new pod"
 MODEL_PATH=$($K get deploy "$DEPLOY" -o jsonpath='{.spec.template.spec.containers[0].args}' |
-  python3 -c 'import json,sys; a=json.load(sys.stdin); print(a[a.index("-m")+1] if "-m" in a else "")')
+  python3 -c 'import json,sys; a=json.load(sys.stdin); print(a[a.index("-m")+1] if "-m" in a else "none (simulator)")')
 MODEL_PVC=$($K get deploy "$DEPLOY" -o jsonpath='{.spec.template.spec.volumes[?(@.name=="models")].persistentVolumeClaim.claimName}')
 if [ "$MODE" = cold-model ] && [ -z "$MODEL_PVC" ]; then
   die "cold-model needs the model on a PVC (model.source: pvc); this deployment has none"
@@ -95,13 +109,13 @@ if [ "$MODE" = cold-model ] && [ "$YES" != 1 ]; then
   [ "$a" = y ] || [ "$a" = Y ] || { echo "aborted"; exit 2; }
 fi
 
-RUN_ROOT="$OUT_ROOT/$(date +%Y%m%d-%H%M%S)_${MODE}_${TRIGGER}"
+RUN_ROOT="$OUT_ROOT/$(date +%Y%m%d-%H%M%S)_${MODE}_${TRIGGER}$([ "$BACKEND" = llamacpp ] || echo "_$BACKEND")"
 mkdir -p "$RUN_ROOT"
-log "mode=$MODE trigger=$TRIGGER runs=$RUNS -> $RUN_ROOT"
+log "backend=$BACKEND mode=$MODE trigger=$TRIGGER runs=$RUNS -> $RUN_ROOT"
 
 # provenance (once per series)
 {
-  printf '{"git_commit":"%s",' "$(git rev-parse --short HEAD 2>/dev/null)"
+  printf '{"backend":"%s","git_commit":"%s",' "$BACKEND" "$(git rev-parse --short HEAD 2>/dev/null)"
   printf '"git_dirty":%s,' "$([ -n "$(git status --porcelain deploy 2>/dev/null)" ] && echo true || echo false)"
   printf '"helm":%s,' "$(helm list -n "$NS" -f "^${RELEASE}\$" -o json | python3 -c 'import json,sys; r=json.load(sys.stdin); r=r[0] if r else {}; print(json.dumps({k:r.get(k) for k in ("chart","revision","app_version","updated")}))')"
   printf '"values_sha256":"%s",' "$(helm get values "$RELEASE" -n "$NS" -a -o json | sha256sum | cut -c1-12)"
@@ -120,13 +134,13 @@ start_prober() {
     --command -- sleep 86400 >/dev/null || die "could not create prober pod"
   $K wait --for=condition=Ready pod/"$PROBER" --timeout=60s >/dev/null || die "prober pod not ready"
   local i=0
-  until $K exec "$PROBER" -- curl -s -o /dev/null -m 1 -w '%{http_code}' "http://$SVC:8080/health" 2>/dev/null | grep -q 200; do
-    i=$((i+1)); [ $i -ge 30 ] && die "prober can't reach http://$SVC:8080/health (NetworkPolicy allows sanity-test?)"
+  until $K exec "$PROBER" -- curl -s -o /dev/null -m 1 -w '%{http_code}' "http://$SVC:$PORT$HEALTH" 2>/dev/null | grep -q 200; do
+    i=$((i+1)); [ $i -ge 30 ] && die "prober can't reach http://$SVC:$PORT$HEALTH (NetworkPolicy allows sanity-test?)"
     sleep 1
   done
 }
 probe_start() {  # $1 = output file
-  ( $K exec "$PROBER" -- sh -c "while true; do curl -s -o /dev/null -m 1 -w '%{http_code}\n' http://$SVC:8080/health; sleep 0.1; done" 2>/dev/null |
+  ( $K exec "$PROBER" -- sh -c "while true; do curl -s -o /dev/null -m 1 -w '%{http_code}\n' http://$SVC:$PORT$HEALTH; sleep 0.1; done" 2>/dev/null |
       while IFS= read -r code; do printf '%s %s\n' "$(date +%s.%N)" "$code"; done > "$1" ) &
   PROBE_PID=$!
 }
@@ -155,8 +169,8 @@ diagnostics() {  # $1 = run dir, $2 = pod name (may be empty)
   if [ -n "$p" ]; then
     $K describe pod "$p" > "$d/describe.txt" 2>&1
     $K logs "$p" -c fetch-model > "$d/init.log" 2>&1
-    $K logs "$p" -c llama-server > "$d/server.log" 2>&1
-    $K logs "$p" -c llama-server --previous > "$d/server.previous.log" 2>&1
+    $K logs "$p" -c "$CONTAINER" > "$d/server.log" 2>&1
+    $K logs "$p" -c "$CONTAINER" --previous > "$d/server.previous.log" 2>&1
   fi
   echo "diagnostics: $d"
 }
@@ -270,14 +284,18 @@ PY
     $K get pod "$pod" -o json > "$dir/pod.json" 2>/dev/null
     $K get events --field-selector involvedObject.name="$pod" -o json > "$dir/events.json" 2>/dev/null
     $K logs "$pod" -c fetch-model > "$dir/init.log" 2>/dev/null
-    $K logs "$pod" -c llama-server > "$dir/server.log" 2>/dev/null
+    if [ "$BACKEND" = sim ]; then   # runtime timestamps: the simulator's own log has no start-relative clock
+      $K logs "$pod" -c "$CONTAINER" --timestamps > "$dir/server.log" 2>/dev/null
+    else
+      $K logs "$pod" -c "$CONTAINER" > "$dir/server.log" 2>/dev/null
+    fi
   fi
   if [ $watch_rc != 0 ]; then diagnostics "$dir" "$pod"; return 1; fi
-  python3 - "$dir" "$MODE" "$TRIGGER" <<'PY'
+  python3 - "$dir" "$MODE" "$TRIGGER" "$BACKEND" <<'PY'
 import json, re, sys
 from datetime import datetime
 from pathlib import Path
-d, mode, trigger = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+d, mode, trigger, backend = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
 trig = json.loads((d / "trigger.json").read_text()); t0 = trig["t0"]
 watch = json.loads((d / "watch.json").read_text())
 pod = json.loads((d / "pod.json").read_text())
@@ -312,6 +330,18 @@ first_ok_after_err = next((t for t, c in after if c == "200" and first_err is no
 
 started = ts(main.get("state", {}).get("running", {}).get("startedAt"))
 loaded, listening = log_t("model loaded"), log_t("listening on")
+if backend == "sim":
+    # "<RFC3339 ns> I1002 ... "Server starting" protocol="HTTP"": loaded = listening = first line -> HTTP up
+    stamps = []
+    for line in (d / "server.log").read_text(errors="replace").splitlines():
+        m = re.match(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?(Z|[+-]\d\d:\d\d)\s(.*)", line)
+        if m:
+            frac = (m.group(2) or ".0")[:7]   # Python parses at most microseconds
+            stamps.append((datetime.fromisoformat(m.group(1) + frac + m.group(3).replace("Z", "+00:00")).timestamp(), m.group(4)))
+    http = next((t for t, text in stamps if "Server starting" in text and 'protocol="HTTP"' in text), None)
+    if stamps and http is not None:
+        loaded = listening = http - stamps[0][0]
+        started = stamps[0][0] - t0   # first log line is a better process start than k8s' whole second
 seen = watch["seen"]
 tl = {
     "created": ts(pod["metadata"]["creationTimestamp"]),
