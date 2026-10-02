@@ -26,6 +26,10 @@ llamacpp:
 
   model:
     file: qwen2.5-0.5b-instruct-q4_k_m.gguf
+    # Name the server reports in /v1/models and in every response's "model" field
+    # (llama-server --alias). Clients and the router use this, not the file path.
+    # Empty = no --alias (the server reports the file path instead).
+    alias: qwen2.5-0.5b-instruct
     # source: pvc      -> local-path PVC, filled once by an init container from `url`
     # source: hostPath -> reuse a GGUF already on the node (fastest on single-node k3s)
     source: pvc
@@ -65,3 +69,15 @@ llamacpp:
   service:
     type: ClusterIP
     port: 8080
+
+# NetworkPolicy for the llama.cpp pods. With Ingress in policyTypes, the selected pods
+# deny ALL inbound traffic except what a rule allows. Policies only allow and add up.
+# Enforced in k3s by the embedded kube-router controller (iptables); the API server only stores it.
+networkPolicy:
+  enabled: true
+  # Sources allowed to reach the server port (TCP llamacpp.server.port).
+  # Each list item is ONE label set (a podSelector); a pod matching ANY item is allowed.
+  # podSelector alone = pods in the SAME namespace only. Empty list = nothing may connect.
+  allowFrom:
+    - app.kubernetes.io/component: router
+    - app.kubernetes.io/component: sanity-test   # `helm test` pod (templates/tests/)

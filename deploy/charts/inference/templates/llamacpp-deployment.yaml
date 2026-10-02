@@ -61,6 +61,10 @@ spec:
           args:
             - "-m"
             - "/models/{{ $c.model.file }}"
+            {{- with $c.model.alias }}
+            - "--alias"
+            - {{ . | quote }}
+            {{- end }}
             - "--host"
             - "0.0.0.0"                 # pods must listen on all interfaces (open issue #2)
             - "--port"

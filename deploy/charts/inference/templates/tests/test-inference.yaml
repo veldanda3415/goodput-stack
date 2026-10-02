@@ -1,0 +1,47 @@
+{{- $c := .Values.llamacpp -}}
+{{- if $c.enabled }}
+{{- $url := printf "http://%s:%v" (include "inference.llamacpp.name" .) $c.service.port -}}
+{{- $body := dict "messages" (list (dict "role" "user" "content" "hi")) "max_tokens" 10 -}}
+{{- with $c.model.alias }}{{- $_ := set $body "model" . -}}{{- end }}
+# `helm test inf -n inference [--logs]`: smoke test against the Service after an install/upgrade.
+#   1. /health must return 200
+#   2. a 1-token chat completion must return 200
+# curl -f turns HTTP 4xx/5xx into a non-zero exit (without it, a 500 would "pass").
+# --retry-all-errors: a brand-new pod is blocked by the NetworkPolicy for a few seconds
+# until kube-router adds its IP to the allowed set, and kube-router REJECTS (instant
+# "could not connect", curl exit 7), which plain --retry does not retry. 10 retries x 1 s
+# ride out that window; if the last attempt still fails, the test fails.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "inference.llamacpp.name" . }}-sanity-test
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    # Allowed by the NetworkPolicy (networkPolicy.allowFrom). Deliberately NOT
+    # app.kubernetes.io/name=llamacpp, so the Service/NetworkPolicy never select this pod.
+    app.kubernetes.io/component: sanity-test
+  annotations:
+    helm.sh/hook: test
+    # keep a FAILED pod for debugging; delete it on success or before the next test run
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: sanity-test
+      image: curlimages/curl:8.10.1
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -eu
+          C="curl -fsS --connect-timeout 2 --max-time 60 --retry 10 --retry-delay 1 --retry-all-errors"
+          echo "== GET {{ $url }}/health"
+          $C {{ $url }}/health
+          echo
+          echo "== POST {{ $url }}/v1/chat/completions (model={{ $c.model.alias | default "<none>" }}, max_tokens=10)"
+          $C -X POST {{ $url }}/v1/chat/completions \
+            -H 'Content-Type: application/json' \
+            -d {{ toJson $body | squote }}
+          echo
+          echo "== sanity-test passed"
+{{- end }}
