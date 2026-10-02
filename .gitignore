@@ -16,3 +16,6 @@ benchmarks/results/**/summary.json
 benchmarks/results/**/manifest.json
 benchmarks/results/**/REPORT.md
 benchmarks/results/**/summary.csv
+
+# Windows "downloaded from internet" markers created when copying files into WSL via Explorer
+*:Zone.Identifier

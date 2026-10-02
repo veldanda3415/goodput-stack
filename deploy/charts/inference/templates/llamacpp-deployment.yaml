@@ -1,0 +1,127 @@
+{{- $c := .Values.llamacpp -}}
+{{- if $c.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "inference.llamacpp.name" . }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- include "inference.llamacpp.selector" . | nindent 4 }}
+    goodput-stack/pool: cpu
+spec:
+  replicas: {{ $c.replicas }}
+  selector:
+    matchLabels:
+      {{- include "inference.llamacpp.selector" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0   # never drop below desired capacity during an upgrade
+      maxSurge: 1         # one extra pod while the new one loads its model
+  template:
+    metadata:
+      labels:
+        {{- include "inference.labels" . | nindent 8 }}
+        {{- include "inference.llamacpp.selector" . | nindent 8 }}
+        goodput-stack/pool: cpu
+      annotations:
+        # Roll pods when server flags change (args live in the pod spec, so this is
+        # belt-and-braces for future ConfigMap use).
+        goodput-stack/server-config: {{ toJson $c.server | sha256sum | trunc 12 | quote }}
+    spec:
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: {{ $c.terminationGracePeriodSeconds }}
+      {{- if eq $c.model.source "pvc" }}
+      initContainers:
+        # Idempotent: download once into the PVC, skip on every later start.
+        # Writes to a per-pod temp name, then renames, so two replicas starting
+        # together can't leave a half-written model behind.
+        - name: fetch-model
+          image: curlimages/curl:8.10.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              f="/models/{{ $c.model.file }}"
+              if [ -s "$f" ]; then echo "model present: $(ls -l "$f")"; exit 0; fi
+              tmp="$f.part.$HOSTNAME"
+              echo "downloading {{ $c.model.url }}"
+              curl -fL --retry 5 --retry-delay 3 -o "$tmp" "{{ $c.model.url }}"
+              mv "$tmp" "$f"
+              ls -l "$f"
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      {{- end }}
+      containers:
+        - name: llama-server
+          image: "{{ $c.image.repository }}:{{ $c.image.tag }}"
+          imagePullPolicy: {{ $c.image.pullPolicy }}
+          # The official server image's ENTRYPOINT is llama-server, so only args here.
+          args:
+            - "-m"
+            - "/models/{{ $c.model.file }}"
+            - "--host"
+            - "0.0.0.0"                 # pods must listen on all interfaces (open issue #2)
+            - "--port"
+            - "{{ $c.server.port }}"    # pinned: the upstream default port is changing
+            - "-c"
+            - "{{ $c.server.ctxSize }}"
+            - "--parallel"
+            - "{{ $c.server.parallel }}"
+            - "--threads"
+            - "{{ $c.server.threads }}"
+            - "--metrics"
+            {{- range $c.server.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $c.server.port }}
+              protocol: TCP
+          # startup: hold off the other probes until the model has loaded.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: {{ $c.probes.startup.periodSeconds }}
+            failureThreshold: {{ $c.probes.startup.failureThreshold }}
+          # readiness: /health returns 503 while loading and 200 once ready.
+          # Failing readiness removes the pod from the Service; it does NOT restart it.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: {{ $c.probes.readiness.periodSeconds }}
+            failureThreshold: {{ $c.probes.readiness.failureThreshold }}
+            timeoutSeconds: 2
+          # liveness: only "is the process accepting connections". A plain TCP check,
+          # deliberately not /health, so a slow HTTP reply under heavy load can't make
+          # the kubelet restart a busy pod (and throw away its KV cache).
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: {{ $c.probes.liveness.periodSeconds }}
+            failureThreshold: {{ $c.probes.liveness.failureThreshold }}
+            timeoutSeconds: 3
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ $c.preStopSleepSeconds }}
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+          volumeMounts:
+            - name: models
+              mountPath: /models
+              readOnly: true
+      volumes:
+        - name: models
+          {{- if eq $c.model.source "pvc" }}
+          persistentVolumeClaim:
+            claimName: {{ include "inference.llamacpp.name" . }}-models
+          {{- else }}
+          hostPath:
+            path: {{ $c.model.hostPath.path }}
+            type: Directory
+          {{- end }}
+{{- end }}

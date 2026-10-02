@@ -1,0 +1,67 @@
+# deploy/charts/inference/values.yaml
+# Defaults for the single-node k3s workstation (i7-10700, 8C/16T, WSL2).
+
+llamacpp:
+  enabled: true
+  replicas: 1
+
+  image:
+    # Official server image. Pin a build tag so results stay comparable with
+    # the local source build (b11146 / 7fe450e19). Verify the tag exists first:
+    #   podman pull ghcr.io/ggml-org/llama.cpp:server-b11146
+    # If you built your own image in D3 with Podman, k3s cannot see it until you
+    # import it into k3s's containerd:
+    #   podman save <image>:<tag> | sudo k3s ctr images import -
+    # then set repository/tag below and pullPolicy: Never.
+    repository: localhost/llama-server   # own D3 build, imported into k3s containerd
+    tag: b11146
+    pullPolicy: Never                    # use the imported image; never try a registry
+
+  server:
+    port: 8080
+    ctxSize: 4096      # TOTAL KV cells, split across slots: 4096 / 2 = 2048 tokens per slot
+    parallel: 2        # slots = max sequences in the running batch; the rest queue (requests_deferred)
+    threads: 4         # size by physical cores; keep equal to resources.requests.cpu
+    extraArgs: []      # e.g. ["-ub", "128"] for the prefill-chunking experiment
+
+  model:
+    file: qwen2.5-0.5b-instruct-q4_k_m.gguf
+    # source: pvc      -> local-path PVC, filled once by an init container from `url`
+    # source: hostPath -> reuse a GGUF already on the node (fastest on single-node k3s)
+    source: pvc
+    url: https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf
+    pvc:
+      storageClass: local-path
+      size: 2Gi
+    hostPath:
+      path: /home/ravi/models   # directory on the node that contains `file` (adjust)
+
+  resources:
+    requests:
+      cpu: "4"          # = threads. The scheduler reserves this; it does NOT pin cores.
+      memory: 1Gi       # weights (~0.4 GiB) + KV (48 MiB at ctx 4096) + compute buffers
+    limits:
+      memory: 2Gi       # OOM-kill ceiling. Mapped model pages count toward the cgroup.
+      # cpu: "4"        # Left unset on purpose: a CPU limit is a CFS time quota, and
+      #                 # throttling shows up as ITL spikes. Turn on for the throttling probe.
+
+  probes:
+    # startup: model load can take a while for bigger models; liveness/readiness wait for it
+    startup:
+      periodSeconds: 1
+      failureThreshold: 300      # up to 5 min to load
+    readiness:
+      periodSeconds: 5
+      failureThreshold: 2
+    liveness:
+      periodSeconds: 10
+      failureThreshold: 6
+
+  # Gives the Service time to drop this pod from its endpoints before SIGTERM,
+  # so new streams aren't sent to a pod that is shutting down.
+  preStopSleepSeconds: 5
+  terminationGracePeriodSeconds: 60
+
+  service:
+    type: ClusterIP
+    port: 8080

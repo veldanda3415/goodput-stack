@@ -1,0 +1,15 @@
+# Patterns to ignore when packaging/linting the chart
+.DS_Store
+.git/
+.gitignore
+.gitkeep
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+.vscode/
+.idea/
+# Windows "downloaded from internet" markers (copying files into WSL via Explorer)
+*:Zone.Identifier
+*Zone.Identifier

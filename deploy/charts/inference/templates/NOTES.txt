@@ -1,0 +1,12 @@
+llama.cpp backend: {{ include "inference.llamacpp.name" . }}  (slots={{ .Values.llamacpp.server.parallel }}, threads={{ .Values.llamacpp.server.threads }}, replicas={{ .Values.llamacpp.replicas }})
+
+Watch it come up (init -> startup probe -> Ready):
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/name=llamacpp -w
+
+Reach it:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "inference.llamacpp.name" . }} 8080:{{ .Values.llamacpp.service.port }}
+  curl -N http://127.0.0.1:8080/v1/chat/completions -H 'Content-Type: application/json' \
+    -d '{"messages":[{"role":"user","content":"Say hi"}],"stream":true,"max_tokens":32}'
+
+Queue signal:
+  curl -s http://127.0.0.1:8080/metrics | grep -E 'requests_(processing|deferred)'
