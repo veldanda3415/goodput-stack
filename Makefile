@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du
+.PHONY: help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup
 
 help: ## List targets
 > @grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
@@ -55,3 +55,6 @@ bench-engine-prune: ## Prune raw files of old engine runs of EXP (summaries kept
 
 bench-du: ## Disk used by benchmark results
 > @du -sh benchmarks/results/* 2>/dev/null
+
+bringup: ## Pod bring-up timing after a chart change: make bringup [ARGS="--trigger delete --runs 2"]
+> scripts/bringup_timing.sh $(ARGS)

@@ -19,3 +19,7 @@ benchmarks/results/**/summary.csv
 
 # Windows "downloaded from internet" markers created when copying files into WSL via Explorer
 *:Zone.Identifier
+benchmarks/results/**/init.log
+benchmarks/results/**/prober.log
+benchmarks/results/**/diagnostics/
+benchmarks/results/bringup
