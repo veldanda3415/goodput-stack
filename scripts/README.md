@@ -1,7 +1,7 @@
 # scripts/
 
-Small client-side probes that run against a llama.cpp server (usually via port-forward) or the in-cluster vLLM simulator (Week 1),
-and gateway/EPP probes (Week 2, findings in [`deploy/gateway/GAPS.md`](../deploy/gateway/GAPS.md)).
+Small client-side probes that run against a llama.cpp server (usually via port-forward) or the in-cluster vLLM simulator,
+and gateway/EPP probes (findings in [`deploy/gateway/GAPS.md`](../deploy/gateway/GAPS.md)).
 
 ## Index
 
@@ -15,9 +15,9 @@ and gateway/EPP probes (Week 2, findings in [`deploy/gateway/GAPS.md`](../deploy
 | `probe_epp_scrape.sh` | the EPP sees llama.cpp's queue (`requests_processing/deferred`) via `llm-d.ai/engine-type` (#18, llamacpp-pool) | `scripts/probe_epp_scrape.sh` | kubectl (opens its own port-forwards to llama.cpp + EPP) |
 | `probe_p1_saturation.py` | **P1** EPP steers away from a sim pod it can only know is busy from `/metrics` | `.venv/bin/python scripts/probe_p1_saturation.py` then `--no-saturate` (control) | kubectl (port-forward to sim pod A, gateway logs), ≥2 sim pods |
 | `probe_p2_failopen.py` | **P2** gateway keeps serving with the EPP scaled to 0 (FailOpen), and what it costs | `.venv/bin/python scripts/probe_p2_failopen.py --n 50` | kubectl (**scales `sim-pool-epp` to 0 and back**) |
-| `probe_p3_disconnect.py` | **P3** does a client disconnect free a llama.cpp slot, direct vs via gateway, stream vs non-stream | `.venv/bin/python scripts/probe_p3_disconnect.py [--direct]` | kubectl (port-forward to the llama.cpp pod) |
+| `probe_p3_disconnect.py` | **P3** does a client disconnect free an engine slot, direct vs via gateway, stream vs non-stream | `.venv/bin/python scripts/probe_p3_disconnect.py [--backend sim] [--direct]` | kubectl (llama.cpp: port-forward; sim: pod IPs from the k3s host) |
 
-## Week 1 detail
+## Engine probes: detail
 
 | Script | Question it answers | Load shape | Deps |
 |---|---|---|---|

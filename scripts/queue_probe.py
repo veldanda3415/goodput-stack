@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scripts/queue_probe.py — Week 1 D4 queueing probe (stdlib only).
+"""scripts/queue_probe.py — queueing probe (stdlib only).
 
 Fires N concurrent streaming requests at a llama.cpp server (or vLLM / the vLLM simulator)
 and prints, per request: client TTFT (what the user waits) vs engine prompt_ms (llama.cpp only).

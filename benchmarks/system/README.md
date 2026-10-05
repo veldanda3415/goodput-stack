@@ -1,4 +1,4 @@
-# benchmarks/system/ - end-to-end benchmarks (Week 5)
+# benchmarks/system/ - end-to-end benchmarks (planned)
 
 **Scope:** client -> router (`router/`) -> backends deployed by `deploy/` on Kubernetes, with
 autoscaling. Measures what users experience: TTFT/ITL against the SLO, goodput, queueing

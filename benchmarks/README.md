@@ -8,7 +8,7 @@ Two benchmark **suites**, deliberately kept apart so a number is never quoted ou
 |---|---|---|---|
 | [engine/](engine/) | client -> one inference server (llama-server, later vLLM), direct | What can this backend/model/quant do on its own? Slots, context cost, prefill/decode speed, bandwidth, what its metrics mean. | CPU llama.cpp experiments in place |
 | engine, simulated ([configs/sim.yaml](engine/configs/sim.yaml)) | client -> vLLM simulator pod in k3s (Service ClusterIP) | Does the measurement path report the latency the simulator was told to produce? How far is a calibrated linear model from the real engine? **Never engine performance.** | smoke/ttft/slot_limit/ttft_load/saturation |
-| [system/](system/) | client -> router -> backends on k8s (+ autoscaling) | What do users actually get, within the latency SLO, at what cost? | Week 5 |
+| [system/](system/) | client -> router -> backends on k8s (+ autoscaling) | What do users actually get, within the latency SLO, at what cost? | planned |
 
 ```
 benchmarks/
