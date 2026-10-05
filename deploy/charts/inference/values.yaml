@@ -176,5 +176,6 @@ networkPolicy:
   # Each list item is ONE label set (a podSelector); a pod matching ANY item is allowed.
   # podSelector alone = pods in the SAME namespace only. Empty list = nothing may connect.
   allowFrom:
-    - app.kubernetes.io/component: router
-    - app.kubernetes.io/component: sanity-test   # `helm test` pod (templates/tests/)
+    - gateway.networking.k8s.io/gateway-name: inference-gateway   # agentgateway proxy pods: inference data path
+    - llm-d.ai/igw-mode: llm-d-router-gateway                      # every EPP from the llm-d chart: /metrics scrape
+    - app.kubernetes.io/component: sanity-test                     # `helm test` pod (templates/tests/)

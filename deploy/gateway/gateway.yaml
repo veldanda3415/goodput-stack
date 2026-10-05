@@ -1,0 +1,15 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: inference-gateway
+  namespace: inference
+spec:
+  gatewayClassName: agentgateway   # which controller implements it
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80                     # free now that Traefik is gone
+      # You can add more listeners here if needed, for example HTTPS
+    - name: https
+      protocol: HTTPS
+      port: 443
