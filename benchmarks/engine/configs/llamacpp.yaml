@@ -1,0 +1,209 @@
+# ENGINE benchmarks: llama.cpp server driven directly (no router, no k8s). CPU, WSL2.
+#
+# Layering: `defaults` -> experiment overrides -> one point of the experiment's `sweep`.
+# Sweep keys are dotted paths into the merged config; the harness runs the cartesian
+# product and starts a FRESH server for every point (no cache/slot carry-over).
+#
+#   make bench-engine EXP=ttft                       # run one experiment
+#   make bench-engine EXP=ttft ARGS="--set client.requests=5 --dry-run"
+
+defaults:
+  server:
+    binary: ~/workspace/llama.cpp/build/bin/llama-server
+    # Local file is preferred (offline, checksummed). If empty, hf_repo is used instead.
+    model_path: ~/.cache/huggingface/hub/models--Qwen--Qwen2.5-0.5B-Instruct-GGUF/snapshots/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf
+    hf_repo: Qwen/Qwen2.5-0.5B-Instruct-GGUF:Q4_K_M
+    host: 127.0.0.1
+    port: 8080
+    ctx_size: 4096        # -c : TOTAL context; split across slots unless kv_unified
+    parallel: 1           # -np: number of slots
+    threads: 8            # -t : i7-10700 has 8 physical cores
+    kv_unified: null      # null = llama.cpp default; true/false forces -kvu / -no-kvu
+    cache_ram_mib: 0      # -cram: host-RAM prompt cache; 0 disables it so it can't skew memory/TTFT
+    log_verbosity: null   # -lv; keep null unless debugging (lv 4 logs are huge)
+    probe_memory: false   # extra short start at -lv 4 to read KV/model/compute buffer MiB
+    extra_args: ["--metrics", "--slots", "--no-webui"]
+    startup_timeout_s: 120
+
+  client:
+    endpoint: /completion  # raw prompt -> exact prompt token counts; returns server timings
+    prompt_tokens: 256     # exact, calibrated via /tokenize
+    max_tokens: 128
+    ignore_eos: true       # force exactly max_tokens so decode work is constant
+    temperature: 0.0
+    cache_prompt: false    # plus a unique prefix per request, so KV prefix reuse can't fake TTFT
+    concurrency: 1         # closed-loop workers in flight at once
+    requests: 20           # measured requests (after warmup)
+    requests_per_client: null  # if set, requests = concurrency x this (overrides requests)
+    min_requests: 0            # floor on measured requests (p95 needs ~20+ samples)
+    max_tokens_jitter: 0       # e.g. 0.25 -> each request's output length uniform in max_tokens x [0.75, 1.25]
+    start_jitter_s: 0          # each client starts after uniform(0, this) s - breaks lockstep
+    warmup: 2              # discarded, sequential
+    timeout_s: 300
+
+  metrics:
+    scrape_interval_s: 1.0  # background /metrics + /slots sampler during load; 0 disables
+    rss_interval_s: 0.25    # server RSS sampler
+
+  repeats: 1                # runs per sweep point, each on a fresh server; >1 reports median + spread
+
+  slo:                      # per-request targets for SLO attainment / goodput; null = off
+    ttft_ms: null
+    tpot_ms: null
+
+  guards:
+    min_free_ram_mib: 4096  # skip a point if MemAvailable is below this before starting
+
+  storage:
+    results_dir: benchmarks/results/engine
+    max_log_mib: 20          # server log cap per point (head kept + last 2000 lines)
+    keep_raw_runs: 10        # per experiment; older runs keep summaries, raw files are pruned
+
+# Order for `--all` (make bench-engine-all): quick, low-load experiments first,
+# the 30-minute saturation sweep last so earlier results are ready to read sooner.
+batch: [smoke, mem_bandwidth, ttft, ctx_tradeoff, metrics_semantics, slot_limit, ttft_load, saturation]
+
+experiments:
+  # Each experiment may carry a `report:` block that shapes REPORT.md and the terminal table:
+  #   columns  - summary keys to show (swept params are always shown first)
+  #   look_for - one-paragraph reading guide
+  #   derive   - computed findings (prefill_rate, kv_per_token, queueing, bandwidth, metrics_semantics)
+
+  smoke:
+    description: Harness sanity check - 3 requests, tiny prompt.
+    client: {prompt_tokens: 32, max_tokens: 16, requests: 3, warmup: 1}
+    report:
+      columns: [requests_ok, ttft_ms_p50, srv_prompt_ms_p50, itl_ms_p50, e2e_ms_p50, rss_peak_mib]
+
+  slot_limit:
+    description: >
+      Concurrency beyond -np queues requests. Expect TTFT to step up once
+      concurrency > parallel; watch requests_deferred.
+    client: {prompt_tokens: 256, max_tokens: 64, requests: 24}
+    sweep:
+      server.parallel: [1, 2, 4]
+      client.concurrency: [1, 2, 4, 8]
+    report:
+      columns: [ttft_ms_p50, ttft_ms_p95, srv_prompt_ms_p50, ttft_minus_srv_prompt_ms_p50,
+                itl_ms_p50, agg_output_tok_s, m_deferred_max]
+      look_for: >
+        For a fixed slot count, TTFT should stay flat while clients <= slots and jump
+        once clients > slots (the extra requests wait for a whole generation to finish:
+        "max queued" > 0). ITL rises with busy slots because decode steps are shared;
+        total output tok/s shows whether more slots buy throughput on this CPU.
+      derive: [queueing]
+
+  ctx_tradeoff:
+    description: >
+      Bigger -c costs KV memory (~12 KiB/token for Qwen2.5-0.5B f16 KV) and may
+      slow decode. Compare peak RSS and the KV size in the server log vs theory.
+    server: {probe_memory: true}
+    client: {prompt_tokens: 256, max_tokens: 128, requests: 10}
+    sweep:
+      server.ctx_size: [512, 2048, 8192, 32768]
+    report:
+      columns: [kv_buffer_mib, model_buffer_mib, compute_buffer_mib, rss_after_load_mib, rss_peak_mib,
+                startup_s, ttft_ms_p50, itl_ms_p50]
+      look_for: >
+        KV cache should grow linearly with ctx (~12 KiB/token); weights stay constant.
+        ITL/TTFT should barely move because this prompt only fills 256+128 cells -
+        reserved-but-unused context costs memory, not speed.
+      derive: [kv_per_token]
+
+  saturation:
+    description: >
+      Where does adding users stop paying off? Plenty of slots (16) so the only
+      limit is compute/bandwidth, clients 1..24. Continuous batching makes several
+      users share each weight read, so total tok/s rises while per-user speed drops.
+    server: {parallel: 16, ctx_size: 16384}   # 1024 context per slot; 256+128 fits
+    client:
+      prompt_tokens: 256
+      max_tokens: 128
+      requests_per_client: 4
+      min_requests: 24          # >= 24 samples even at 1-2 clients
+      max_tokens_jitter: 0.25   # 96..160 output tokens so clients drift apart
+      start_jitter_s: 3.0       # ~ one request's duration at low load
+    repeats: 3                  # fresh server each; median + spread reported
+    slo: {ttft_ms: 2000, tpot_ms: 50}         # placeholder interactive target - set your own
+    sweep:
+      client.concurrency: [1, 2, 4, 6, 8, 12, 16, 24]
+    report:
+      columns: [requests_ok, tpot_ms_p50, tpot_ms_p95, ttft_ms_p50, ttft_ms_p95, steady_output_tok_s,
+                steady_output_tok_s_spread_pct, slo_attainment_pct, goodput_tok_s, m_deferred_max]
+      look_for: >
+        Total tok/s should climb steeply at first (batching amortises weight reads) and
+        then flatten while TPOT keeps rising - that bend is the knee. TTFT grows faster
+        than TPOT because new prompts are prefilled alongside everyone's decode. At 24
+        clients (> 16 slots) requests queue. The operating point is the SLO optimum, not
+        the max-throughput point.
+      derive: [saturation]
+
+  ttft:
+    description: >
+      Single-client TTFT vs prompt length (no queueing). Prefill cost per token by
+      length; TTFT - server prefill = HTTP + first decode overhead.
+    server: {ctx_size: 8192}
+    client: {max_tokens: 32, requests: 15}
+    sweep:
+      client.prompt_tokens: [16, 128, 512, 2048, 4096]
+    report:
+      columns: [ttft_ms_p50, ttft_ms_p95, srv_prompt_ms_p50, ttft_minus_srv_prompt_ms_p50, itl_ms_p50]
+      look_for: >
+        TTFT should be almost entirely server prefill, growing ~linearly with prompt
+        length; "TTFT - prefill" is the fixed overhead (HTTP + first token) and should
+        stay small and flat.
+      derive: [prefill_rate]
+
+  ttft_load:
+    description: >
+      TTFT under multiple concurrent clients, per prompt length. 4 slots, so up to 4
+      clients share compute (slower prefill) and beyond 4 they also queue for a slot.
+    server: {parallel: 4, ctx_size: 16384}   # 4096 context per slot
+    client: {max_tokens: 32, requests: 16}
+    sweep:
+      client.prompt_tokens: [128, 512, 2048]
+      client.concurrency: [1, 2, 4, 8]
+    report:
+      columns: [ttft_ms_p50, ttft_ms_p95, ttft_ms_max, srv_prompt_ms_p50, ttft_minus_srv_prompt_ms_p50,
+                m_deferred_max, agg_output_tok_s]
+      look_for: >
+        Two different costs show up in TTFT. Up to 4 clients: server prefill itself gets
+        slower because concurrent prompts share the CPU. Above 4 clients: requests also
+        wait for a free slot ("TTFT - prefill" and "max queued" jump). Long prompts
+        amplify both. p95/max is what an SLO would be written against.
+
+  metrics_semantics:
+    description: >
+      What do the /metrics gauges average over? Scrape at different intervals
+      under steady load and compare gauges with counter deltas and client numbers.
+    server: {parallel: 2}
+    client: {prompt_tokens: 256, max_tokens: 128, concurrency: 2, requests: 30}
+    sweep:
+      metrics.scrape_interval_s: [0.5, 2.0, 5.0]
+    report:
+      columns: [m_scrapes, m_gauge_pred_tok_s_mean_nonzero, m_gauge_zero_windows, m_counter_per_slot_tok_s,
+                srv_decode_tok_s_mean, agg_output_tok_s, m_idle_gauge_2nd]
+      look_for: >
+        Compare the gauge with the two counter-derived rates and with client-side
+        numbers. Short scrape intervals should show many zero windows; the gauge
+        should read 0 after 1 s idle if it is windowed (reset on every scrape).
+      derive: [metrics_semantics]
+
+  mem_bandwidth:
+    description: >
+      Decode is memory-bound: tok/s x bytes read per token ~= effective bandwidth.
+      Uses llama-bench directly (no server).
+    kind: llama_bench
+    bench:
+      binary: ~/workspace/llama.cpp/build/bin/llama-bench
+      n_prompt: 0
+      n_gen: 128
+      repetitions: 5
+    sweep:
+      server.threads: [1, 2, 4, 8, 16]
+    report:
+      columns: [gen_tok_s, gen_tok_s_stddev, effective_bw_gb_s]
+      look_for: >
+        Decode tok/s should rise with threads, then flatten once memory bandwidth -
+        not compute - is the limit. 16 threads uses hyperthreads and may be worse than 8.
+      derive: [bandwidth]

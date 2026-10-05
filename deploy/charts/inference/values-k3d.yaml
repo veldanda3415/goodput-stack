@@ -1,0 +1,31 @@
+# values-k3d.yaml — multi-node k3d on Podman (kube context: k3d-goodput).
+# Only what differs from values.yaml. Deploy: make deploy ENV=k3d
+#
+# Cluster (once; see deploy/README.md "k3d multi-node"):
+#   mkdir -p ~/models && cp -L ~/.cache/huggingface/hub/models--Qwen--Qwen2.5-0.5B-Instruct-GGUF/snapshots/*/qwen2.5-0.5b-instruct-q4_k_m.gguf ~/models/
+#   k3d cluster create goodput --agents 3 -v "$HOME/models:/var/lib/goodput/models@all"
+#   k3d image import localhost/llama-server:b11146 -c goodput      # pullPolicy Never needs it on every node
+#
+# Why these differ from k3s:
+# - Model on hostPath, not a PVC: local-path PVCs are ReadWriteOnce and pinned to the node that
+#   created them, so a second llama.cpp replica scheduled on another node could never mount it.
+#   The host's ~/models is mounted into every k3d node container at the same path instead
+#   (cp -L: the HF cache entry is a symlink into ../../blobs, which would dangle inside the pod).
+# - Replicas spread one per node where possible (ScheduleAnyway: never Pending because of it).
+# - Every k3d node is a container that reports ALL host CPUs, so the scheduler sees 4 x 16 CPUs
+#   on a 16-thread host: CPU requests do not protect anything here. 2 llama.cpp replicas x 4
+#   threads = the 8 physical cores; don't scale llama.cpp further on this machine.
+# - The host is not a node: the benchmark harness cannot reach ClusterIPs. Use a port-forward and
+#   `--set server.base_url=http://127.0.0.1:18000` (configs/sim.yaml).
+
+llamacpp:
+  replicas: 2
+  spreadAcrossNodes: true
+  model:
+    source: hostPath
+    hostPath:
+      path: /var/lib/goodput/models   # = the k3d volume mount above
+
+sim:
+  replicas: 3              # cheap (~6m CPU, ~10 MiB each): enough endpoints for routing/scaling work
+  spreadAcrossNodes: true

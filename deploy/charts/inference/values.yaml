@@ -1,0 +1,193 @@
+# deploy/charts/inference/values.yaml
+# SHARED defaults for every environment. Never deploy with this file alone: layer the
+# environment file on top, which holds only what differs per cluster (replicas, model
+# storage, node spreading):
+#   values-k3s.yaml  single-node k3s on the WSL2 workstation (i7-10700, 8C/16T)
+#   values-k3d.yaml  multi-node k3d on Podman (scheduling work)
+# Upgrade flow (lint -> diff -> confirm -> upgrade -> helm test): deploy/README.md, `make deploy ENV=k3s`.
+
+llamacpp:
+  enabled: true
+  replicas: 1             # per environment
+  spreadAcrossNodes: false   # per environment: prefer one replica per node (topologySpreadConstraints)
+
+  image:
+    # Official server image. Pin a build tag so results stay comparable with
+    # the local source build (b11146 / 7fe450e19). Verify the tag exists first:
+    #   podman pull ghcr.io/ggml-org/llama.cpp:server-b11146
+    # If you built your own image in D3 with Podman, k3s cannot see it until you
+    # import it into k3s's containerd:
+    #   podman save <image>:<tag> | sudo k3s ctr images import -
+    # then set repository/tag below and pullPolicy: Never.
+    repository: localhost/llama-server   # own D3 build, imported into k3s containerd
+    tag: b11146
+    pullPolicy: Never                    # use the imported image; never try a registry
+
+  server:
+    port: 8080
+    ctxSize: 4096      # TOTAL KV cells, split across slots: 4096 / 2 = 2048 tokens per slot
+    parallel: 2        # slots = max sequences in the running batch; the rest queue (requests_deferred)
+    threads: 4         # size by physical cores; keep equal to resources.requests.cpu
+    extraArgs: []      # e.g. ["-ub", "128"] for the prefill-chunking experiment
+
+  model:
+    file: qwen2.5-0.5b-instruct-q4_k_m.gguf
+    # Name the server reports in /v1/models and in every response's "model" field
+    # (llama-server --alias). Clients and the router use this, not the file path.
+    # Empty = no --alias (the server reports the file path instead).
+    alias: qwen2.5-0.5b-instruct
+    # source: pvc      -> local-path PVC, filled once by an init container from `url`.
+    #                     local-path is ReadWriteOnce AND pinned to the node it was created on:
+    #                     fine for one node, wrong when replicas run on several nodes.
+    # source: hostPath -> a directory on every node that already holds `file` (no download).
+    # Chosen per environment (values-<env>.yaml).
+    source: pvc
+    url: https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf
+    pvc:
+      storageClass: local-path
+      size: 2Gi
+    hostPath:
+      path: /var/lib/goodput/models   # directory ON THE NODE that contains `file` (a plain file, not a symlink)
+
+  resources:
+    requests:
+      cpu: "4"          # = threads. The scheduler reserves this; it does NOT pin cores.
+      memory: 1Gi       # weights (~0.4 GiB) + KV (48 MiB at ctx 4096) + compute buffers
+    limits:
+      memory: 2Gi       # OOM-kill ceiling. Mapped model pages count toward the cgroup.
+      # cpu: "4"        # Left unset on purpose: a CPU limit is a CFS time quota, and
+      #                 # throttling shows up as ITL spikes. Turn on for the throttling probe.
+
+  probes:
+    # startup: model load can take a while for bigger models; liveness/readiness wait for it
+    startup:
+      periodSeconds: 1
+      failureThreshold: 300      # up to 5 min to load
+    readiness:
+      periodSeconds: 5
+      failureThreshold: 2
+    liveness:
+      periodSeconds: 10
+      failureThreshold: 6
+
+  # Gives the Service time to drop this pod from its endpoints before SIGTERM,
+  # so new streams aren't sent to a pod that is shutting down.
+  preStopSleepSeconds: 5
+  terminationGracePeriodSeconds: 60
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+# vLLM simulator (llm-d-inference-sim): a vLLM-compatible API + vllm:* metrics with NO model.
+# Latency is whatever `config` says, not measured - results from it are SIMULATED.
+# Uses: many cheap "vLLM" replicas for router/autoscaling/scheduling work, failure injection,
+# and checking that the harness/router/dashboards report back the latency that was configured.
+sim:
+  enabled: true
+  replicas: 1             # per environment
+  spreadAcrossNodes: false   # per environment
+
+  image:
+    # v0.10.2 = last patch of the previous minor (v0.11.x had 3 releases in 24 h, 2026-08-30/31).
+    # Pulled from ghcr by k3s; the digest pins the exact image, so a re-pushed tag can't change it.
+    #   podman pull ghcr.io/llm-d/llm-d-inference-sim:v0.10.2 && podman image inspect --format '{{.Digest}}' ...
+    # Offline alternative: podman save ... | sudo k3s ctr images import -, then pullPolicy: Never.
+    repository: ghcr.io/llm-d/llm-d-inference-sim
+    tag: v0.10.2
+    digest: sha256:86e9d5028e1de478646911bab6f572b314163c408574188d982529e73e6cf27f
+    pullPolicy: IfNotPresent
+
+  port: 8000           # container + Service port (simulator default)
+
+  # Rendered as the simulator's --config YAML (ConfigMap). Keys are its CLI flag names
+  # (`llm-d-inference-sim --help`); durations are Go strings (15ms, 2.4ms, 1.5s).
+  # Changing anything here rolls the pods (checksum annotation).
+  config:
+    # Same served name as llama.cpp: the router sees ONE model with two pools (label goodput-stack/pool).
+    model: qwen2.5-0.5b-instruct
+    # The sim asks huggingface.co whether `model` is real and, if so, sends every tokenization
+    # call to a separate vLLM render service. Dummy (regex) tokenizer = offline, nothing extra
+    # to run; token counts are approximate (~1 token per word / punctuation mark).
+    force-dummy-tokenizer: true
+    mode: random              # random sentences; `echo` returns the prompt
+    max-num-seqs: 2           # = llamacpp.server.parallel: requests running at once; the rest wait
+    max-model-len: 4096       # prompt + output limit per request
+    # Calibrated from the real llama.cpp runs (i7-10700, Qwen2.5-0.5B Q4_K_M, 2026-09-30):
+    #   prefill: `ttft` run, 16..512-token prompts -> ~15 ms + 2.4 ms/token (256 tok: model 629 ms,
+    #            measured 614-636 ms). Longer prompts are super-linear on CPU; the model under-predicts there.
+    #   decode:  `saturation` 1 client -> TPOT 15.6 ms.
+    #   load:    TPOT 28.9 ms at 2 clients / 15.6 ms at 1 -> x1.85 at max-num-seqs (linear in between).
+    latency-calculator: per-token   # TTFT = prefill-overhead + prompt_tokens x prefill-time-per-token
+    prefill-overhead: 15ms
+    prefill-time-per-token: 2.4ms
+    prefill-time-std-dev: 15ms     # ttft run: p95 - p50 ~ 25 ms at 128-512 tokens
+    # Target 15.6 ms (llama.cpp TPOT). The simulator delivers ~6 % less than configured (its own
+    # histogram: 14.5 ms at 15.5 ms; client 14.85 ms), so 16.3 ms here -> ~15.6 ms at the client.
+    inter-token-latency: 16.3ms
+    inter-token-latency-std-dev: 1ms
+    # Load factor F: latency x 1 + (F-1)(running-1)/(max-num-seqs-1). Left at 1.0 (calibrated F = 1.85)
+    # because of a simulator race (v0.10.2, still in v0.11.2): prefill reads `running` from a counter
+    # updated asynchronously, often BEFORE the new request is counted. Then an idle server prefills at
+    # x(1 - (F-1)/(max-num-seqs-1)) - x0.15 with F=1.85 - and TTFT under load is one step too fast;
+    # sometimes the count is already updated and it is right (non-deterministic). Decode is right.
+    # 1.0 = exact latency, but no slowdown under load (decision 2026-10-02; patched image deferred).
+    # Queueing still comes from max-num-seqs. Experiments needing the slowdown set F themselves.
+    time-factor-under-load: 1.0
+    seed: 42                        # same random stream on every start (reproducible runs)
+    # startup-duration: 30s         # /health/ready returns 503 this long: fakes a model load
+    # failure-injection-rate: 5     # % of requests answered with an error (router retry tests)
+    # failure-types: [server_error, rate_limit]
+
+  resources:
+    requests:
+      cpu: 100m         # Go server sleeping on timers; ~1-2% of a core at a few req/s
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+      # No CPU limit, same reason as llama.cpp: throttling would add fake ITL spikes.
+
+  probes:
+    # /health/ready = ready to serve (503 during startup-duration); /health = process alive.
+    startup:
+      periodSeconds: 1
+      failureThreshold: 120
+    readiness:
+      periodSeconds: 5
+      failureThreshold: 2
+    liveness:
+      periodSeconds: 10
+      failureThreshold: 6
+
+  preStopSleepSeconds: 5
+  terminationGracePeriodSeconds: 30
+
+  service:
+    type: ClusterIP
+
+# Gateway API Gateway (templates/gateway.yaml). Off by default: only environments with a Gateway
+# controller installed (agentgateway on k3s) turn it on. The EPP + HTTPRoute per InferencePool are
+# separate releases (deploy/gateway/epp-*.values.yaml, `make epp-deploy`); see docs/adr/0002.
+gateway:
+  enabled: false          # per environment
+  name: inference-gateway # referenced by the EPP HTTPRoutes and networkPolicy.allowFrom
+  className: agentgateway
+  listeners:              # per environment
+    - name: http
+      protocol: HTTP
+      port: 80
+
+# NetworkPolicy for the backend pods (llama.cpp and the simulator, one policy each). With Ingress
+# in policyTypes, the selected pods deny ALL inbound traffic except what a rule allows. Policies
+# only allow and add up. Enforced in k3s by the embedded kube-router controller (iptables); the
+# API server only stores it. kube-router lets the node itself through, so the benchmark harness
+# on the k3s host can reach the ClusterIPs directly.
+networkPolicy:
+  enabled: true
+  # Sources allowed to reach each backend's server port.
+  # Each list item is ONE label set (a podSelector); a pod matching ANY item is allowed.
+  # podSelector alone = pods in the SAME namespace only. Empty list = nothing may connect.
+  allowFrom:
+    - gateway.networking.k8s.io/gateway-name: inference-gateway   # agentgateway proxy pods: inference data path
+    - llm-d.ai/igw-mode: llm-d-router-gateway                      # every EPP from the llm-d chart: /metrics scrape
+    - app.kubernetes.io/component: sanity-test                     # `helm test` pod (templates/tests/)

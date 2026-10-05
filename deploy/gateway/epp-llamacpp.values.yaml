@@ -1,0 +1,54 @@
+router:
+  modelServers:
+    matchLabels:                       # pods this pool contains
+      app.kubernetes.io/name: llamacpp
+      app.kubernetes.io/instance: inf
+    targetPorts:
+      - number: 8080                   # llamacpp.server.port, not the chart's 8000 default
+    # type stays vllm: the extractor picks the engine per pod from llm-d.ai/engine-type
+  monitoring:
+    prometheus:
+      auth:
+        enabled: false   # lab only; no prometheus-operator yet → revisit with observability
+  epp:
+    resources:                         # override the 8 CPU / 8Gi default
+      requests: { cpu: 100m, memory: 128Mi }
+      limits:   { memory: 512Mi }
+    pluginsConfigFile: llamacpp-plugins.yaml
+    pluginsCustomConfig:
+      # default-plugins.yaml as rendered by the chart, plus llama.cpp metric names on the extractor.
+      llamacpp-plugins.yaml: |
+        apiVersion: llm-d.ai/v1alpha1
+        kind: EndpointPickerConfig
+        plugins:
+        - type: queue-scorer
+        - type: kv-cache-utilization-scorer
+        - type: prefix-cache-scorer
+        - type: metrics-data-source
+          parameters:
+            scheme: "http"
+            path: "/metrics"
+            insecureSkipVerify: true
+        - type: core-metrics-extractor
+          parameters:
+            engineConfigs:
+            - name: llamacpp           # matched against the pod label llm-d.ai/engine-type
+              queuedRequestsSpec:  "llamacpp:requests_deferred"
+              runningRequestsSpec: "llamacpp:requests_processing"
+              kvUsageSpec: ""          # not exported by b11146 → GAPS.md
+        schedulingProfiles:
+        - name: default
+          plugins:
+          - pluginRef: queue-scorer
+            weight: 2
+          - pluginRef: kv-cache-utilization-scorer   # kept on purpose: the probe should show it adds nothing
+            weight: 2
+          - pluginRef: prefix-cache-scorer
+            weight: 3
+provider:
+  name: none                           # agentgateway is generic Gateway API, not GKE/Istio
+httpRoute:
+  create: true
+  inferenceGatewayName: inference-gateway
+  headerMatches:                       # more specific than the sim route's bare `/`, so it wins only with the header
+    x-pool: cpu

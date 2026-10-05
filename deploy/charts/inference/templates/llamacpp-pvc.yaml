@@ -1,0 +1,19 @@
+{{- $c := .Values.llamacpp -}}
+{{- if and $c.enabled (eq $c.model.source "pvc") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "inference.llamacpp.name" . }}-models
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- include "inference.llamacpp.selector" . | nindent 4 }}
+  annotations:
+    # Keep the downloaded model if the release is uninstalled.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: ["ReadWriteOnce"]   # local-path is node-local; fine on single-node k3s
+  storageClassName: {{ $c.model.pvc.storageClass }}
+  resources:
+    requests:
+      storage: {{ $c.model.pvc.size }}
+{{- end }}

@@ -1,0 +1,7 @@
+{{- $c := .Values.llamacpp -}}
+{{- if and $c.enabled .Values.networkPolicy.enabled }}
+# Protects the llama.cpp pods. The API server only stores this object - in k3s the embedded
+# kube-router network policy controller enforces it with iptables on each node.
+{{ include "inference.networkPolicy" (dict "root" . "name" (include "inference.llamacpp.name" .)
+     "selector" (include "inference.llamacpp.selector" .) "port" $c.server.port) }}
+{{- end }}

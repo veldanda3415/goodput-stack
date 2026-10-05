@@ -1,0 +1,46 @@
+# values-k3s.yaml — single-node k3s on the WSL2 workstation (kube context: default).
+# Only what differs from values.yaml. Deploy: make deploy ENV=k3s
+#
+# One node, so a ReadWriteOnce local-path PVC is fine and there is nothing to spread across.
+# The benchmark harness reaches Service ClusterIPs directly from this host (it IS the node).
+
+llamacpp:
+  replicas: 1
+  spreadAcrossNodes: false
+  model:
+    source: pvc            # filled once by the init container, survives pod restarts and uninstall
+    pvc:
+      storageClass: local-path
+      size: 2Gi
+
+sim:
+  replicas: 2
+  spreadAcrossNodes: false
+
+# agentgateway v1.6.0 is installed on this cluster; the LB (k3s ServiceLB) hands out 192.168.117.204.
+gateway:
+  enabled: true
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+    # HTTPS (#17): left out on purpose. Without a certificate agentgateway still reports the 443
+    # listener Programmed=True, but the TLS handshake fails (2026-10-05: `curl -sk https://<LB>/`
+    # -> "unexpected eof while reading", exit 35), so it only looks healthy. To enable it, issue a cert into a Secret
+    # in this namespace (e.g. cert-manager Certificate below) and add:
+    # - name: https
+    #   protocol: HTTPS
+    #   port: 443
+    #   tls:
+    #     mode: Terminate
+    #     certificateRefs:
+    #       - kind: Secret
+    #         name: inference-gateway-tls
+    #
+    # apiVersion: cert-manager.io/v1
+    # kind: Certificate
+    # metadata: { name: inference-gateway-tls, namespace: inference }
+    # spec:
+    #   secretName: inference-gateway-tls
+    #   dnsNames: [inference.lab.local]
+    #   issuerRef: { name: lab-ca, kind: ClusterIssuer }

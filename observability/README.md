@@ -1,3 +1,3 @@
 # observability/
 
-kube-prometheus-stack values, ServiceMonitors and Grafana dashboards (inference + fabric). **Week 3.**
+kube-prometheus-stack values, ServiceMonitors and Grafana dashboards (inference + fabric). **Planned.**

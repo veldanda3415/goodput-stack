@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Benchmark raw outputs (summaries, manifests and per-point summary.json are committed)
+benchmarks/results/**/requests.jsonl
+benchmarks/results/**/metrics.jsonl
+benchmarks/results/**/bench.jsonl
+benchmarks/results/**/server.log
+benchmarks/results/**/server.log.gz
+benchmarks/results/**/probe.log.gz
+benchmarks/results/**/error.txt
+benchmarks/results/**/batch-*.log
+benchmarks/results/**/summary.json
+benchmarks/results/**/manifest.json
+benchmarks/results/**/REPORT.md
+benchmarks/results/**/summary.csv
+
+# Windows "downloaded from internet" markers created when copying files into WSL via Explorer
+*:Zone.Identifier
+benchmarks/results/**/init.log
+benchmarks/results/**/prober.log
+benchmarks/results/**/diagnostics/
+benchmarks/results/bringup
+benchmarks/results/sim
+benchmarks/results/engine

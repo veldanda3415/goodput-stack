@@ -1,0 +1,45 @@
+{{- $g := .Values.gateway -}}
+{{- if and $g.enabled .Values.sim.enabled .Values.llamacpp.enabled }}
+{{- $url := printf "http://%s.%s.svc/v1/chat/completions" $g.name .Release.Namespace -}}
+{{- $body := dict "model" .Values.sim.config.model "messages" (list (dict "role" "user" "content" "hi")) "max_tokens" 5 -}}
+# `helm test`: the request path users take, Gateway -> HTTPRoute -> EPP -> backend.
+#   (a) no header        -> sim-pool      (route `/`)
+#   (b) header x-pool:cpu -> llamacpp-pool (route `/` + header, more specific so it wins)
+# Each must return 200 with a non-empty `choices`. Which pool answered is checked by llama.cpp's
+# `"timings"` field, which the simulator never sends: a route mix-up fails the test, not just an outage.
+# Needs the HTTPRoutes/EPPs from the sim-pool / llamacpp-pool releases (`make epp-deploy`).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-gateway-sanity-test
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: sanity-test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: sanity-test
+      image: curlimages/curl:8.10.1
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -eu
+          C="curl -fsS --connect-timeout 2 --max-time 60 --retry 5 --retry-delay 1 --retry-all-errors"
+          check() {  # $1 = label, $2 = expect "timings" (yes|no), rest = extra curl args
+            label=$1; want=$2; shift 2
+            echo "== POST {{ $url }} ($label)"
+            out=$($C -X POST {{ $url }} -H 'Content-Type: application/json' "$@" -d {{ toJson $body | squote }})
+            echo "$out"
+            echo "$out" | grep -q '"choices":\[{' || { echo "FAIL: empty or missing choices"; exit 1; }
+            if echo "$out" | grep -q '"timings"'; then got=yes; else got=no; fi
+            [ "$got" = "$want" ] || { echo "FAIL: timings=$got, expected $want (wrong pool)"; exit 1; }
+            echo "ok: $label"
+          }
+          check "default -> sim-pool" no
+          check "x-pool: cpu -> llamacpp-pool" yes -H 'x-pool: cpu'
+          echo "== gateway sanity-test passed"
+{{- end }}

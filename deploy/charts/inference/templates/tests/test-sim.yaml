@@ -1,0 +1,42 @@
+{{- $c := .Values.sim -}}
+{{- if $c.enabled }}
+{{- $url := printf "http://%s:%v" (include "inference.sim.name" .) $c.port -}}
+{{- $body := dict "model" $c.config.model "messages" (list (dict "role" "user" "content" "hi")) "max_tokens" 5 -}}
+# `helm test inf -n inference [--logs]`: smoke test for the simulator Service.
+#   1. /health/ready must return 200
+#   2. a 5-token chat completion for the served model name must return 200 (same API as the gateway)
+#   3. /metrics must expose vllm:num_requests_running (what the router/KEDA will read)
+# Same curl retry reasoning as test-inference.yaml (NetworkPolicy admission window).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "inference.sim.name" . }}-sanity-test
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: sanity-test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: sanity-test
+      image: curlimages/curl:8.10.1
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -eu
+          C="curl -fsS --connect-timeout 2 --max-time 30 --retry 10 --retry-delay 1 --retry-all-errors"
+          echo "== GET {{ $url }}/health/ready"
+          $C {{ $url }}/health/ready
+          echo
+          echo "== POST {{ $url }}/v1/chat/completions (model={{ $c.config.model }}, max_tokens=5)"
+          $C -X POST {{ $url }}/v1/chat/completions \
+            -H 'Content-Type: application/json' \
+            -d {{ toJson $body | squote }}
+          echo
+          echo "== GET {{ $url }}/metrics | grep vllm:num_requests_running"
+          $C {{ $url }}/metrics | grep '^vllm:num_requests_running'
+          echo "== sanity-test passed"
+{{- end }}

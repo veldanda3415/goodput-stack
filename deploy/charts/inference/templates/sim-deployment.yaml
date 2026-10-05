@@ -1,0 +1,95 @@
+{{- $c := .Values.sim -}}
+{{- if $c.enabled }}
+# vLLM simulator: separate Deployment/Service/pool from llama.cpp, so it can be scaled,
+# restarted and benchmarked on its own. No model file, no init container.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "inference.sim.name" . }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- include "inference.sim.selector" . | nindent 4 }}
+    goodput-stack/pool: sim
+spec:
+  replicas: {{ $c.replicas }}
+  selector:
+    matchLabels:
+      {{- include "inference.sim.selector" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "inference.labels" . | nindent 8 }}
+        {{- include "inference.sim.selector" . | nindent 8 }}
+        goodput-stack/pool: sim
+        goodput-stack/simulated: "true"   # anything measured against this pod is simulated
+      annotations:
+        # Roll pods when the simulator config changes (the file is only read at start).
+        goodput-stack/sim-config: {{ toJson $c.config | sha256sum | trunc 12 | quote }}
+    spec:
+      enableServiceLinks: false
+      {{- include "inference.spread" (dict "enabled" $c.spreadAcrossNodes "selector" (include "inference.sim.selector" .)) | nindent 6 }}
+      terminationGracePeriodSeconds: {{ $c.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true          # image runs as 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vllm-sim
+          image: "{{ $c.image.repository }}:{{ $c.image.tag }}{{ with $c.image.digest }}@{{ . }}{{ end }}"
+          imagePullPolicy: {{ $c.image.pullPolicy }}
+          # ENTRYPOINT is the simulator binary, so only args here.
+          args:
+            - "--config"
+            - "/etc/vllm-sim/config.yaml"
+            - "--port"
+            - "{{ $c.port }}"
+          ports:
+            - name: http
+              containerPort: {{ $c.port }}
+              protocol: TCP
+          # /health/ready returns 503 while `startup-duration` (fake model load) runs, then 200.
+          startupProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: {{ $c.probes.startup.periodSeconds }}
+            failureThreshold: {{ $c.probes.startup.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: {{ $c.probes.readiness.periodSeconds }}
+            failureThreshold: {{ $c.probes.readiness.failureThreshold }}
+            timeoutSeconds: 2
+          # Plain TCP liveness, as for llama.cpp: a slow reply under load must not restart the pod.
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: {{ $c.probes.liveness.periodSeconds }}
+            failureThreshold: {{ $c.probes.liveness.failureThreshold }}
+            timeoutSeconds: 3
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ $c.preStopSleepSeconds }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/vllm-sim
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "inference.sim.name" . }}
+{{- end }}

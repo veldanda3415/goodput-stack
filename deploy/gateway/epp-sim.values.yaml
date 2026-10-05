@@ -1,0 +1,19 @@
+router:
+  modelServers:
+    matchLabels:                       # pods this pool contains
+      app.kubernetes.io/name: vllm-sim
+      app.kubernetes.io/instance: inf
+    # targetPorts defaults to 8000 and type to vllm — both match the sim
+  monitoring:
+    prometheus:
+      auth:
+        enabled: false   # lab only; no prometheus-operator yet → revisit with observability
+  epp:
+    resources:                         # override the 8 CPU / 8Gi default
+      requests: { cpu: 100m, memory: 128Mi }
+      limits:   { memory: 512Mi }
+provider:
+  name: none                           # agentgateway is generic Gateway API, not GKE/Istio
+httpRoute:
+  create: true
+  inferenceGatewayName: inference-gateway

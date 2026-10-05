@@ -1,0 +1,6 @@
+apiVersion: v2
+name: inference
+description: goodput-stack inference backends (llama.cpp on CPU, llm-d-inference-sim v0.10.2 as a simulated vLLM)
+type: application
+version: 0.1.0
+appVersion: "b11146"
