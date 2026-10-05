@@ -4,6 +4,10 @@ router:
       app.kubernetes.io/name: vllm-sim
       app.kubernetes.io/instance: inf
     # targetPorts defaults to 8000 and type to vllm — both match the sim
+  monitoring:
+    prometheus:
+      auth:
+        enabled: false   # lab only; no prometheus-operator yet → revisit in observability week
   epp:
     resources:                         # override the 8 CPU / 8Gi default
       requests: { cpu: 100m, memory: 128Mi }

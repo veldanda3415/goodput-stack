@@ -1,6 +1,23 @@
 # scripts/
 
-Small client-side probes that run against a llama.cpp server (usually via port-forward) or the in-cluster vLLM simulator. **Week 1.**
+Small client-side probes that run against a llama.cpp server (usually via port-forward) or the in-cluster vLLM simulator (Week 1),
+and gateway/EPP probes (Week 2, findings in [`deploy/gateway/GAPS.md`](../deploy/gateway/GAPS.md)).
+
+## Index
+
+| Script | What it proves | Run | Needs |
+|---|---|---|---|
+| `stream_client.py` | client TTFT/ITL vs engine `prompt_ms` | `.venv/bin/python scripts/stream_client.py --runs 5` | port-forward `svc/inf-llamacpp 18080:8080`, `httpx` |
+| `queue_probe.py` | requests beyond the slot count wait in the engine (gap = TTFT − prompt_ms) | `python3 scripts/queue_probe.py --url http://127.0.0.1:18080 --n 4` | port-forward (or sim ClusterIP from the host) |
+| `watch_metrics.py` | live running/waiting/tok/s of one server | `make sim-watch` | ClusterIP from host or port-forward |
+| `bringup_timing.sh` | time from chart change / scale to serving, and downtime | `make bringup ARGS="--runs 3"` | kubectl, helm |
+| `smoke_test.py` | OpenAI SDK works through the gateway, non-stream + stream with usage (#13) | `.venv/bin/python scripts/smoke_test.py --runs 10 [--pool cpu]` | gateway LB reachable, `openai` |
+| `probe_epp_scrape.sh` | the EPP sees llama.cpp's queue (`requests_processing/deferred`) via `llm-d.ai/engine-type` (#18, llamacpp-pool) | `scripts/probe_epp_scrape.sh` | kubectl (opens its own port-forwards to llama.cpp + EPP) |
+| `probe_p1_saturation.py` | **P1** EPP steers away from a sim pod it can only know is busy from `/metrics` | `.venv/bin/python scripts/probe_p1_saturation.py` then `--no-saturate` (control) | kubectl (port-forward to sim pod A, gateway logs), ≥2 sim pods |
+| `probe_p2_failopen.py` | **P2** gateway keeps serving with the EPP scaled to 0 (FailOpen), and what it costs | `.venv/bin/python scripts/probe_p2_failopen.py --n 50` | kubectl (**scales `sim-pool-epp` to 0 and back**) |
+| `probe_p3_disconnect.py` | **P3** does a client disconnect free a llama.cpp slot, direct vs via gateway, stream vs non-stream | `.venv/bin/python scripts/probe_p3_disconnect.py [--direct]` | kubectl (port-forward to the llama.cpp pod) |
+
+## Week 1 detail
 
 | Script | Question it answers | Load shape | Deps |
 |---|---|---|---|
@@ -69,7 +86,8 @@ What it does, step by step:
 4. Prints one row per request, **sorted by TTFT**, then the peak processing/deferred counts.
 
 Columns: `client TTFT ms` · `engine prompt_ms` · **`gap ms` = TTFT − prompt_ms** (time queued before a
-slot, plus network) · `e2e ms` · `tok` (content chunks) · `ms/tok` (engine decode time per token).
+slot, plus network) · `e2e ms` · `tok` (content chunks) · `ms/tok` (engine decode time per token) · `prompt_tok`
+(`usage.prompt_tokens` from the final chunk, requested with `stream_options.include_usage`; `-` if the server sends none).
 
 Example (pod with `-np 2`, 4 requests, 64 tokens, 2026-10-02):
 

@@ -24,6 +24,9 @@ spec:
         {{- include "inference.labels" . | nindent 8 }}
         {{- include "inference.llamacpp.selector" . | nindent 8 }}
         goodput-stack/pool: cpu
+        # EPP metric mapping: without it the extractor assumes vLLM, finds no vllm:* metrics and reads 0.
+        # Pod template only, not the selector (Deployment selectors are immutable).
+        llm-d.ai/engine-type: llamacpp
       annotations:
         # Roll pods when server flags change (args live in the pod spec, so this is
         # belt-and-braces for future ConfigMap use).

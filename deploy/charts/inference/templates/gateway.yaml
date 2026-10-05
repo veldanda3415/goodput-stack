@@ -1,0 +1,17 @@
+{{- $g := .Values.gateway -}}
+{{- if $g.enabled }}
+# Gateway API entry point for both InferencePools. The HTTPRoutes and EPPs are separate Helm
+# releases of llm-d-router-gateway (sim-pool, llamacpp-pool; `make epp-deploy`): that chart names
+# every object after .Release.Name, so it can't be a dependency of this chart twice (ADR 0002).
+# Its proxy pods carry gateway.networking.k8s.io/gateway-name=<name>, which networkPolicy.allowFrom uses.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ $g.name }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  gatewayClassName: {{ $g.className }}
+  listeners:
+    {{- toYaml $g.listeners | nindent 4 }}
+{{- end }}

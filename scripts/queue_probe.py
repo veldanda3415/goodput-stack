@@ -25,6 +25,7 @@ def stream_one(url, i, max_tokens, t0, out, model=None):
         "stream": True,
         "max_tokens": max_tokens,
         "cache_prompt": False,   # defeat prefix cache (open issue #1)
+        "stream_options": {"include_usage": True},   # final chunk carries usage.prompt_tokens
     }
     if model:
         body["model"] = model
@@ -36,7 +37,7 @@ def stream_one(url, i, max_tokens, t0, out, model=None):
     sent = time.perf_counter()
     first = None
     n_tok = 0
-    timings = {}
+    timings, usage = {}, {}
     with urllib.request.urlopen(req, timeout=600) as resp:
         for raw in resp:
             line = raw.decode().strip()
@@ -53,12 +54,15 @@ def stream_one(url, i, max_tokens, t0, out, model=None):
                     first = time.perf_counter()
             if "timings" in chunk:
                 timings = chunk["timings"]
+            if chunk.get("usage"):
+                usage = chunk["usage"]
     done = time.perf_counter()
     out[i] = {
         "start_s": sent - t0,
         "ttft_ms": (first - sent) * 1000 if first else None,
         "e2e_ms": (done - sent) * 1000,
         "tokens": n_tok,
+        "prompt_tokens": usage.get("prompt_tokens"),   # prompt length differs per request (nonce)
         "engine_prompt_ms": timings.get("prompt_ms"),
         "engine_predicted_per_token_ms": timings.get("predicted_per_token_ms"),
     }
@@ -104,13 +108,14 @@ def main():
     stop.set()
     mt.join()
 
-    print(f"\n{'req':>3} {'client TTFT ms':>15} {'engine prompt_ms':>17} {'gap ms':>9} {'e2e ms':>9} {'tok':>4} {'ms/tok':>7}")
+    print(f"\n{'req':>3} {'client TTFT ms':>15} {'engine prompt_ms':>17} {'gap ms':>9} {'e2e ms':>9} {'tok':>4} {'ms/tok':>7} {'prompt_tok':>10}")
     for i in sorted(results, key=lambda k: results[k]["ttft_ms"] or 1e12):
         r = results[i]
         gap = (r["ttft_ms"] - r["engine_prompt_ms"]) if r["ttft_ms"] and r["engine_prompt_ms"] else None
         fmt = lambda v, p=1: f"{v:.{p}f}" if isinstance(v, (int, float)) else "-"
         print(f"{i:>3} {fmt(r['ttft_ms']):>15} {fmt(r['engine_prompt_ms']):>17} {fmt(gap):>9} "
-              f"{fmt(r['e2e_ms']):>9} {r['tokens']:>4} {fmt(r['engine_predicted_per_token_ms']):>7}")
+              f"{fmt(r['e2e_ms']):>9} {r['tokens']:>4} {fmt(r['engine_predicted_per_token_ms']):>7} "
+              f"{r['prompt_tokens'] if r['prompt_tokens'] is not None else '-':>10}")
     peak_def = max((s[1].get("requests_deferred", 0) for s in samples), default=0)
     peak_proc = max((s[1].get("requests_processing", 0) for s in samples), default=0)
     print(f"\npeak requests_processing={peak_proc:.0f}  peak requests_deferred={peak_def:.0f}  ({len(samples)} metric samples)")
