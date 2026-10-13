@@ -1,6 +1,6 @@
 # deploy/
 
-Helm chart for the backends (llama.cpp, vLLM simulator) and the router; values files per environment. Models are fetched at deploy time, never baked into images.
+Helm chart for the backends (llama.cpp, vLLM simulator) and the Gateway (agentgateway); values files per environment. The EPPs are separate llm-d releases ([gateway/](gateway/)). Models are fetched at deploy time, never baked into images.
 
 ```bash
 make deploy ENV=k3s      # lint -> diff -> confirm -> upgrade -> helm test (see "Upgrade flow")
@@ -78,7 +78,7 @@ Verified on k3s (2026-10-02):
 | llama.cpp (CPU) | `inf-llamacpp` Deployment/Service/NetworkPolicy/PVC | `goodput-stack/pool: cpu` | 8080 | real |
 | vLLM simulator | `inf-vllm-sim` Deployment/Service/NetworkPolicy/ConfigMap | `goodput-stack/pool: sim` | 8000 | **simulated** |
 
-Both serve the same model name (`qwen2.5-0.5b-instruct`), so the router sees one model with two pools.
+Both serve the same model name (`qwen2.5-0.5b-instruct`), so the gateway sees one model behind two InferencePools.
 
 ## vLLM simulator (`sim:` in values.yaml)
 
@@ -86,7 +86,7 @@ Both serve the same model name (`qwen2.5-0.5b-instruct`), so the router sees one
 v0.10.2 = last patch of the previous minor, v0.11.x is newer). It speaks vLLM's OpenAI API and
 `vllm:*` Prometheus metrics but runs no model: it sleeps for the latency it is configured with.
 
-**Why:** the router, KEDA autoscaling and GPU-scheduling work need many vLLM-shaped backends,
+**Why:** the EPP routing probes, KEDA autoscaling and GPU-scheduling work need many vLLM-shaped backends,
 and there is no GPU in the cluster. One sim pod uses ~6 m CPU and ~10 MiB, so dozens fit on the
 workstation. It also gives repeatable latency, failure injection and a fake model-load time.
 **Not for:** engine performance numbers. Anything measured against it is labelled simulated
@@ -118,6 +118,6 @@ workstation. It also gives repeatable latency, failure injection and a fake mode
   load can be faked), liveness on TCP like llama.cpp.
 - **Hardening:** non-root (65532), read-only root filesystem, all capabilities dropped. No CPU
   limit: CFS throttling would show up as fake ITL spikes.
-- **NetworkPolicy:** same `networkPolicy.allowFrom` as llama.cpp (router + `helm test` pods),
+- **NetworkPolicy:** same `networkPolicy.allowFrom` as llama.cpp (gateway proxy, EPPs and `helm test` pods),
   rendered by one shared helper. The k3s node itself is let through by kube-router, which is how
   the benchmark harness reaches the ClusterIP from the host.
