@@ -1,6 +1,6 @@
 # benchmarks/system/ - end-to-end benchmarks (planned)
 
-**Scope:** client -> router (`router/`) -> backends deployed by `deploy/` on Kubernetes, with
+**Scope:** client -> agentgateway + llm-d EPP ([deploy/gateway/](../../deploy/gateway/)) -> backends deployed by `deploy/` on Kubernetes, with
 autoscaling. Measures what users experience: TTFT/ITL against the SLO, goodput, queueing
 under bursts, scale-up lag, cost per request.
 

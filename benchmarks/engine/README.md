@@ -221,7 +221,7 @@ Each one answers a question. Write your prediction down **before** running, then
 3. **Long prompts change the knee.**
    `make bench-engine EXP=saturation ARGS='--set client.prompt_tokens=1024 --set "client.concurrency=[1,2,4,8]" --set repeats=1'`
    Prefill is compute-bound on CPU and competes with everyone's decode. Expect TTFT to fail the
-   SLO earlier and the optimum to drop to 1 client. Useful for the router: route long prompts differently.
+   SLO earlier and the optimum to drop to 1 client. Useful for routing: route long prompts differently (#11).
 
 4. **Does a looser SLO move the operating point?**
    `make bench-engine EXP=saturation ARGS='--set slo.tpot_ms=100 --set slo.ttft_ms=3000 --set "client.concurrency=[1,2,4,8]" --set repeats=1'`
@@ -240,7 +240,7 @@ Each one answers a question. Write your prediction down **before** running, then
    **ok reqs = 0** and `default/requests.jsonl` holds the server's HTTP 400 *"request (2000 tokens)
    exceeds the available context size (1024 tokens)"*. Re-run with `--set server.kv_unified=true`:
    one shared pool lets a single slot use it, and the requests succeed (~5.4 s prefill here).
-   Lesson for the router: with a per-slot split, max prompt length is `ctx / parallel`, not `ctx`.
+   Lesson for routing: with a per-slot split, max prompt length is `ctx / parallel`, not `ctx`.
 
 7. **Flash attention.**
    `make bench-engine EXP=ttft ARGS="--set \"server.extra_args=[[--metrics, --slots, --no-webui, -fa, 'on']]\""`
