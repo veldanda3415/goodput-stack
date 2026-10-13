@@ -2,10 +2,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart
+.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7
 
 help: ## List targets
-> @grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
+> @grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
 
 check-env: ## Print versions of the tools this repo uses
 > @for t in git python3 kubectl helm k3s k3d podman; do \
@@ -128,3 +128,7 @@ epp-restart: ## Restart both EPPs so they re-read their ConfigMaps
 > kubectl -n inference rollout restart deploy/sim-pool-epp deploy/llamacpp-pool-epp
 > kubectl -n inference rollout status deploy/sim-pool-epp --timeout=120s
 > kubectl -n inference rollout status deploy/llamacpp-pool-epp --timeout=120s
+
+# ---- gateway probes (findings in deploy/gateway/GAPS.md) ---------------------------------------
+probe-p7: ## P7: delete the agentgateway pod mid-stream (llamacpp-pool), 3 runs [ARGS="--grace-period 1"]
+> $(PY) scripts/probe_p7_gateway_kill.py $(ARGS)

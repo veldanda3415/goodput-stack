@@ -15,6 +15,7 @@ does and does not do, tested on the k3s lab (single node `ravi-home`, ns `infere
 | P4 | llama.cpp KV / capacity signal | missing; KV scorer contributes nothing | #15 |
 | P5 | Pool choice by prompt size / SLO | header only | #11 (design) |
 | P6 | Admission / scale-from-zero | engine queues, gateway doesn't | #10 (design) |
+| P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s, ~1 s of refused connections | #20, HA → #19 |
 
 ---
 
@@ -171,6 +172,41 @@ There is **no KV-cache usage** gauge and **no total-slot** gauge. `n_busy_slots_
 
 ---
 
+## P7 — Gateway pod killed mid-stream (#20)
+
+**Question.** If the single agentgateway pod dies while a stream is in flight, what does the client see, does the engine slot free up, and how fast does the gateway come back?
+
+**Method.** `scripts/probe_p7_gateway_kill.py` (`make probe-p7`), llamacpp-pool (llama.cpp cancels on a failed stream write; the sim never cancels, P3). Each run starts from one Ready gateway pod and `requests_processing 0`. One streaming request through the gateway (`x-pool: cpu`, `max_tokens 1900`, `ignore_eos`). After K = 20 content tokens: `kubectl delete pod <gateway pod> --wait=false [--grace-period N]`. The pod is found from `deploy/inference-gateway` `.spec.selector.matchLabels` (`app.kubernetes.io/instance`, `app.kubernetes.io/name`, `gateway.networking.k8s.io/gateway-name`, all `inference-gateway`). All times are measured from the moment the delete command is issued, so they include kubectl/API/kubelet latency.
+- Client: content tokens, how the stream ended, kill → end time.
+- Backend: `llamacpp:requests_processing` scraped from the pod IP every 0.5 s for 60 s.
+- Recovery: gateway pods polled ~0.5 s for a new Ready pod; pings through the gateway every ~0.5 s on a **fresh connection** each, to **sim-pool** (`max_tokens 1`) so they never hold a llama.cpp slot. Stops at the first 200 after the new pod is Ready.
+
+The gateway Deployment has `terminationGracePeriodSeconds: 60` and readinessProbe `/healthz/ready` every 10 s (`kubectl -n inference get deploy inference-gateway -o yaml`), so a plain delete is a **graceful drain**. Two series were run: the pod's default grace (60 s) and `--grace-period 1` (SIGKILL ~1 s after SIGTERM).
+
+**Evidence (2026-10-13 UTC; raw: `benchmarks/results/probes/p7/20261012-214251.jsonl` (graceful), `…/20261012-214623.jsonl` (`--grace-period 1`)).**
+
+| Run | Grace | Client end | Tokens before end (20 at kill) | Kill → client end | Slot freed after kill | New pod Ready | Failed pings | First 200 after Ready |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 60 s (default) | normal: `[DONE]`, `finish_reason length` | 1900 | 41.86 s | 42.22 s (stream finished) | 2.66 s | 0 / 4 | 2.66 s |
+| 2 | 60 s (default) | normal: `[DONE]`, `finish_reason length` | 1900 | 42.87 s | 43.23 s (stream finished) | 2.51 s | 0 / 4 | 2.51 s |
+| 3 | 60 s (default) | normal: `[DONE]`, `finish_reason length` | 1900 | 41.54 s | 41.71 s (stream finished) | 3.31 s | 0 / 5 | 3.31 s |
+| 1 | 1 s | `httpx.RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)` | 145 | 2.20 s | 2.52 s | 2.73 s | 2 / 6 (`ConnectError` at 2.73, 3.24 s) | 3.75 s |
+| 2 | 1 s | same `RemoteProtocolError` | 137 | 2.20 s | 2.52 s | 2.44 s | 2 / 6 (`ConnectError` at 2.44, 2.95 s) | 3.46 s |
+| 3 | 1 s | same `RemoteProtocolError` | 138 | 2.19 s | 2.51 s | 3.09 s | 2 / 6 (`ConnectError` at 2.42, 3.09 s) | 3.60 s |
+
+In every run `requests_processing` was 1 at the first sample after the kill. The first graceful series' console summary printed "processing at kill 0.0 / slot NOT freed": that was a probe bug (it used the last sample *before* the kill, taken before the request reached the engine). It was fixed and the graceful rows above were recomputed from the raw samples in the jsonl, which were unaffected. The hard-kill series ran with the fixed probe.
+
+**What it means.**
+- **Graceful delete (rollout, eviction, node drain): no client impact here.** The terminating pod finished a 42 s stream inside its 60 s grace period, and new connections kept getting 200s while the replacement started. A stream longer than the grace period would be cut at 60 s (not tested).
+- **Hard kill (OOM kill, crash, SIGKILL after grace): the stream is lost.** The client gets a protocol error about 2.2 s after the delete is issued, after ~120 more tokens. The **engine slot is freed** ~0.3 s later: when the gateway process dies its upstream socket closes, llama.cpp's next write fails and it cancels. That is the opposite of P3, where a *downstream* close is not passed upstream while the gateway lives.
+- **Recovery** took 2.4–3.3 s to a new Ready pod. With 1 replica there was a window of refused connections (2 failed pings per run; first failure → first 200: 1.02 / 1.02 / 1.18 s), and the first 200 came 3.5–3.8 s after the delete.
+- **An in-flight stream can't be resumed.** There is no resume protocol across OpenAI-style SSE: a client retry regenerates the whole response from the prompt and spends the prefill + decode compute twice (here, the ~140 tokens already generated are thrown away).
+- **More gateway replicas (#19) are not HA on this lab.** Two agentgateway replicas would remove the refused-connection window for a single pod kill, and a client retry would land on the survivor. But both replicas run on the one node `ravi-home`: the node, k3s ServiceLB and the LB IP are still a single point of failure. And replicas don't save the stream on the pod that died.
+
+**Mitigation.** Gateway replicas ≥ 2 + PodDisruptionBudget (#19) for the refused-connection window. Keep a grace period longer than the longest legitimate stream so rollouts drain. Clients retry on connection errors and on truncated streams (no `[DONE]` / no `finish_reason`) and accept that the retry pays the full compute again. Real HA needs ≥ 2 nodes.
+
+---
+
 ## Gateway smoke and #13 (2026-10-12)
 
 **#13: `usage` in the final stream chunk via the gateway (llamacpp-pool).** `curl -sSN http://192.168.117.204/v1/chat/completions -H 'x-pool: cpu'` with `stream: true`, `max_tokens 16`, `stream_options: {"include_usage": true}` → HTTP 200, 13 `data:` lines. Last 2 chunks:
@@ -204,6 +240,8 @@ Model file in the llama.cpp pod (`kubectl exec <pod> -- ls -l /models/*.gguf`): 
 .venv/bin/python scripts/probe_p3_disconnect.py                 # P3 via gateway
 .venv/bin/python scripts/probe_p3_disconnect.py --direct        # P3 direct to pod
 .venv/bin/python scripts/probe_p3_disconnect.py --backend sim [--direct]   # P3 on the simulator (SIMULATED)
+make probe-p7                                                   # P7: deletes the gateway pod mid-stream, 3 runs (graceful)
+make probe-p7 ARGS="--grace-period 1"                            # P7 hard kill
 scripts/probe_epp_scrape.sh                                     # llamacpp-pool: EPP vs engine queue
 ```
 
@@ -219,3 +257,4 @@ All need `kubectl` access to ns `inference` and the gateway LB reachable from th
 - BBR on agentgateway.
 - EPP Flow Control enabled.
 - TLS on :443 (no cert; #17).
+- P7: a stream longer than the gateway's 60 s grace period; HTTP/2 clients; which pod served the pings during a graceful drain.
