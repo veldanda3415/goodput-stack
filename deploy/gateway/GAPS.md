@@ -133,7 +133,7 @@ gauges:   llamacpp:prompt_tokens_seconds, predicted_tokens_seconds, requests_pro
           n_busy_slots_per_decode
 ```
 
-There is **no KV-cache usage** gauge and **no total-slot** gauge. `n_busy_slots_per_decode` is not a capacity signal: it read `1.61203` while the server was idle (processing 0, deferred 0; `kubectl exec … curl localhost:8080/metrics`, 2026-10-05T19:42Z), so it is an average over past decodes, not the current state. `GET /slots` is enabled (HTTP 200) and returns one object per slot with `n_ctx` (2048 = `-c 4096` / `--parallel 2`) and `is_processing`.
+There is **no KV-cache usage** gauge and **no total-slot** gauge. `n_busy_slots_per_decode` is not a capacity signal: it read `1.61203` while the server was idle (processing 0, deferred 0; `kubectl exec … curl localhost:8080/metrics`, 2026-10-05T19:42Z), so it is an average over past decodes, not the current state. A second idle scrape (2026-10-13T01:40Z, `kubectl -n inference exec <llamacpp pod> -c llama-server -- curl -s localhost:8080/metrics`) read `1.74442` with processing 0 / deferred 0: it moved between two idle scrapes, which fits a cumulative average. `GET /slots` is enabled (HTTP 200) and returns one object per slot with `n_ctx` (2048 = `-c 4096` / `--parallel 2`) and `is_processing`.
 
 **Verdict.** In the llamacpp-pool engineConfig `kvUsageSpec: ""`, so the kv-cache-utilization-scorer contributes nothing (kept at weight 2 on purpose to show that). The EPP also can't tell a 2-slot server from an 8-slot one: `requests_processing=2` means "full" on one and "25 %" on the other.
 
@@ -168,6 +168,30 @@ There is **no KV-cache usage** gauge and **no total-slot** gauge. `n_busy_slots_
 **Verdict.** No gateway-level queue or shedding today. With 0 replicas there is nothing to queue at, and the request fails.
 
 **Design notes.** Scale-from-zero needs (1) KEDA scaling on EPP/engine queue metrics, and (2) an activator-style hold: the gateway/EPP keeps the request while a pod starts (warm bring-up ≈ 4 s, see `scripts/README.md`), with a deadline. Evaluate EPP Flow Control (queueing + fairness at the EPP) as that hold before building one. P3 matters here: abandoned requests would inflate the queue signal KEDA scales on.
+
+---
+
+## Gateway smoke and #13 (2026-10-12)
+
+**#13: `usage` in the final stream chunk via the gateway (llamacpp-pool).** `curl -sSN http://192.168.117.204/v1/chat/completions -H 'x-pool: cpu'` with `stream: true`, `max_tokens 16`, `stream_options: {"include_usage": true}` → HTTP 200, 13 `data:` lines. Last 2 chunks:
+
+```
+data: {"choices":[],"created":1791855606,"id":"chatcmpl-brf3AbQEYoNnujFFWYc6u3qEpWEWIyzb","model":"qwen2.5-0.5b-instruct","system_fingerprint":"b11146-7fe450e19","object":"chat.completion.chunk","usage":{"completion_tokens":10,"prompt_tokens":34,"total_tokens":44,"prompt_tokens_details":{"cached_tokens":24}},"timings":{"cache_n":24,"prompt_n":10,"prompt_ms":515.418,"prompt_per_token_ms":51.5418,"prompt_per_second":19.401728305957494,"predicted_n":10,"predicted_ms":161.151,"predicted_per_token_ms":17.90566666666667,"predicted_per_second":55.84824171119013}}
+data: [DONE]
+```
+
+Yes: the last data chunk has `choices: []` and `usage`; agentgateway passes it through unchanged.
+
+**`scripts/smoke_test.py --runs 10`** (OpenAI SDK, non-stream + stream with usage):
+
+| Pool | TTFT p50 / max | total p50 / max | runs without usage |
+|---|---|---|---|
+| sim-pool (default route), **SIMULATED** | 44.1 / 52.7 ms | 484.8 / 546.5 ms | 0 |
+| llamacpp-pool (`--pool cpu`) | 61.2 / 65.5 ms | 600.6 / 618.5 ms | 0 |
+
+Model file in the llama.cpp pod (`kubectl exec <pod> -- ls -l /models/*.gguf`): `qwen2.5-0.5b-instruct-q4_k_m.gguf`, 491400032 bytes.
+
+`helm test inf` (2026-10-12 21:40 EDT): `inf-gateway-sanity-test`, `inf-llamacpp-sanity-test`, `inf-vllm-sim-sanity-test` all Succeeded. `helm history inf`: rev 30 deployed (2026-10-05 15:55:50), revs 21–29 superseded.
 
 ---
 
