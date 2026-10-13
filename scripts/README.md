@@ -17,6 +17,7 @@ and gateway/EPP probes (findings in [`deploy/gateway/GAPS.md`](../deploy/gateway
 | `probe_p2_failopen.py` | **P2** gateway keeps serving with the EPP scaled to 0 (FailOpen), and what it costs | `.venv/bin/python scripts/probe_p2_failopen.py --n 50` | kubectl (**scales `sim-pool-epp` to 0 and back**) |
 | `probe_p3_disconnect.py` | **P3** does a client disconnect free an engine slot, direct vs via gateway, stream vs non-stream | `.venv/bin/python scripts/probe_p3_disconnect.py [--backend sim] [--direct]` | kubectl (llama.cpp: port-forward; sim: pod IPs from the k3s host) |
 | `probe_p7_gateway_kill.py` | **P7** what an in-flight stream, the llama.cpp slot and new requests see when the gateway pod is deleted (#20) | `make probe-p7 [ARGS="--grace-period 1"]` | kubectl (**deletes the agentgateway pod**; the Deployment recreates it), pod IPs from the k3s host |
+| `probe_burst.py` | **P9** do N requests inside one EPP metrics refresh (50 ms) herd onto one sim pod, vs a spaced control (#22, SIMULATED) | `make probe-burst [ARGS="--repeats 10"]` | kubectl (gateway logs), sim pod IPs from the k3s host, ≥2 sim pods |
 
 ## Engine probes: detail
 

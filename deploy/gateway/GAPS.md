@@ -16,6 +16,7 @@ does and does not do, tested on the k3s lab (single node `ravi-home`, ns `infere
 | P5 | Pool choice by prompt size / SLO | header only | #11 (design) |
 | P6 | Admission / scale-from-zero | engine queues, gateway doesn't | #10 (design) |
 | P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s, ~1 s of refused connections | #20, HA → #19 |
+| P9 | Burst inside one EPP metrics refresh | no 8/0 herding; per-run split up to 7/1 vs always 4/4 when spaced (sim-pool, SIMULATED) | #22 |
 
 ---
 
@@ -207,6 +208,45 @@ In every run `requests_processing` was 1 at the first sample after the kill. The
 
 ---
 
+## P9 — Burst inside one EPP metrics refresh (#22)
+
+(P8 is unassigned.)
+
+**Question.** The EPP scores pods on scraped metrics. If N requests reach it faster than it refreshes those metrics, are they all scored against the same snapshot and herded onto one pod?
+
+**Refresh interval in our deployment.** `--refresh-metrics-interval` = **50 ms**. Sources:
+- Our EPP Deployment args (`kubectl -n inference get deploy sim-pool-epp -o jsonpath='{...args}'`) don't set it. The `sim-pool-epp` ConfigMap (`default-plugins.yaml`) has no interval parameter on `metrics-data-source`.
+- The EPP's own startup log line `"msg":"Flags processed"` (`kubectl -n inference logs deploy/sim-pool-epp`) shows the effective value: `"refresh-metrics-interval":50000000` (ns = 50 ms), `"metrics-staleness-threshold":2000000000` (2 s), `"refresh-prometheus-metrics-interval":5000000000` (5 s, the EPP's own Prometheus flush, not backend scraping).
+- `podman run --rm ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0 --help`: `--refresh-metrics-interval duration  Interval to refresh metrics. (default 50ms)`.
+
+So we run the default. That this flag also drives the `metrics-data-source` plugin's scrape loop is inferred from the flag text, not verified in the source.
+
+**Method.** `scripts/probe_burst.py` (`make probe-burst`), sim-pool, 2 pods × max-num-seqs 2. Each run starts from idle (both pods running 0 / waiting 0). N = 8 requests through the gateway, unique prompts (neutralises the prefix-cache scorer), `ignore_eos`, `max_tokens 200`, so every request lasts longer than the whole send window and all 8 overlap in both modes.
+- **burst**: all 8 fired at once (`asyncio.gather`).
+- **spaced** (control): one every 0.25 s (5 × the refresh interval).
+
+Modes alternate within each repeat. **Which pod**: the gateway access log `endpoint=` per request (the gateway start time = log timestamp − `duration`, which gives the spread as the gateway saw it), cross-checked against per-pod deltas of `vllm:e2e_request_latency_seconds_count` scraped from each pod IP. The two agreed in all 26 runs below. There is no response header naming the endpoint.
+
+**Evidence (SIMULATED, 2026-10-13 UTC; raw: `benchmarks/results/probes/burst/20261012-215229.jsonl` (3 repeats), `…/20261012-215340.jsonl` (10 repeats)).** Pods: A = `10.42.0.35`, B = `10.42.0.5`.
+
+| Mode | Runs | Send spread at the gateway | Per-run split A/B | Most-loaded pod got | Total A / B |
+|---|---|---|---|---|---|
+| burst | 13 | 0.5–7.7 ms (≪ 50 ms) | 3/5, 7/1, 3/5, 4/4, 4/4, 3/5, 4/4, 2/6, 6/2, 4/4, 5/3, 4/4, 4/4 | 4 ×6, 5 ×4, 6 ×2, 7 ×1, 8 ×0 | 53 / 51 |
+| spaced (control) | 13 | 1756.3–1759.9 ms | 4/4 in all 13 | 4 ×13 | 52 / 52 |
+
+All 208 requests returned 200. Worst burst run (3-repeat series, #2): 0.3 s after sending, A read running 2 / **waiting 5** while B read running **1** / waiting 0. One request queued on A behind 4 others while B had a free slot. A trial run before the log parser was fixed showed the same 7/1 burst split by counter delta (log picks unusable, file not kept).
+
+**What it means (SIMULATED).**
+- **No full herding.** A burst inside one refresh never sent all 8 to one pod, so the EPP doesn't pick the same pod deterministically from a stale snapshot. Totals over 13 bursts are balanced.
+- **But burst balance is luck, spaced balance is load-aware.** Spaced requests were split 4/4 every time, because each pick saw the previous ones in the scraped `running`/`waiting`. Burst splits scattered from 4/4 to 7/1. That is consistent with every burst request getting the same scores and the picker breaking ties randomly, which the probe can't prove (no per-request scores logged). The cost is a queue on one pod while the other has free slots.
+- At 2 pods × 2 slots the damage is bounded. With more pods and larger bursts (agent fan-out, batch clients), a stale snapshot with random tie-breaks leaves capacity idle in the same way. The sim's timing is synthetic, but the routing decisions are real EPP behaviour.
+
+**Next.** (a) EPP verbosity up (`-v`) to log per-request scores and confirm ties. (b) Repeat with in-flight accounting, if the EPP has a plugin that counts requests it has routed but not yet seen in metrics (not checked). (c) Larger N and a shorter refresh (e.g. `--refresh-metrics-interval 10ms`) to see whether the spread changes. (d) llamacpp-pool once it has ≥ 2 replicas.
+
+**Side observation.** Gateway responses carry `x-went-into-resp-headers: true` (`curl -D -` through the gateway to sim-pool). It looks like a debug header from the response-headers path and is visible to clients. Source not checked.
+
+---
+
 ## Gateway smoke and #13 (2026-10-12)
 
 **#13: `usage` in the final stream chunk via the gateway (llamacpp-pool).** `curl -sSN http://192.168.117.204/v1/chat/completions -H 'x-pool: cpu'` with `stream: true`, `max_tokens 16`, `stream_options: {"include_usage": true}` → HTTP 200, 13 `data:` lines. Last 2 chunks:
@@ -242,6 +282,7 @@ Model file in the llama.cpp pod (`kubectl exec <pod> -- ls -l /models/*.gguf`): 
 .venv/bin/python scripts/probe_p3_disconnect.py --backend sim [--direct]   # P3 on the simulator (SIMULATED)
 make probe-p7                                                   # P7: deletes the gateway pod mid-stream, 3 runs (graceful)
 make probe-p7 ARGS="--grace-period 1"                            # P7 hard kill
+make probe-burst                                                # P9: 3 × (burst of 8, spaced control), SIMULATED
 scripts/probe_epp_scrape.sh                                     # llamacpp-pool: EPP vs engine queue
 ```
 
