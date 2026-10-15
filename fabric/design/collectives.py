@@ -226,8 +226,13 @@ def ms(x: float) -> str:
 
 
 def table(header: list[str], rows: list[list[str]]) -> str:
+    """Markdown table; a column is right-aligned when every non-empty cell is a number."""
+    def numeric(i: int) -> bool:
+        cells = [r[i].replace(",", "").replace("%", "").lstrip("+-") for r in rows if r[i]]
+        return bool(cells) and all(c.replace(".", "", 1).isdigit() for c in cells)
+
     out = ["| " + " | ".join(header) + " |",
-           "|" + "|".join("---" if i == 0 else "---:" for i in range(len(header))) + "|"]
+           "|" + "|".join("---:" if numeric(i) else "---" for i in range(len(header))) + "|"]
     out += ["| " + " | ".join(r) + " |" for r in rows]
     return "\n".join(out)
 

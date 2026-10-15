@@ -1,7 +1,7 @@
 **8B on 256 GPUs** (TP 1 · PP 1 · DP 256 · EP 1; seq 8,192, 1 microbatch(es)) — CALCULATED
 
 | Par. | Collective | Group | Network | Calls/step | Scale-up GB/GPU/step | Scale-out GB/GPU/step | Time/step (ms) |
-|---|---:|---:|---:|---:|---:|---:|---:|
+|---|---|---:|---|---:|---:|---:|---:|
 | DP | all-reduce (gradients) | 256 | both (NVLink + scale-out) | 1 | 28.000 | 3.875 | 174.98 |
 | **compute** | 6·P·tokens / (GPUs·peak·MFU) |  |  |  |  |  | 993.47 |
 | **step** | compute + exposed comm |  |  |  |  |  | 1,168.45 |
@@ -9,7 +9,7 @@
 **70B on 256 GPUs** (TP 8 · PP 4 · DP 8 · EP 1; seq 8,192, 16 microbatch(es)) — CALCULATED
 
 | Par. | Collective | Group | Network | Calls/step | Scale-up GB/GPU/step | Scale-out GB/GPU/step | Time/step (ms) |
-|---|---:|---:|---:|---:|---:|---:|---:|
+|---|---|---:|---|---:|---:|---:|---:|
 | TP | all-reduce (activations) | 8 | scale-up (NVLink) | 1,280 | 300.648 | 0 | 853.05 |
 | PP | send/recv (activations) | 4 | scale-out (backend) | 32 | 0 | 4.295 | 107.53 |
 | DP | all-reduce (gradients) | 8 | scale-out (backend) | 1 | 0 | 7.656 | 191.48 |
@@ -19,7 +19,7 @@
 **405B on 2,048 GPUs** (TP 8 · PP 16 · DP 16 · EP 1; seq 8,192, 32 microbatch(es)) — CALCULATED
 
 | Par. | Collective | Group | Network | Calls/step | Scale-up GB/GPU/step | Scale-out GB/GPU/step | Time/step (ms) |
-|---|---:|---:|---:|---:|---:|---:|---:|
+|---|---|---:|---|---:|---:|---:|---:|
 | TP | all-reduce (activations) | 8 | scale-up (NVLink) | 896 | 420.907 | 0 | 1,181.73 |
 | PP | send/recv (activations) | 16 | scale-out (backend) | 64 | 0 | 17.180 | 429.82 |
 | DP | all-reduce (gradients) | 16 | scale-out (backend) | 1 | 0 | 11.865 | 296.78 |
@@ -29,7 +29,7 @@
 **Mixtral 8x7B on 256 GPUs** (TP 2 · PP 1 · DP 128 · EP 8; seq 4,096, 1 microbatch(es)) — CALCULATED
 
 | Par. | Collective | Group | Network | Calls/step | Scale-up GB/GPU/step | Scale-out GB/GPU/step | Time/step (ms) |
-|---|---:|---:|---:|---:|---:|---:|---:|
+|---|---|---:|---|---:|---:|---:|---:|
 | TP | all-reduce (activations) | 2 | scale-up (NVLink) | 128 | 4.295 | 0 | 12.19 |
 | EP | all-to-all (tokens) | 8 | both (NVLink + scale-out) | 128 | 3.221 | 4.295 | 120.80 |
 | DP | all-reduce (gradients) | 128 | both (NVLink + scale-out) | 1 | 70.500 | 22.766 | 765.29 |

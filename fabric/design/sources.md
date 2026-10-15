@@ -27,6 +27,7 @@ measured.
 | S17 | [Shoeybi et al., "Megatron-LM", arXiv:1909.08053](https://ar5iv.labs.arxiv.org/html/1909.08053) | "only two all-reduces in the forward path and two in the backward path" per transformer layer; "4 total communication operations" | TP traffic model |
 | S18 | [Jiang et al., "Mixtral of Experts", arXiv:2401.04088](https://arxiv.org/abs/2401.04088) | 8 experts per layer, top-2 routing; "same architecture as Mistral 7B" (layers/dim not on the abstract page — see A9) | MoE all-to-all example |
 | S19 | [NVIDIA LinkX 100G-PAM4 (400G/800G) product line overview](https://docs.nvidia.com/networking/display/400g100gpam4ovdev/LinkX-100G-PAM4-Product-Line-Overview) | Passive DAC "up to 3 meters" at 100G-PAM4 (straight 0.5–2 m, splitters up to 3 m); linear active copper extends to 3–5 m | Copper vs optics reach assumption |
+| S20 | [Kim, Dally, Scott, Abts, "Technology-Driven, Highly-Scalable Dragonfly Topology", ISCA 2008](https://research.google/pubs/technology-driven-highly-scalable-dragonfly-topology/) | Groups of high-radix routers act as one virtual router; abstract reports cost 20 % below flattened butterfly and 52 % below folded Clos for ≥ 16K nodes (paper's own estimate); minimises long global cables; relies on adaptive routing | ADR 0005 alternative |
 
 ## Assumptions (explicit inputs, not sourced)
 

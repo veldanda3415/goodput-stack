@@ -249,15 +249,11 @@ gpusim-health-run: ## Scenario 04: inject fault, measure fence/evict/reschedule/
 
 # ---- AI fabric design calculators (fabric/DESIGN.md; CALCULATED, not measured) -------------
 .PHONY: design-tables design-test
-DESIGN_OUT := fabric/design/tables
 
-design-tables: ## Regenerate CALCULATED design tables into fabric/design/tables/
+design-tables: ## Regenerate CALCULATED tables in fabric/design/tables/ and fabric/DESIGN.md
 > python3 -m venv .venv
 > $(FABRIC_PY) -m pip install -q -r fabric/requirements.txt
-> mkdir -p $(DESIGN_OUT)
-> $(FABRIC_PY) -m fabric.design.collectives > $(DESIGN_OUT)/collectives.md
-> @if [ -f fabric/design/sizing.py ]; then $(FABRIC_PY) -m fabric.design.sizing > $(DESIGN_OUT)/sizing.md; fi
-> @echo "wrote $(DESIGN_OUT)/*.md"
+> $(FABRIC_PY) -m fabric.design.tables
 
 design-test: ## pytest the fabric design calculators
 > python3 -m venv .venv

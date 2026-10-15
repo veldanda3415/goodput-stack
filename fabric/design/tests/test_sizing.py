@@ -87,3 +87,8 @@ def test_cli_prints_markdown(capsys):
     s.main(["--gpus", "256"])
     out = capsys.readouterr().out
     assert "| rail-optimized leaf-spine | 2 | 8 | 2 |" in out and "CALCULATED" in out
+
+
+def test_design_md_tables_are_current():
+    from fabric.design import tables
+    assert tables.main(["--check"]) == 0, "run `make design-tables`"

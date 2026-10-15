@@ -17,6 +17,8 @@ from pathlib import Path
 
 import yaml
 
+from fabric.design.collectives import table
+
 DEFAULT_CONFIG = Path(__file__).with_name("inputs.yaml")
 
 
@@ -175,12 +177,6 @@ def oob(nodes: int, switches: int, o: dict) -> dict:
 
 
 # ---- Markdown -------------------------------------------------------------------------------
-
-
-def table(header: list[str], rows: list[list[str]]) -> str:
-    out = ["| " + " | ".join(header) + " |",
-           "|" + "|".join("---" if i == 0 else "---:" for i in range(len(header))) + "|"]
-    return "\n".join(out + ["| " + " | ".join(r) + " |" for r in rows])
 
 
 def backend_md(cfg: dict, gpu_counts: list[int]) -> str:
