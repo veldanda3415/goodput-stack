@@ -96,6 +96,7 @@ def test_renderer_configures_bgp_and_host_source_routing(tmp_path: Path) -> None
     host_setup = (tmp_path / "hosts/host1-setup.sh").read_text(encoding="utf-8")
     assert "neighbor eth1 interface peer-group FABRIC" in leaf_config
     assert "neighbor eth2 interface peer-group FABRIC" in leaf_config
+    assert "neighbor FABRIC route-map FABRIC-IN in" in leaf_config
     assert "maximum-paths 2" in leaf_config
     assert "ip address 10.210.0.1/30" in leaf_config
     assert "ip address 10.210.0.5/30" in leaf_config

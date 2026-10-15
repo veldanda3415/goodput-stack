@@ -22,6 +22,10 @@ bfd
   detect-multiplier {{ intent.bfd.detect_multiplier }}
 !
 {% endif %}
+route-map FABRIC-IN permit 10
+!
+route-map FABRIC-OUT permit 10
+!
 router bgp {{ node.asn }}
  bgp router-id {{ node.loopback.split('/')[0] }}
  no bgp default ipv4-unicast
@@ -29,6 +33,8 @@ router bgp {{ node.asn }}
  neighbor FABRIC peer-group
  neighbor FABRIC remote-as external
  neighbor FABRIC timers {{ intent.bgp.keepalive_seconds }} {{ intent.bgp.hold_seconds }}
+ neighbor FABRIC route-map FABRIC-IN in
+ neighbor FABRIC route-map FABRIC-OUT out
 {% if intent.bgp.extended_nexthop %}
  neighbor FABRIC capability extended-nexthop
 {% endif %}
