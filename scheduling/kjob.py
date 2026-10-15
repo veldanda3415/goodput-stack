@@ -13,17 +13,23 @@ p.add_argument("--gpus", type=int, default=1)
 p.add_argument("--parallelism", type=int, default=1)
 p.add_argument("--priority")
 p.add_argument("--queue", default="lq")
+p.add_argument("--prefer-node", help="preferred (not required) node name")
+p.add_argument("--backoff", type=int, default=0)
 a = p.parse_args()
 labels = {"kueue.x-k8s.io/queue-name": a.queue}
 if a.priority:
     labels["kueue.x-k8s.io/priority-class"] = a.priority
-print(json.dumps({
+job = {
     "apiVersion": "batch/v1", "kind": "Job",
     "metadata": {"name": a.name, "namespace": a.ns, "labels": labels},
-    "spec": {"parallelism": a.parallelism, "completions": a.parallelism, "backoffLimit": 0,
+    "spec": {"parallelism": a.parallelism, "completions": a.parallelism, "backoffLimit": a.backoff,
              "template": {"metadata": {"labels": {"job": a.name}}, "spec": {
                  "restartPolicy": "Never", "enableServiceLinks": False,
                  "containers": [{"name": "sim", "image": IMG,
                                  "args": ["--model", "sim-model", "--force-dummy-tokenizer", "--port", "8000"],
                                  "resources": {"requests": {"cpu": "50m", "memory": "64Mi"},
-                                               "limits": {"memory": "256Mi", "nvidia.com/gpu": str(a.gpus)}}}]}}}}))
+                                               "limits": {"memory": "256Mi", "nvidia.com/gpu": str(a.gpus)}}}]}}}}
+if a.prefer_node:
+    job["spec"]["template"]["spec"]["affinity"] = {"nodeAffinity": {"preferredDuringSchedulingIgnoredDuringExecution": [
+        {"weight": 100, "preference": {"matchExpressions": [{"key": "kubernetes.io/hostname", "operator": "In", "values": [a.prefer_node]}]}}]}}
+print(json.dumps(job))
