@@ -5,7 +5,8 @@
 # The benchmark harness reaches Service ClusterIPs directly from this host (it IS the node).
 
 llamacpp:
-  replicas: 1
+  replicas: 1              # initial only: autoscaled, autoscaling/scaledobject-llamacpp.yaml owns it
+  autoscaled: true
   spreadAcrossNodes: false
   model:
     source: pvc            # filled once by the init container, survives pod restarts and uninstall
@@ -14,12 +15,15 @@ llamacpp:
       size: 2Gi
 
 sim:
-  replicas: 2
+  replicas: 2              # initial only: autoscaled, autoscaling/scaledobject-vllm-sim.yaml owns it
+  autoscaled: true
   spreadAcrossNodes: false
 
 # agentgateway v1.6.0 is installed on this cluster; the LB (k3s ServiceLB) hands out 192.168.117.204.
 gateway:
   enabled: true
+  proxy:
+    replicas: 2             # #20. Both land on the one node: removes the single-pod gap, not the node SPOF (GAPS.md P7)
   listeners:
     - name: http
       protocol: HTTP

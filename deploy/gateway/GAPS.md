@@ -14,8 +14,8 @@ does and does not do, tested on the k3s lab (single node `ravi-home`, ns `infere
 | P3 | Client disconnect | **not propagated by the gateway within 15 s** | new issue (upstream draft below) |
 | P4 | llama.cpp KV / capacity signal | missing; KV scorer contributes nothing | #15 |
 | P5 | Pool choice by prompt size / SLO | header only | #11 (design) |
-| P6 | Admission / scale-from-zero | engine queues, gateway doesn't | #10 (design) |
-| P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s, ~1 s of refused connections | #20, HA → #19 |
+| P6 | Admission / scale-from-zero | default: engine queues, gateway doesn't. EPP flow control (experimental) holds requests at 0 replicas and exports a queue KEDA can activate on; agentgateway cuts a held request at 10 s | #10 (works on a scratch pool, autoscaling/README.md) |
+| P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s. 1 replica: ~1 s of refused connections; **2 replicas + PDB: 0 failed new requests**, the killed pod's stream is still lost | #20 (2 replicas in chart), HA → #19 |
 | P9 | Burst inside one EPP metrics refresh | no 8/0 herding; per-run split up to 7/1 vs always 4/4 when spaced (sim-pool, SIMULATED) | #22 |
 
 ---
@@ -169,6 +169,15 @@ There is **no KV-cache usage** gauge and **no total-slot** gauge. `n_busy_slots_
 
 **Verdict.** No gateway-level queue or shedding today. With 0 replicas there is nothing to queue at, and the request fails.
 
+**Update (2026-10-14, SIMULATED scratch pool `zero-pool`, details in [autoscaling/README.md](../../autoscaling/README.md)).**
+With `featureGates: [flowControl]` in the EndpointPickerConfig, the v0.9.0 EPP logs `Initializing experimental Flow Control
+layer`, queues requests while the pool has 0 endpoints and exports `llm_d_epp_flow_control_queue_size`. A KEDA ScaledObject
+(min 0) on that metric brought the pool 0→1 with 20/20 requests answered 200 over 4 runs (first token 4.46–7.24 s after the
+first request). Without flow control: 5/5 immediate `HTTP 503 … failed to find endpoint candidates` and no scale-up.
+New limit: agentgateway cancels the held ext_proc call at 10.0 s (`HTTP 500: ext_proc failed: no more response messages`),
+and `AgentgatewayPolicy` extProc has no timeout field, so detection + pod start must fit in 10 s. sim-pool and
+llamacpp-pool stay at minReplicaCount 1.
+
 **Design notes.** Scale-from-zero needs (1) KEDA scaling on EPP/engine queue metrics, and (2) an activator-style hold: the gateway/EPP keeps the request while a pod starts (warm bring-up ≈ 4 s, see `scripts/README.md`), with a deadline. Evaluate EPP Flow Control (queueing + fairness at the EPP) as that hold before building one. P3 matters here: abandoned requests would inflate the queue signal KEDA scales on.
 
 ---
@@ -204,7 +213,34 @@ In every run `requests_processing` was 1 at the first sample after the kill. The
 - **An in-flight stream can't be resumed.** There is no resume protocol across OpenAI-style SSE: a client retry regenerates the whole response from the prompt and spends the prefill + decode compute twice (here, the ~140 tokens already generated are thrown away).
 - **More gateway replicas (#19) are not HA on this lab.** Two agentgateway replicas would remove the refused-connection window for a single pod kill, and a client retry would land on the survivor. But both replicas run on the one node `ravi-home`: the node, k3s ServiceLB and the LB IP are still a single point of failure. And replicas don't save the stream on the pod that died.
 
-**Mitigation.** Gateway replicas ≥ 2 + PodDisruptionBudget (#19) for the refused-connection window. Keep a grace period longer than the longest legitimate stream so rollouts drain. Clients retry on connection errors and on truncated streams (no `[DONE]` / no `finish_reason`) and accept that the retry pays the full compute again. Real HA needs ≥ 2 nodes.
+**Rerun with 2 gateway replicas (2026-10-14, #20).** The chart now renders an `AgentgatewayParameters` (`gateway.proxy` in
+`deploy/charts/inference/values*.yaml`; `values-k3s.yaml`: `replicas: 2`) referenced from the Gateway's `spec.infrastructure.parametersRef`:
+Deployment `replicas: 2`, soft pod anti-affinity on `kubernetes.io/hostname`, and a PodDisruptionBudget `minAvailable: 1`
+(`kubectl -n inference get deploy inference-gateway` → 2/2; `get pdb` → MIN AVAILABLE 1, ALLOWED DISRUPTIONS 1).
+`scripts/probe_p7_gateway_kill.py` was extended for N replicas: it deletes only the pod that accepted the stream's
+connection (the one whose `agentgateway_downstream_connections_total` grew when the stream started; `--target all` = old
+behaviour) and `--ping-window 10` keeps pinging (fresh connection each, sim-pool, `max_tokens 1`) for ≥ 10 s.
+Command: `.venv/bin/python scripts/probe_p7_gateway_kill.py --grace-period 1 --runs 3 --ping-window 10 --out-dir observability/evidence/p7`
+(raw: `observability/evidence/p7/20261014-225149.jsonl`).
+
+| Run | Client end (stream on the killed pod) | Tokens (20 at kill) | Kill → client end | Slot freed after kill | Replacement Ready | Pings (0–10 s after kill) | Failed |
+|---|---|---|---|---|---|---|---|
+| 1 | `RemoteProtocolError` (incomplete chunked read) | 199 | 2.2 s | 2.52 s | 2.98 s | 17 × 200 | 0 |
+| 2 | same | 186 | 2.2 s | 2.52 s | 2.81 s | 18 × 200 | 0 |
+| 3 | same | 213 | 2.2 s | 2.51 s | 3.81 s | 16 × 200 | 0 |
+
+An earlier series the same day (`…/20261014-224832.jsonl`, 20/19/20 pings, 0 failed, same stream outcome) counted the
+*survivor* as the "new pod" (probe bug, fixed before the series above), so its "Ready" times are not replacement times.
+
+- **New requests kept succeeding**: 0 failed pings in every run, first 200 at 0.19 s after the delete (the survivor),
+  versus 2 failed pings per run and first 200 at 3.5–3.8 s with one replica.
+- **The in-flight stream on the killed pod is still lost**, exactly as with one replica: protocol error 2.2 s after the
+  delete, ~170 tokens thrown away, slot freed ~0.3 s later. Replicas do not make a stream survive its pod; there is no
+  resume for OpenAI-style SSE, so a client retry regenerates from the prompt.
+- **This is still not HA.** Both replicas run on the single node `ravi-home` (soft anti-affinity has nowhere else to
+  go): the node, k3s ServiceLB and the LB IP 192.168.117.204 remain a single point of failure (#19).
+
+**Mitigation.** Done here: gateway replicas = 2 + PodDisruptionBudget (#20) removes the refused-connection window of a single pod kill. Keep a grace period longer than the longest legitimate stream so rollouts drain. Clients retry on connection errors and on truncated streams (no `[DONE]` / no `finish_reason`) and accept that the retry pays the full compute again. Real HA needs ≥ 2 nodes.
 
 ---
 
@@ -296,6 +332,6 @@ All need `kubectl` access to ns `inference` and the gateway LB reachable from th
 - Sim disconnect behaviour in newer sim releases (only v0.10.2 tested).
 - P1 on llamacpp-pool with 2+ replicas (only 1 replica today); balance quality at moderate load.
 - BBR on agentgateway.
-- EPP Flow Control enabled.
+- EPP Flow Control on the live pools (only the scratch `zero-pool` has it); its behaviour under saturation (not just 0 endpoints).
 - TLS on :443 (no cert; #17).
-- P7: a stream longer than the gateway's 60 s grace period; HTTP/2 clients; which pod served the pings during a graceful drain.
+- P7: a stream longer than the gateway's 60 s grace period; HTTP/2 clients; which pod served the pings during a graceful drain; a graceful (default-grace) delete with 2 replicas.

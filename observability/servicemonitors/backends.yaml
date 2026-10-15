@@ -1,0 +1,43 @@
+# Engine /metrics for both pools. Port *names* from the live Services
+# (`kubectl -n inference get svc -o custom-columns=NAME:.metadata.name,PORTS:.spec.ports[*].name`):
+# inf-vllm-sim -> http (8000), inf-llamacpp -> http (8080).
+# Each target gets a `pool` label equal to its InferencePool name, so the dashboard can group by pool.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm-sim
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: inf
+      app.kubernetes.io/name: vllm-sim
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 5s                # queue depth moves within seconds; KEDA reads this
+      relabelings:
+        - targetLabel: pool
+          replacement: sim-pool
+        - targetLabel: simulated   # every series from the sim is SIMULATED
+          replacement: "true"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: llamacpp
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: inf
+      app.kubernetes.io/name: llamacpp
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 5s
+      relabelings:
+        - targetLabel: pool
+          replacement: llamacpp-pool

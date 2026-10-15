@@ -48,7 +48,7 @@ spec:
   policyTypes:
     - Ingress            # inbound only; outbound (egress) stays unrestricted
   ingress:
-    {{- if $np.allowFrom }}
+    {{- if or $np.allowFrom $np.allowFromNamespaces }}
     - from:
         # One podSelector per allowFrom item: a pod matching ANY of them is allowed.
         # podSelector alone (no namespaceSelector) = only pods in THIS namespace.
@@ -56,6 +56,15 @@ spec:
         - podSelector:
             matchLabels:
               {{- toYaml . | nindent 14 }}
+        {{- end }}
+        # allowFromNamespaces: pods matching podLabels in the named namespace (one peer = both must match).
+        {{- range $np.allowFromNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .podLabels | nindent 14 }}
         {{- end }}
       ports:
         - protocol: TCP

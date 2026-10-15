@@ -1,0 +1,867 @@
+{
+  "uid": "goodput-inference",
+  "title": "goodput-stack / inference",
+  "tags": [
+    "goodput-stack"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "description": "Gateway, EPP and engine metrics per InferencePool. sim-pool is SIMULATED.",
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Latency (per pool, where the data exists)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Engine TTFT p50 / p95",
+      "description": "Server-side TTFT from vllm:time_to_first_token_seconds (sim-pool only). SIMULATED: llm-d-inference-sim v0.10.2, latencies are configured, not measured on a model. llama.cpp b11146 exports no latency histograms (only counters/gauges), so there is no llamacpp-pool series here. Engine TTFT excludes the gateway hop, EPP pick and network; client TTFT (scripts/, autoscaling/loadgen.py) includes them. Measured 2026-10-14 (observability/evidence/panels-20261014-222133.json): the sim's TTFT also EXCLUDES queue wait: engine TTFT p95 max 0.0855 s while client TTFT p50 was 1.54 s with up to 4 requests waiting. See 'Engine queue time'.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p50 {{pool}} (engine)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p95 {{pool}} (engine)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Engine ITL p50 / p95",
+      "description": "vllm:inter_token_latency_seconds (sim-pool only). SIMULATED: llm-d-inference-sim v0.10.2, latencies are configured, not measured on a model. llama.cpp b11146 exports no latency histograms (only counters/gauges), so there is no llamacpp-pool series here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, pool) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p50 {{pool}} (engine)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p95 {{pool}} (engine)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Engine queue time p50 / p95",
+      "description": "vllm:request_queue_time_seconds: time waiting for a batch slot, which the sim's TTFT histogram leaves out. Client TTFT ~= queue time + engine TTFT + gateway/EPP/network. SIMULATED: llm-d-inference-sim v0.10.2, latencies are configured, not measured on a model. llama.cpp b11146 exports no latency histograms (only counters/gauges), so there is no llamacpp-pool series here. (llama.cpp's wait shows only as llamacpp:requests_deferred.)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, pool) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p50 {{pool}} (engine)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p95 {{pool}} (engine)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Gateway request duration p50 / p95 (end of stream, NOT TTFT)",
+      "description": "agentgateway_request_duration_seconds, both pools. Measured on 2026-10-14: a 120-token stream's duration grew this histogram's sum by 1.9356 s vs client total 1.936 s and client TTFB 0.033 s, so it ends at the END of the stream. agentgateway v1.6.0 exports no TTFT/first-byte histogram for these routes (upstream_call_duration_seconds has no series). This is the only latency series for llamacpp-pool.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p50 {{pool}} (gateway)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p95 {{pool}} (gateway)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Engine TTFT vs gateway e2e (sim-pool, p95)",
+      "description": "Side by side: what the engine measures vs what the gateway measures for the same requests. Gateway e2e \u2212 engine e2e \u2248 gateway + EPP + network overhead. No gateway TTFT exists to compare with engine TTFT. SIMULATED: llm-d-inference-sim v0.10.2, latencies are configured, not measured on a model.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+          "legendFormat": "engine TTFT p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+          "legendFormat": "engine e2e p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+          "legendFormat": "gateway e2e p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Throughput and errors",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Output tokens/s",
+      "description": "Engine counters. sim-pool is SIMULATED: llm-d-inference-sim v0.10.2, latencies are configured, not measured on a model.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pool) (rate(vllm:generation_tokens_total{namespace=\"inference\"}[1m]))",
+          "legendFormat": "{{pool}} (vllm:generation_tokens_total)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (pool) (rate(llamacpp:tokens_predicted_total{namespace=\"inference\"}[1m]))",
+          "legendFormat": "{{pool}} (llamacpp:tokens_predicted_total)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Requests/s (gateway)",
+      "description": "agentgateway_requests_total by route\u2192pool, all status codes. llama.cpp exports no request counter, so the gateway is the only per-request source for llamacpp-pool.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 25,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pool) (rate(agentgateway_requests_total{namespace=\"inference\"}[1m]))",
+          "legendFormat": "{{pool}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Errors/s (gateway, status >= 400)",
+      "description": "Non-2xx/3xx responses at the gateway, by pool and status. Note: a hard-killed stream (P7) is a 200 that ended early and does not show here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 25,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pool, status) (rate(agentgateway_requests_total{namespace=\"inference\",status=~\"[45]..\"}[1m]))",
+          "legendFormat": "{{pool}} {{status}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Engine state (queue, running, KV)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Waiting / queued",
+      "description": "Requests accepted by the engine but not yet in a slot/batch. Summed over replicas.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pool) (vllm:num_requests_waiting{namespace=\"inference\"})",
+          "legendFormat": "{{pool}} vllm:num_requests_waiting",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (pool) (llamacpp:requests_deferred{namespace=\"inference\"})",
+          "legendFormat": "{{pool}} llamacpp:requests_deferred",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Running / processing",
+      "description": "Requests holding a slot. sim max-num-seqs 2 per pod; llama.cpp --parallel 2.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 34,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pool) (vllm:num_requests_running{namespace=\"inference\"})",
+          "legendFormat": "{{pool}} vllm:num_requests_running",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (pool) (llamacpp:requests_processing{namespace=\"inference\"})",
+          "legendFormat": "{{pool}} llamacpp:requests_processing",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "KV-cache usage (sim-pool only)",
+      "description": "vllm:kv_cache_usage_perc (0-1). SIMULATED: llm-d-inference-sim v0.10.2, latencies are configured, not measured on a model. It read 0 throughout the 2026-10-14 load runs (max 4 waiting), so the sim does not model KV pressure in this config. llama.cpp b11146 exports no KV-cache metric (GAPS.md P4), so llamacpp-pool has no series here on purpose.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 34,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (pool, pod) (vllm:kv_cache_usage_perc{namespace=\"inference\"})",
+          "legendFormat": "{{pod}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "Pools, EPP, replicas",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "In-flight per pool (engine running + waiting)",
+      "description": "Engine-side in-flight. The gateway exports no in-flight gauge.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pool) (vllm:num_requests_running{namespace=\"inference\"} + vllm:num_requests_waiting{namespace=\"inference\"})",
+          "legendFormat": "{{pool}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (pool) (llamacpp:requests_processing{namespace=\"inference\"} + llamacpp:requests_deferred{namespace=\"inference\"})",
+          "legendFormat": "{{pool}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "EPP health",
+      "description": "EPP scrape up, available replicas, and how many pool endpoints the EPP considers ready. llm-d-router-gateway v0.9.0 exports no scheduling-decision latency and no request counter (live /metrics, 2026-10-14). When the EPP has 0 replicas the gateway FAILS OPEN (GAPS.md P2): requests still succeed, load-blind; see alert EPPUnavailableFailOpen.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 43,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{namespace=\"inference\",job=~\".+-pool-epp\"}",
+          "legendFormat": "scrape up {{pool}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "kube_deployment_status_replicas_available{namespace=\"inference\",deployment=~\".+-pool-epp\"}",
+          "legendFormat": "available {{deployment}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "llm_d_epp_ready_endpoints{namespace=\"inference\"}",
+          "legendFormat": "ready endpoints seen by EPP {{name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Replicas per deployment",
+      "description": "kube-state-metrics. Desired vs available shows scale-up lag (KEDA/HPA).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 43,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kube_deployment_status_replicas_available{namespace=\"inference\"}",
+          "legendFormat": "{{deployment}} available",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "kube_deployment_spec_replicas{namespace=\"inference\"}",
+          "legendFormat": "{{deployment}} desired",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Gateway pre-upstream processing (includes the EPP ext-proc call)",
+      "description": "The EPP exports no decision latency, so this is the proxy. Evidence (observability/alert_test.py, 2026-10-14, sim-pool): mean 1.354 ms with the EPP up (n=55) vs 0.21 ms with it scaled to 0 (FailOpen, n=103), so ~1.1 ms of this is the ext-proc round trip. The histogram's lowest bucket is 1 ms, so the p95 is coarse; the mean (sum/count, not an average of percentiles) is the better read.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pool) (rate(agentgateway_request_processing_seconds_sum{namespace=\"inference\"}[1m])) / sum by (pool) (rate(agentgateway_request_processing_seconds_count{namespace=\"inference\"}[1m]))",
+          "legendFormat": "mean {{pool}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_processing_seconds_bucket{namespace=\"inference\"}[1m])))",
+          "legendFormat": "p95 {{pool}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Autoscaling: replicas vs queue vs TTFT",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "sim-pool: replicas vs queue vs latency",
+      "description": "The KEDA trigger metric (autoscaling/scaledobject-*.yaml) against replica count and latency. Client TTFT per step is in autoscaling/results/ (loadgen.py). SIMULATED: llm-d-inference-sim v0.10.2, latencies are configured, not measured on a model.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*\\(s\\).*"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kube_deployment_spec_replicas{namespace=\"inference\",deployment=\"inf-vllm-sim\"}",
+          "legendFormat": "desired replicas",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "kube_deployment_status_replicas_available{namespace=\"inference\",deployment=\"inf-vllm-sim\"}",
+          "legendFormat": "available replicas",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum(vllm:num_requests_waiting{namespace=\"inference\"}) + sum(vllm:num_requests_running{namespace=\"inference\"})",
+          "legendFormat": "queue (running + waiting), the KEDA metric",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "D",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+          "legendFormat": "engine TTFT p95 (s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "E",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+          "legendFormat": "engine queue time p95 (s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "llamacpp-pool: replicas vs queue vs latency",
+      "description": "The KEDA trigger metric (autoscaling/scaledobject-*.yaml) against replica count and latency. Client TTFT per step is in autoscaling/results/ (loadgen.py). llama.cpp b11146 exports no latency histograms (only counters/gauges), so there is no llamacpp-pool series here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 59,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*\\(s\\).*"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kube_deployment_spec_replicas{namespace=\"inference\",deployment=\"inf-llamacpp\"}",
+          "legendFormat": "desired replicas",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "kube_deployment_status_replicas_available{namespace=\"inference\",deployment=\"inf-llamacpp\"}",
+          "legendFormat": "available replicas",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum(llamacpp:requests_deferred{namespace=\"inference\"}) + sum(llamacpp:requests_processing{namespace=\"inference\"})",
+          "legendFormat": "queue (running + waiting), the KEDA metric",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "D",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\",pool=\"llamacpp-pool\"}[1m])))",
+          "legendFormat": "gateway e2e p95 (s), no TTFT metric",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    }
+  ]
+}

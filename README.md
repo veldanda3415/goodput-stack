@@ -10,8 +10,8 @@ Routing is not built here. This repo **integrates, probes and documents the gaps
 The EPP's load-, KV- and prefix-aware scoring is llm-d's work. Ours is the deployment, the probes and
 [GAPS.md](deploy/gateway/GAPS.md).
 
-> **Status:** backends, Helm chart, Gateway API inference routing and probes run on a
-> single-node k3s lab. Autoscaling, observability, GPU scheduling and the fabric are not built yet.
+> **Status:** backends, Helm chart, Gateway API inference routing, probes, Prometheus/Grafana observability and
+> KEDA queue-depth autoscaling run on a single-node k3s lab. GPU scheduling and the fabric are not built yet.
 > Nothing is claimed as done until it is in the repo with evidence.
 
 ## What runs today
@@ -31,15 +31,15 @@ flowchart LR
     pc --> llama["pod: 1 × llama.cpp b11146 (CPU)<br/>Qwen2.5-0.5B-Instruct Q4_K_M, 2 slots"]
 
     gw -.-> pg["InferencePool: vLLM on T4<br/>planned"]
-    keda["KEDA autoscaling<br/>planned"] -.-> sim
-    keda -.-> llama
+    keda["KEDA autoscaling<br/>queue depth"] --> sim
+    keda --> llama
     kueue["Kueue / GPU scheduling<br/>planned"] -.-> pg
-    prom["Prometheus / Grafana dashboards<br/>planned"] -.-> es
-    prom -.-> ec
+    prom["Prometheus / Grafana<br/>kube-prometheus-stack"] --> es
+    prom --> ec
     fabric["lossless AI fabric<br/>planned"] -.-> pg
 
     classDef planned stroke-dasharray: 5 5,fill:none
-    class pg,keda,kueue,prom,fabric planned
+    class pg,kueue,fabric planned
 ```
 
 - **Backends** (`deploy/charts/inference`, release `inf`): llama.cpp on CPU (real numbers), and the
@@ -60,8 +60,8 @@ flowchart LR
 | [benchmarks/](benchmarks/) | engine benchmark harness and results (system suite: planned) | engine suite in use |
 | [docs/](docs/) | ADRs, architecture notes | started |
 | [router/](router/) | placeholder for a custom router. Not built: routing is agentgateway + Gateway API Inference Extension + the llm-d EPP. Revisit only for SLO/size routing the EPP can't do (#11) | not built |
-| [observability/](observability/) | Prometheus + Grafana: TTFT, ITL, queue depth | planned |
-| [autoscaling/](autoscaling/) | KEDA on queue depth, scale-from-zero (#10) | planned |
+| [observability/](observability/) | kube-prometheus-stack, monitors for gateway/EPPs/engines, inference dashboard, EPP alerts | in use (lab) |
+| [autoscaling/](autoscaling/) | KEDA on queue depth (both pools), step load generator, scale-from-zero experiment (#10) | in use (lab) |
 | [scheduling/](scheduling/) | fake GPUs, device plugin vs DRA, time-slicing, Kueue (k3d multi-node) | planned |
 | [fabric/](fabric/) | leaf-spine intent model, eBGP unnumbered, RoCE v2 design (intent only) | planned |
 

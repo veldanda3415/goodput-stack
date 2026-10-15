@@ -1,0 +1,89 @@
+{
+ "exported_at": "2026-10-14T22:34:37-04:00",
+ "window": [
+  "2026-10-14T22:29:19-04:00",
+  "2026-10-14T22:33:55-04:00"
+ ],
+ "prometheus": "http://10.43.105.58:9090",
+ "panels": [
+  {
+   "title": "llamacpp-pool: replicas vs queue vs latency",
+   "queries": [
+    {
+     "legend": "desired replicas",
+     "expr": "kube_deployment_spec_replicas{namespace=\"inference\",deployment=\"inf-llamacpp\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "inf-llamacpp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 28,
+       "min": 1.0,
+       "max": 4.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "available replicas",
+     "expr": "kube_deployment_status_replicas_available{namespace=\"inference\",deployment=\"inf-llamacpp\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "inf-llamacpp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 28,
+       "min": 1.0,
+       "max": 3.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "queue (running + waiting), the KEDA metric",
+     "expr": "sum(llamacpp:requests_deferred{namespace=\"inference\"}) + sum(llamacpp:requests_processing{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {},
+       "points": 28,
+       "min": 0.0,
+       "max": 7.0,
+       "last": 0.0
+      }
+     ]
+    },
+    {
+     "legend": "gateway e2e p95 (s), no TTFT metric",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\",pool=\"llamacpp-pool\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 28,
+       "min": 2.425,
+       "max": 9.499999999999998,
+       "last": 8.25
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

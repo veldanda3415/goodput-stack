@@ -1,0 +1,50 @@
+# KEDA ScaledObject for llamacpp-pool (llama.cpp b11146, CPU, --parallel 2 slots per pod).
+# Signal: requests in the engine = llamacpp:requests_processing (in a slot) + llamacpp:requests_deferred
+# (waiting for a slot). Names from a live /metrics scrape of the pod (observability/README.md).
+# Prometheus scaler metadata keys (serverAddress, query, threshold, activationThreshold) per the KEDA
+# Prometheus scaler docs; accepted when the ScaledObject reports Ready=True.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: inf-llamacpp
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  scaleTargetRef:
+    name: inf-llamacpp            # chart value llamacpp.autoscaled=true: Helm no longer sets replicas
+  minReplicaCount: 1              # 0 is not safe yet: nothing holds a request at 0 replicas (GAPS.md P6, #10)
+  maxReplicaCount: 3              # each pod requests 4 CPU. Was 4: the 4th pod stayed Pending, "0/1 nodes are available:
+                                  # 1 Insufficient cpu" (2026-10-14 run, autoscaling/README.md). 3 is what fits on this node.
+  pollingInterval: 5              # s; = scrape interval. Kept for 0<->1 (Task 4 / min 0). At min 1 KEDA itself warns on apply:
+                                  # "PollingInterval is configured but is not relevant. PollingInterval is only relevant when
+                                  # minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled": the HPA then
+                                  # reads the metric through KEDA's metrics adapter on its own 15 s sync loop.
+  cooldownPeriod: 60              # s; only used for scaling to 0 (min 0). Inert while minReplicaCount is 1.
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0     # react to the first high reading: a queued request already costs a full generation of TTFT
+          selectPolicy: Max
+          policies:
+            - { type: Pods, value: 2, periodSeconds: 15 }      # up to +2 pods per HPA sync
+            - { type: Percent, value: 100, periodSeconds: 15 }
+        scaleDown:
+          stabilizationWindowSeconds: 60    # lab value so a full cycle fits the timebox; prod 300 s+. Takes the
+                                            # max recommendation over the window, so a short lull doesn't drop a pod
+          selectPolicy: Min
+          policies:
+            - { type: Pods, value: 1, periodSeconds: 30 }      # remove one pod at a time
+  triggers:
+    - type: prometheus
+      metricType: AverageValue    # HPA divides the query result by current replicas
+      metadata:
+        serverAddress: http://kps-kube-prometheus-stack-prometheus.monitoring.svc:9090
+        # avg_over_time: each pod is scraped at a different instant, so a raw sum of these fast-changing gauges
+        # can count one client's finished request on pod A and its next request on pod B. Seen 2026-10-14:
+        # 6 clients, KEDA read 7 (2334m x 3 pods) -> 3->4 scale-up. A 30 s average smooths that skew.
+        query: >-
+          sum(avg_over_time(llamacpp:requests_processing{namespace="inference",pool="llamacpp-pool"}[30s]))
+          + sum(avg_over_time(llamacpp:requests_deferred{namespace="inference",pool="llamacpp-pool"}[30s]))
+        threshold: "2"            # = slots per pod. > 2 per replica means requests are waiting for a slot
+        activationThreshold: "0"  # only matters for 0 -> 1

@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst
+.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst obs-up obs-down obs-apply keda-up keda-down zero-up zero-down probe-zero
 
 help: ## List targets
 > @grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
@@ -135,3 +135,48 @@ probe-p7: ## P7: delete the agentgateway pod mid-stream (llamacpp-pool), 3 runs 
 
 probe-burst: ## P9: N concurrent sim-pool requests inside one EPP refresh vs spaced control (SIMULATED) [ARGS="--n 8"]
 > $(PY) scripts/probe_burst.py $(ARGS)
+
+# ---- observability + autoscaling (observability/README.md, autoscaling/README.md) -------------
+# Versions: one release behind latest on 2026-10-14 (`helm search repo <chart> --versions`).
+KPS_CHART   = prometheus-community/kube-prometheus-stack
+KPS_VERSION = 92.6.0
+KEDA_CHART   = kedacore/keda
+KEDA_VERSION = 2.20.2
+
+obs-up: ## Install kube-prometheus-stack (ns monitoring) + our monitors, rules, dashboards
+> helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update >/dev/null
+> helm upgrade --install kps $(KPS_CHART) --version $(KPS_VERSION) -n monitoring --create-namespace -f observability/values-kps.yaml --wait --timeout 10m
+> $(MAKE) obs-apply
+
+obs-apply: ## Apply ServiceMonitors/PodMonitors, PrometheusRules and the dashboard ConfigMap
+> kubectl apply -f observability/servicemonitors/ -f observability/alerts/
+> python3 observability/dashboards/dashboard.py build >/dev/null && python3 observability/dashboards/dashboard.py configmap | kubectl apply -f -
+
+obs-down: ## Remove our monitors and the kube-prometheus-stack release (CRDs stay)
+> -kubectl delete -f observability/servicemonitors/ -f observability/alerts/ --ignore-not-found
+> -kubectl -n monitoring delete configmap inference-dashboard --ignore-not-found
+> helm uninstall kps -n monitoring
+
+keda-up: ## Install KEDA (ns keda), then apply the ScaledObjects in autoscaling/
+> helm repo add kedacore https://kedacore.github.io/charts --force-update >/dev/null
+> helm upgrade --install keda $(KEDA_CHART) --version $(KEDA_VERSION) -n keda --create-namespace -f autoscaling/values-keda.yaml --wait --timeout 5m
+> kubectl apply -f autoscaling/scaledobject-llamacpp.yaml -f autoscaling/scaledobject-vllm-sim.yaml
+
+keda-down: ## Delete the ScaledObjects (HPAs go with them; replicas stay where they are) and uninstall KEDA
+> -kubectl delete -f autoscaling/scaledobject-llamacpp.yaml -f autoscaling/scaledobject-vllm-sim.yaml --ignore-not-found
+> helm uninstall keda -n keda
+
+# Scale-from-zero scratch pool (autoscaling/scale-from-zero/, GAPS.md P6): sim-zero at 0 replicas, EPP with flowControl.
+zero-up: ## Deploy zero-pool: sim-zero (0 replicas) + EPP release with flowControl + its ServiceMonitor + min-0 ScaledObject
+> kubectl apply -f autoscaling/scale-from-zero/sim-zero.yaml -f autoscaling/scale-from-zero/servicemonitor-zero-epp.yaml
+> helm upgrade --install zero-pool $(EPP_CHART) --version $(EPP_VERSION) -n inference -f autoscaling/scale-from-zero/epp-zero.values.yaml --wait
+> kubectl -n inference rollout restart deploy/zero-pool-epp && kubectl -n inference rollout status deploy/zero-pool-epp --timeout=120s
+> kubectl apply -f autoscaling/scale-from-zero/scaledobject-sim-zero.yaml
+
+zero-down: ## Remove the zero-pool scratch pool
+> -kubectl delete -f autoscaling/scale-from-zero/scaledobject-sim-zero.yaml -f autoscaling/scale-from-zero/servicemonitor-zero-epp.yaml --ignore-not-found
+> -helm uninstall zero-pool -n inference
+> kubectl delete -f autoscaling/scale-from-zero/sim-zero.yaml --ignore-not-found
+
+probe-zero: ## 0->1 through zero-pool (KEDA does the scale): make probe-zero ARGS="--n 5"
+> $(PY) autoscaling/scale-from-zero/probe_zero.py $(ARGS)
