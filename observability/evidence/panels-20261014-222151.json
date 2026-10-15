@@ -1,0 +1,45 @@
+{
+ "exported_at": "2026-10-14T22:21:51-04:00",
+ "window": [
+  "2026-10-14T22:15:51-04:00",
+  "2026-10-14T22:21:51-04:00"
+ ],
+ "prometheus": "http://10.43.105.58:9090",
+ "panels": [
+  {
+   "title": "Engine queue time p50 / p95",
+   "queries": [
+    {
+     "legend": "p50 {{pool}} (engine)",
+     "expr": "histogram_quantile(0.5, sum by (le, pool) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 25,
+       "min": 1.343307986111111,
+       "max": 1.75,
+       "last": 1.75
+      }
+     ]
+    },
+    {
+     "legend": "p95 {{pool}} (engine)",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 25,
+       "min": 2.0628226009081265,
+       "max": 3.4374999999999982,
+       "last": 3.4374999999999982
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

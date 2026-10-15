@@ -1,0 +1,45 @@
+# EPP availability alerts. Background: deploy/gateway/GAPS.md P2. The InferencePools use
+# failureMode FailOpen, so with the EPP gone agentgateway keeps serving 200s with its own load-blind
+# balancing, and nothing client-visible changes. These alerts are the only signal.
+#
+# Scaling the EPP to 0 removes its scrape target: `up` for it disappears instead of going to 0, so
+# availability comes from kube-state-metrics (deployment replicas), and `up == 0` covers a pod that
+# exists but can't be scraped (crash loop, hang, netpol).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: epp
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  groups:
+    - name: epp
+      rules:
+        - alert: EPPUnavailable
+          # 0 available replicas for an EPP deployment -> its pool is being routed FailOpen (load-blind).
+          expr: kube_deployment_status_replicas_available{namespace="inference",deployment=~".+-pool-epp"} == 0
+          for: 30s      # > one kube-state-metrics scrape + eval (15 s each); a rollout keeps >= 1 available
+          labels: { severity: warning }
+          annotations:
+            summary: "EPP {{ $labels.deployment }} has no available replicas: gateway is FAILING OPEN"
+            description: >-
+              InferencePool {{ $labels.deployment }} (minus -epp) is routed by agentgateway's own load balancer,
+              without queue/KV/prefix awareness. Requests still succeed (GAPS.md P2). Restore the EPP.
+        - alert: EPPFailOpenServing
+          # Same condition, but only while the pool is actually taking traffic: load-blind routing is happening now.
+          expr: |
+            (sum by (pool) (rate(agentgateway_requests_total{namespace="inference"}[1m])) > 0)
+            and on (pool)
+            (label_replace(kube_deployment_status_replicas_available{namespace="inference",deployment=~".+-pool-epp"},
+                           "pool", "$1", "deployment", "(.+)-epp") == 0)
+          for: 30s
+          labels: { severity: warning }
+          annotations:
+            summary: "{{ $labels.pool }} is serving traffic FailOpen (EPP down, load-blind routing)"
+        - alert: EPPScrapeDown
+          # Pod exists but /metrics doesn't answer: crash loop, hang or a NetworkPolicy change.
+          expr: up{namespace="inference",job=~".+-pool-epp"} == 0
+          for: 1m
+          labels: { severity: warning }
+          annotations:
+            summary: "EPP {{ $labels.job }} target is down ({{ $labels.instance }})"

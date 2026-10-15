@@ -1,0 +1,953 @@
+{
+ "exported_at": "2026-10-14T22:21:33-04:00",
+ "window": [
+  "2026-10-14T22:16:33-04:00",
+  "2026-10-14T22:21:33-04:00"
+ ],
+ "prometheus": "http://10.43.105.58:9090",
+ "panels": [
+  {
+   "title": "Engine TTFT p50 / p95",
+   "queries": [
+    {
+     "legend": "p50 {{pool}} (engine)",
+     "expr": "histogram_quantile(0.5, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.027551020408163266,
+       "max": 0.06,
+       "last": 0.06
+      }
+     ]
+    },
+    {
+     "legend": "p95 {{pool}} (engine)",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.053307692307692306,
+       "max": 0.08549999999999998,
+       "last": 0.078
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Engine ITL p50 / p95",
+   "queries": [
+    {
+     "legend": "p50 {{pool}} (engine)",
+     "expr": "histogram_quantile(0.5, sum by (le, pool) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.0175,
+       "max": 0.0175,
+       "last": 0.0175
+      }
+     ]
+    },
+    {
+     "legend": "p95 {{pool}} (engine)",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:inter_token_latency_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.02425,
+       "max": 0.02425,
+       "last": 0.02425
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Gateway request duration p50 / p95 (end of stream, NOT TTFT)",
+   "queries": [
+    {
+     "legend": "p50 {{pool}} (gateway)",
+     "expr": "histogram_quantile(0.5, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.5117543469712253,
+       "max": 0.5625,
+       "last": 0.5625
+      },
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.044565217391304354,
+       "max": 2.9375,
+       "last": 1.75
+      }
+     ]
+    },
+    {
+     "legend": "p95 {{pool}} (gateway)",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.9511754346971225,
+       "max": 0.9562499999999999,
+       "last": 0.9562499999999999
+      },
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.09375,
+       "max": 4.79375,
+       "last": 2.425
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Engine TTFT vs gateway e2e (sim-pool, p95)",
+   "queries": [
+    {
+     "legend": "engine TTFT p95",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.053307692307692306,
+       "max": 0.08549999999999998,
+       "last": 0.078
+      }
+     ]
+    },
+    {
+     "legend": "engine e2e p95",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.2849999999999999,
+       "max": 4.767857142857142,
+       "last": 4.749999999999999
+      }
+     ]
+    },
+    {
+     "legend": "gateway e2e p95",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.09375,
+       "max": 4.79375,
+       "last": 2.425
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Output tokens/s",
+   "queries": [
+    {
+     "legend": "{{pool}} (vllm:generation_tokens_total)",
+     "expr": "sum by (pool) (rate(vllm:generation_tokens_total{namespace=\"inference\"}[1m]))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 61.018181818181816,
+       "last": 0.0
+      }
+     ]
+    },
+    {
+     "legend": "{{pool}} (llamacpp:tokens_predicted_total)",
+     "expr": "sum by (pool) (rate(llamacpp:tokens_predicted_total{namespace=\"inference\"}[1m]))",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 13.727868181818181,
+       "last": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Requests/s (gateway)",
+   "queries": [
+    {
+     "legend": "{{pool}}",
+     "expr": "sum by (pool) (rate(agentgateway_requests_total{namespace=\"inference\"}[1m]))",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 0.6922909090909091,
+       "last": 0.0
+      },
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 1.8363636363636362,
+       "last": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Errors/s (gateway, status >= 400)",
+   "queries": [
+    {
+     "legend": "{{pool}} {{status}}",
+     "expr": "sum by (pool, status) (rate(agentgateway_requests_total{namespace=\"inference\",status=~\"[45]..\"}[1m]))",
+     "series": []
+    }
+   ]
+  },
+  {
+   "title": "Waiting / queued",
+   "queries": [
+    {
+     "legend": "{{pool}} vllm:num_requests_waiting",
+     "expr": "sum by (pool) (vllm:num_requests_waiting{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 4.0,
+       "last": 0.0
+      }
+     ]
+    },
+    {
+     "legend": "{{pool}} llamacpp:requests_deferred",
+     "expr": "sum by (pool) (llamacpp:requests_deferred{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 0.0,
+       "last": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Running / processing",
+   "queries": [
+    {
+     "legend": "{{pool}} vllm:num_requests_running",
+     "expr": "sum by (pool) (vllm:num_requests_running{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 2.0,
+       "last": 0.0
+      }
+     ]
+    },
+    {
+     "legend": "{{pool}} llamacpp:requests_processing",
+     "expr": "sum by (pool) (llamacpp:requests_processing{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 1.0,
+       "last": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "KV-cache usage (sim-pool only)",
+   "queries": [
+    {
+     "legend": "{{pod}}",
+     "expr": "max by (pool, pod) (vllm:kv_cache_usage_perc{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {
+        "pod": "inf-vllm-sim-7565c9d79d-dqc2w",
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 0.0,
+       "last": 0.0
+      },
+      {
+       "metric": {
+        "pod": "inf-vllm-sim-7565c9d79d-xjzbw",
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 0.0,
+       "last": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "In-flight per pool (engine running + waiting)",
+   "queries": [
+    {
+     "legend": "{{pool}}",
+     "expr": "sum by (pool) (vllm:num_requests_running{namespace=\"inference\"} + vllm:num_requests_waiting{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 6.0,
+       "last": 0.0
+      }
+     ]
+    },
+    {
+     "legend": "{{pool}}",
+     "expr": "sum by (pool) (llamacpp:requests_processing{namespace=\"inference\"} + llamacpp:requests_deferred{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 1.0,
+       "last": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "EPP health",
+   "queries": [
+    {
+     "legend": "scrape up {{pool}}",
+     "expr": "up{namespace=\"inference\",job=~\".+-pool-epp\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "up",
+        "container": "epp",
+        "endpoint": "http-metrics",
+        "instance": "10.42.0.24:9090",
+        "job": "sim-pool-epp",
+        "namespace": "inference",
+        "pod": "sim-pool-epp-86695c46ff-nblcg",
+        "pool": "sim-pool",
+        "service": "sim-pool-epp"
+       },
+       "points": 2,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "up",
+        "container": "epp",
+        "endpoint": "http-metrics",
+        "instance": "10.42.0.25:9090",
+        "job": "sim-pool-epp",
+        "namespace": "inference",
+        "pod": "sim-pool-epp-86695c46ff-q2m65",
+        "pool": "sim-pool",
+        "service": "sim-pool-epp"
+       },
+       "points": 16,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "up",
+        "container": "epp",
+        "endpoint": "http-metrics",
+        "instance": "10.42.0.6:9090",
+        "job": "llamacpp-pool-epp",
+        "namespace": "inference",
+        "pod": "llamacpp-pool-epp-678785b7c9-wmlm2",
+        "pool": "llamacpp-pool",
+        "service": "llamacpp-pool-epp"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "available {{deployment}}",
+     "expr": "kube_deployment_status_replicas_available{namespace=\"inference\",deployment=~\".+-pool-epp\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "llamacpp-pool-epp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "sim-pool-epp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 1.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "ready endpoints seen by EPP {{name}}",
+     "expr": "llm_d_epp_ready_endpoints{namespace=\"inference\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "llm_d_epp_ready_endpoints",
+        "container": "epp",
+        "endpoint": "http-metrics",
+        "instance": "10.42.0.24:9090",
+        "job": "sim-pool-epp",
+        "name": "sim-pool",
+        "namespace": "inference",
+        "pod": "sim-pool-epp-86695c46ff-nblcg",
+        "pool": "sim-pool",
+        "service": "sim-pool-epp"
+       },
+       "points": 2,
+       "min": 2.0,
+       "max": 2.0,
+       "last": 2.0
+      },
+      {
+       "metric": {
+        "__name__": "llm_d_epp_ready_endpoints",
+        "container": "epp",
+        "endpoint": "http-metrics",
+        "instance": "10.42.0.25:9090",
+        "job": "sim-pool-epp",
+        "name": "sim-pool",
+        "namespace": "inference",
+        "pod": "sim-pool-epp-86695c46ff-q2m65",
+        "pool": "sim-pool",
+        "service": "sim-pool-epp"
+       },
+       "points": 15,
+       "min": 2.0,
+       "max": 2.0,
+       "last": 2.0
+      },
+      {
+       "metric": {
+        "__name__": "llm_d_epp_ready_endpoints",
+        "container": "epp",
+        "endpoint": "http-metrics",
+        "instance": "10.42.0.6:9090",
+        "job": "llamacpp-pool-epp",
+        "name": "llamacpp-pool",
+        "namespace": "inference",
+        "pod": "llamacpp-pool-epp-678785b7c9-wmlm2",
+        "pool": "llamacpp-pool",
+        "service": "llamacpp-pool-epp"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Replicas per deployment",
+   "queries": [
+    {
+     "legend": "{{deployment}} available",
+     "expr": "kube_deployment_status_replicas_available{namespace=\"inference\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "inf-llamacpp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "inf-vllm-sim",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 2.0,
+       "max": 2.0,
+       "last": 2.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "inference-gateway",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "llamacpp-pool-epp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "sim-pool-epp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 1.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "{{deployment}} desired",
+     "expr": "kube_deployment_spec_replicas{namespace=\"inference\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "inf-llamacpp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "inf-vllm-sim",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 2.0,
+       "max": 2.0,
+       "last": 2.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "inference-gateway",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "llamacpp-pool-epp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      },
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "sim-pool-epp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 0.0,
+       "max": 1.0,
+       "last": 1.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Gateway pre-upstream processing (includes the EPP ext-proc call)",
+   "queries": [
+    {
+     "legend": "mean {{pool}}",
+     "expr": "sum by (pool) (rate(agentgateway_request_processing_seconds_sum{namespace=\"inference\"}[1m])) / sum by (pool) (rate(agentgateway_request_processing_seconds_count{namespace=\"inference\"}[1m]))",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.0011016854285714295,
+       "max": 0.0012384275846740412,
+       "last": 0.0011016854285714295
+      },
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.000331771019999999,
+       "max": 0.001370471238095238,
+       "last": 0.0010859999999999759
+      }
+     ]
+    },
+    {
+     "legend": "p95 {{pool}}",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_processing_seconds_bucket{namespace=\"inference\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.002425,
+       "max": 0.0024944768843865794,
+       "last": 0.002425
+      },
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.00045833333333333327,
+       "max": 0.002489070326773864,
+       "last": 0.002425
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "sim-pool: replicas vs queue vs latency",
+   "queries": [
+    {
+     "legend": "desired replicas",
+     "expr": "kube_deployment_spec_replicas{namespace=\"inference\",deployment=\"inf-vllm-sim\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "inf-vllm-sim",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 2.0,
+       "max": 2.0,
+       "last": 2.0
+      }
+     ]
+    },
+    {
+     "legend": "available replicas",
+     "expr": "kube_deployment_status_replicas_available{namespace=\"inference\",deployment=\"inf-vllm-sim\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "inf-vllm-sim",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 2.0,
+       "max": 2.0,
+       "last": 2.0
+      }
+     ]
+    },
+    {
+     "legend": "queue (running + waiting), the KEDA metric",
+     "expr": "sum(vllm:num_requests_waiting{namespace=\"inference\"}) + sum(vllm:num_requests_running{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {},
+       "points": 21,
+       "min": 0.0,
+       "max": 6.0,
+       "last": 0.0
+      }
+     ]
+    },
+    {
+     "legend": "engine TTFT p95 (s)",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 21,
+       "min": 0.053307692307692306,
+       "max": 0.08549999999999998,
+       "last": 0.078
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "llamacpp-pool: replicas vs queue vs latency",
+   "queries": [
+    {
+     "legend": "desired replicas",
+     "expr": "kube_deployment_spec_replicas{namespace=\"inference\",deployment=\"inf-llamacpp\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "inf-llamacpp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "available replicas",
+     "expr": "kube_deployment_status_replicas_available{namespace=\"inference\",deployment=\"inf-llamacpp\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "inf-llamacpp",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 21,
+       "min": 1.0,
+       "max": 1.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "queue (running + waiting), the KEDA metric",
+     "expr": "sum(llamacpp:requests_deferred{namespace=\"inference\"}) + sum(llamacpp:requests_processing{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {},
+       "points": 21,
+       "min": 0.0,
+       "max": 1.0,
+       "last": 0.0
+      }
+     ]
+    },
+    {
+     "legend": "gateway e2e p95 (s), no TTFT metric",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(agentgateway_request_duration_seconds_bucket{namespace=\"inference\",pool=\"llamacpp-pool\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "llamacpp-pool"
+       },
+       "points": 21,
+       "min": 0.9511754346971225,
+       "max": 0.9562499999999999,
+       "last": 0.9562499999999999
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

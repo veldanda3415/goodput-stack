@@ -150,9 +150,18 @@ obs-up: ## Install kube-prometheus-stack (ns monitoring) + our monitors, rules, 
 
 obs-apply: ## Apply ServiceMonitors/PodMonitors, PrometheusRules and the dashboard ConfigMap
 > kubectl apply -f observability/servicemonitors/ -f observability/alerts/
-> python3 observability/dashboards/render_configmap.py | kubectl apply -f -
+> python3 observability/dashboards/dashboard.py build >/dev/null && python3 observability/dashboards/dashboard.py configmap | kubectl apply -f -
 
 obs-down: ## Remove our monitors and the kube-prometheus-stack release (CRDs stay)
 > -kubectl delete -f observability/servicemonitors/ -f observability/alerts/ --ignore-not-found
 > -kubectl -n monitoring delete configmap inference-dashboard --ignore-not-found
 > helm uninstall kps -n monitoring
+
+keda-up: ## Install KEDA (ns keda), then apply the ScaledObjects in autoscaling/
+> helm repo add kedacore https://kedacore.github.io/charts --force-update >/dev/null
+> helm upgrade --install keda $(KEDA_CHART) --version $(KEDA_VERSION) -n keda --create-namespace -f autoscaling/values-keda.yaml --wait --timeout 5m
+> kubectl apply -f autoscaling/scaledobject-llamacpp.yaml -f autoscaling/scaledobject-vllm-sim.yaml
+
+keda-down: ## Delete the ScaledObjects (HPAs go with them; replicas stay where they are) and uninstall KEDA
+> -kubectl delete -f autoscaling/scaledobject-llamacpp.yaml -f autoscaling/scaledobject-vllm-sim.yaml --ignore-not-found
+> helm uninstall keda -n keda

@@ -1,0 +1,13 @@
+{"t": "2026-10-14T22:16:17.539-04:00", "event": "start", "epp": "sim-pool-epp", "pool": "sim-pool", "original_replicas": 1, "prometheus": "http://10.43.105.58:9090"}
+{"t": "2026-10-14T22:16:47.698-04:00", "event": "scaled", "replicas": 0}
+{"t": "2026-10-14T22:16:53.704-04:00", "event": "alert", "alert": "EPPUnavailable", "target": "sim-pool-epp", "state": "pending", "activeAt": "2026-10-15T02:16:52.44720174Z"}
+{"t": "2026-10-14T22:16:53.704-04:00", "event": "alert", "alert": "EPPFailOpenServing", "target": "sim-pool", "state": "pending", "activeAt": "2026-10-15T02:16:52.44720174Z"}
+{"t": "2026-10-14T22:17:23.723-04:00", "event": "alert", "alert": "EPPUnavailable", "target": "sim-pool-epp", "state": "firing", "activeAt": "2026-10-15T02:16:52.44720174Z"}
+{"t": "2026-10-14T22:17:23.723-04:00", "event": "alert", "alert": "EPPFailOpenServing", "target": "sim-pool", "state": "firing", "activeAt": "2026-10-15T02:16:52.44720174Z"}
+{"t": "2026-10-14T22:17:23.723-04:00", "event": "firing", "alert": "EPPUnavailable", "seconds_after_scale": 36.0}
+{"t": "2026-10-14T22:17:43.886-04:00", "event": "scaled", "replicas": 1}
+{"t": "2026-10-14T22:17:45.999-04:00", "event": "epp_ready"}
+{"t": "2026-10-14T22:17:54.008-04:00", "event": "resolved", "seconds_after_restore": 8.0}
+{"t": "2026-10-14T22:17:54.068-04:00", "event": "gw_request_processing", "phase": "baseline", "requests": 55.0, "mean_ms": 1.354}
+{"t": "2026-10-14T22:17:54.068-04:00", "event": "gw_request_processing", "phase": "epp_down", "requests": 103.0, "mean_ms": 0.21}
+{"t": "2026-10-14T22:17:54.068-04:00", "event": "codes", "codes": {"baseline:200": 55, "epp_down:200": 103, "restored:200": 18}}
