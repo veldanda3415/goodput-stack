@@ -58,7 +58,7 @@ def up():
     kubectl("wait", "--for=condition=Ready", "node", "--all", "--timeout=180s")
     for n in subprocess.run(["kubectl", "--kubeconfig", KUBECONFIG, "get", "nodes", "-l", "gpu-pool=t4", "-o", "name"],
                             capture_output=True, text=True).stdout.split():
-        kubectl("taint", n, "nvidia.com/gpu=present:NoSchedule", "--overwrite")
+        kubectl("taint", "node", n.split("/")[-1], "nvidia.com/gpu=present:NoSchedule", "--overwrite")
     kubectl("get", "nodes", "-L", "gpu-pool,topology.goodput/block,topology.goodput/rack")
 
 
