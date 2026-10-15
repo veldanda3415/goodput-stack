@@ -33,7 +33,7 @@ for the same reasons (S12).
 
 | Network | Carries | Reference link speed | Reference switch | Why it is separate |
 |---|---|---|---|---|
-| **Scale-up** (NVLink/NVSwitch) | Tensor-parallel all-reduces, expert-parallel all-to-all inside a node, and forwarding between rails | 450 GB/s per GPU per direction on H100 (S4; the 900 GB/s figure counts both directions, S3) | NVSwitch inside the node | It has about 9× the per-GPU bandwidth of a 400G NIC (450 GB/s vs 50 GB/s) and uses memory semantics. Traffic that fits inside a node should stay there. |
+| **Scale-up** (NVLink/NVSwitch) | Tensor-parallel all-reduces, expert-parallel all-to-all inside a node, and forwarding between rails | 450 GB/s per GPU per direction on H100 (S4; the 900 GB/s figure counts both directions, S3) | NVSwitch inside the node | It has about 9× the per-GPU bandwidth of a 400G NIC (450 GB/s vs 400 Gb/s ÷ 8 = 50 GB/s; CALCULATED) and uses memory semantics. Traffic that fits inside a node should stay there. |
 | **Scale-out backend** (compute fabric; RoCE v2 or InfiniBand) | Data-parallel gradient all-reduce, pipeline-parallel sends, cross-node expert traffic, and inference KV-cache transfer | 400 Gb/s per GPU, 8 NICs per node (S1) | 51.2 Tb/s class: SN5600 64×800G / 128×400G (S6), Tomahawk 5 (S7), Quantum-2 QM9700 64×400G (S8) | Few, very large, synchronised flows at line rate (S12). It is non-blocking, lossless or congestion-controlled, and isolated so that other traffic cannot slow a collective. |
 | **Front-end** (in-band, north-south) | Job launch, data ingestion, checkpoints, logging (S12), user traffic, and Kubernetes | 2 × 100G bonded per node in the SuperPOD in-band network (S10) | SN4600C 64×100G (S10) | It is bursty and many-to-many, it can be oversubscribed, and it must reach the outside world. |
 | **Storage** | Dataset reads and checkpoint writes | ≥ 40 GB/s per node in the SuperPOD (S10) | QM9700 in a separate storage fabric (S10) | It can share the front-end or be its own fabric. The SuperPOD keeps it separate so that checkpoint bursts do not land on the in-band network. |
@@ -41,7 +41,7 @@ for the same reasons (S12).
 
 The table below gives sizes for the networks other than the backend.
 Front-end oversubscription (A10), the front-end minimum spine count (A11) and
-one OOB port per switch (A12) are assumptions:
+one OOB port per switch (A12) are assumptions. Command: `python -m fabric.design.sizing`.
 
 <!-- design-table:other-networks -->
 **Front-end, storage and out-of-band networks** — CALCULATED
@@ -53,7 +53,7 @@ one OOB port per switch (A12) are assumptions:
 <!-- /design-table -->
 
 Storage: at 256 GPUs the aggregate demand of about 10 Tb/s is only one fifth
-of the backend's 51.2 Tb/s bisection (§3). It is still large enough that
+of the backend's 51.2 Tb/s bisection (§3; both CALCULATED). It is still large enough that
 mixing it with collectives on one fabric would need QoS separation, and that
 is why S10 gives storage its own fabric. OOB: one or a few 48-port 1G
 switches; size it per rack in practice.
@@ -177,7 +177,7 @@ How to read the tables:
 
 - **8B, pure DP.** The 16 GB gradient (8 B params × 2 B) is all-reduced once
   per step. Hierarchical reduction cuts the bytes each GPU sends on its NIC to
-  2·31/32 · 16/8 = 3.875 GB, against 31.9 GB for a flat ring over 256 GPUs.
+  2·31/32 · 16/8 = 3.875 GB, against 2·255/256 · 16 = 31.9 GB for a flat ring over 256 GPUs (CALCULATED).
   Each GPU's share crosses the fabric on its own rail, so the gradient
   all-reduce is rail-local traffic.
 - **70B, TP 8 · PP 4 · DP 8.** TP produces the most bytes (≈ 300 GB per GPU
@@ -348,7 +348,8 @@ What the counts show:
 
 Each spine port reaches a different leaf, so a 2-tier Clos has at most *k*
 leaves × *k/2* hosts = **k²/2** endpoints. A 3-tier fat tree has *k* pods ×
-*k²/4* = **k³/4**. Hops between GPUs go from 3 to 5.
+*k²/4* = **k³/4**. Hops between GPUs go from 3 to 5. Command:
+`python -m fabric.design.sizing`.
 
 <!-- design-table:ceiling -->
 **Where two tiers stop (non-blocking; one NIC per GPU)** — CALCULATED
@@ -372,7 +373,7 @@ Meta's AI Zone adds an ATSW layer above the RTSW/CTSW Clos (S12).
 >
 > | Input | Default | If it changes… |
 > |---|---|---|
-> | NICs per node (S1) | 8, one per GPU | With 4 NICs/node (2 GPUs per NIC), rails halve, NIC links halve, and the hierarchical all-reduce puts 2× the bytes on each NIC. The rail argument still holds; the counts in §3.2 roughly halve. |
+> | NICs per node (S1) | 8, one per GPU | With 4 NICs/node (2 GPUs per NIC), rails halve, NIC links halve, and the hierarchical all-reduce puts 2× the bytes on each NIC (same node total over half the NICs). The rail argument still holds; rerun `sizing.py` with `nics_per_node: 4` for counts. |
 > | NIC speed vs. switch radix (S1, S6) | 400G → k = 128 | At 800G NICs k = 64: the 2-tier ceiling falls from 8,192 to 2,048 GPUs, and 2,048 GPUs no longer has headroom. This is the conclusion most sensitive to hardware generation. |
 > | Network efficiency (A1) | 0.80 | Every scale-out time scales by 1/efficiency. Results are linear, so 0.9 gives about 11 % faster times. No topology conclusion changes. |
 > | MFU and overlap (A5, A6) | 0.40, none | The one-slow-link job slowdown (+8.3 %) is an upper bound. With full overlap of DP traffic it could approach 0 while compute hides it, and with lower MFU it shrinks further. The +55 % collective slowdown does not depend on these. |
@@ -393,8 +394,8 @@ link-local addresses with RFC 8950 next hops, two-way ECMP, and BFD at
 |---|---|---|---|
 | Rails (one NIC per GPU index) | 2 rails, one NIC per rail per host | 8 rails (S1); a leaf group per rail (S9) | **Yes** for the design logic: per-rail addressing, source-policy routing per NIC, and the validator check of "exactly one NIC per rail" |
 | Leaf-spine Clos, eBGP, unique leaf ASN | 2 × 4, eBGP unnumbered, spine AS 65000 (RFC 7938) | Same pattern at 8–32 leaves × 2–16 spines (§3.2) | **Yes** for the control-plane design; the intent/render model scales by data, not by code |
-| ECMP | 2-way, Linux kernel hash (E1) | 64-way or wider in ASIC hash, with adaptive routing or spraying options | **Concept only.** E1 shows the low-entropy problem, but it measured Linux hashing, not an ASIC |
-| Failure detection | BFD: silent-loss recovery about 1.0–1.1 s vs 7.9–9.7 s on the hold timer (E2) | BFD or ASIC link-fault signalling, with sub-second targets | **Concept only.** The timings are veth/kernel timings |
+| ECMP | 2-way, Linux kernel hash (E1) | Wide ECMP in the switch ASIC hash, with adaptive routing or spraying options (vendor-specific) | **Concept only.** E1 shows the low-entropy problem, but it measured Linux hashing, not an ASIC |
+| Failure detection | BFD: silent-loss recovery about 1.0–1.1 s vs 7.9–9.7 s on the hold timer (E2) | BFD or ASIC link-fault signalling, with timers validated on the target platform | **Concept only.** The timings are veth/kernel timings |
 | Line rate | veth, no rate | 400G per NIC, 51.2T per switch | **No** |
 | Buffers, PFC, ECN/DCQCN | none | A lossless or congestion-controlled RoCE v2 class (§5) | **No.** F3 starts Soft-RoCE/QoS |
 | ASIC hashing, adaptive routing, packet spraying | none | Vendor features (Spectrum-X, Tomahawk 5 / Jericho, InfiniBand AR) | **No** |
