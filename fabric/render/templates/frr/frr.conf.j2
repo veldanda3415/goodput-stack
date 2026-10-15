@@ -1,0 +1,48 @@
+frr defaults traditional
+hostname {{ node.name }}
+log stdout
+service integrated-vtysh-config
+!
+ip forwarding
+ipv6 forwarding
+!
+interface lo
+ ip address {{ node.loopback }}
+!
+{% for interface, address in host_addresses.items() %}
+interface {{ interface }}
+ ip address {{ address }}
+!
+{% endfor %}
+{% if intent.bfd.enabled %}
+bfd
+ profile FABRIC
+  transmit-interval {{ intent.bfd.transmit_ms }}
+  receive-interval {{ intent.bfd.receive_ms }}
+  detect-multiplier {{ intent.bfd.detect_multiplier }}
+!
+{% endif %}
+router bgp {{ node.asn }}
+ bgp router-id {{ node.loopback.split('/')[0] }}
+ no bgp default ipv4-unicast
+ bgp log-neighbor-changes
+ neighbor FABRIC peer-group
+ neighbor FABRIC remote-as external
+ neighbor FABRIC timers {{ intent.bgp.keepalive_seconds }} {{ intent.bgp.hold_seconds }}
+{% if intent.bgp.extended_nexthop %}
+ neighbor FABRIC capability extended-nexthop
+{% endif %}
+{% if intent.bfd.enabled %}
+ neighbor FABRIC bfd profile FABRIC
+{% endif %}
+{% for interface in neighbors %}
+ neighbor {{ interface }} interface peer-group FABRIC
+{% endfor %}
+ address-family ipv4 unicast
+{% for prefix in advertised_prefixes %}
+  network {{ prefix }}
+{% endfor %}
+  neighbor FABRIC activate
+  maximum-paths {{ intent.ecmp_width }}
+ exit-address-family
+!

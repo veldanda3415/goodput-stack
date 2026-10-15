@@ -201,6 +201,32 @@ zero-down: ## Remove the zero-pool scratch pool
 probe-zero: ## 0->1 through zero-pool (KEDA does the scale): make probe-zero ARGS="--n 5"
 > $(PY) autoscaling/scale-from-zero/probe_zero.py $(ARGS)
 
+# ---- AI fabric lab (fabric/README.md; EMULATED) ----------------------------------------------
+.PHONY: fabric-render fabric-up fabric-down fabric-test fabric-e1 fabric-e2
+FABRIC_PY := .venv/bin/python
+FABRIC_TOPO := fabric/build/topology.clab.yml
+FABRIC_RUNTIME ?= podman
+
+fabric-render: ## Validate fabric intent and render FRR + containerlab configs
+> python3 -m venv .venv
+> $(FABRIC_PY) -m pip install -q -r fabric/requirements.txt
+> $(FABRIC_PY) -m fabric.render.render
+
+fabric-up: fabric-render ## Deploy the EMULATED containerlab fabric
+> containerlab deploy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
+
+fabric-down: ## Destroy the EMULATED containerlab fabric
+> containerlab destroy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
+
+fabric-test: fabric-render ## Validate fabric intent and running-lab state with pytest
+> $(FABRIC_PY) -m pytest -q fabric/tests
+
+fabric-e1: fabric-render ## Run E1 ECMP hash-policy experiment (EMULATED)
+> $(FABRIC_PY) -m fabric.experiments.e1
+
+fabric-e2: fabric-render ## Run E2 BFD convergence experiment (EMULATED)
+> $(FABRIC_PY) -m fabric.experiments.e2
+
 # ---- scheduling (SIMULATED GPUs on k3d `gpusim`; kubeconfig ~/.kube/gpusim.yaml, never the k3s one) ----
 .PHONY: gpusim-up gpusim-down gpusim-status gpusim-operator gpusim-kueue gpusim-health gpusim-health-run
 gpusim-up: ## Create k3d cluster gpusim (1 server + 3 agents, k3s v1.36.2+k3s1; 2 agents = GPU pool t4)
