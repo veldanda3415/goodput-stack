@@ -178,6 +178,12 @@ gateway:
     - name: http
       protocol: HTTP
       port: 80
+  # agentgateway proxy Deployment, via an AgentgatewayParameters referenced from Gateway.spec.infrastructure
+  # (fields: `kubectl explain agentgatewayparameters.spec`). Empty/0 replicas = controller default (1), no params object.
+  proxy:
+    replicas: 0             # per environment; >= 2 removes the refused-connection window of a pod kill (GAPS.md P7, #20)
+    pdbMinAvailable: 1      # PodDisruptionBudget, rendered only when replicas >= 2
+    softAntiAffinity: true  # prefer different nodes (no-op on one node, matters once there are 2+)
 
 # NetworkPolicy for the backend pods (llama.cpp and the simulator, one policy each). With Ingress
 # in policyTypes, the selected pods deny ALL inbound traffic except what a rule allows. Policies

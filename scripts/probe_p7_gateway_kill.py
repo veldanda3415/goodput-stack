@@ -13,6 +13,9 @@ the gateway Deployment's spec.selector.matchLabels, not hardcoded). Records:
            never occupy a llama.cpp slot and can't blur the slot signal.
 
 llamacpp-pool on purpose: llama.cpp cancels a stream when a write fails (P3, direct); the sim never cancels.
+With more than one gateway replica, only the pod carrying the stream is deleted (--target stream, found from
+agentgateway_downstream_connections_total before/after the stream connects); --ping-window keeps the
+recovery pings going for a fixed time so a survivor's 200s are visible.
 --grace-period is passed to `kubectl delete` (default: the pod's own terminationGracePeriodSeconds, i.e. a
 graceful drain; 1 = near-immediate kill).
 """
@@ -22,6 +25,7 @@ import httpx
 NS, MODEL = "inference", "qwen2.5-0.5b-instruct"
 LLAMA_SELECTOR = "llm-d.ai/engine-type=llamacpp"
 PROC_RE = re.compile(r'^llamacpp:requests_processing\s+([0-9.e+]+)', re.M)
+CONN_RE = re.compile(r'^agentgateway_downstream_connections_total\{[^}]*\}\s+([0-9.e+]+)', re.M)
 
 
 def kubectl(*args: str, check: bool = True) -> str:
@@ -40,6 +44,22 @@ def gw_pods(selector: str) -> dict[str, bool]:
     return {p["metadata"]["name"]: any(c["type"] == "Ready" and c["status"] == "True"
                                        for c in p["status"].get("conditions", []))
             for p in items if not p["metadata"].get("deletionTimestamp")}
+
+
+def gw_conns(selector: str) -> dict[str, float]:
+    """name -> agentgateway_downstream_connections_total (0 before a pod's first connection), Running pods."""
+    items = json.loads(kubectl("get", "pods", "-l", selector, "-o", "json"))["items"]
+    out = {}
+    for p in items:
+        ip = p["status"].get("podIP")
+        if p["metadata"].get("deletionTimestamp") or not ip:
+            continue
+        try:
+            txt = httpx.get(f"http://{ip}:15020/metrics", timeout=2).text
+            out[p["metadata"]["name"]] = sum(float(m.group(1)) for m in CONN_RE.finditer(txt))
+        except Exception:
+            out[p["metadata"]["name"]] = float("nan")
+    return out
 
 
 def llama_ip() -> str:
@@ -86,7 +106,20 @@ async def kill(a, selector: str, st: dict, kill_evt: asyncio.Event) -> None:
     await kill_evt.wait()
     if "tokens_at_kill" not in st:                    # stream ended before K tokens: no kill
         return
-    st["old_pods"] = list(gw_pods(selector))
+    # With >1 gateway replica, kill only the pod that accepted the stream's connection: the one whose
+    # downstream connection counter went up since the snapshot taken just before the stream started.
+    # --target all keeps the original behaviour (delete every gateway pod).
+    pods = list(gw_pods(selector))
+    if a.target == "stream" and len(pods) > 1:
+        now = gw_conns(selector)
+        grew = [n for n in pods if now.get(n, 0) > st["conns0"].get(n, 0)]
+        st["stream_pod_candidates"] = grew
+        if len(grew) != 1:
+            st["error_kill"] = f"cannot tell the stream's pod: connection counters grew on {grew}"
+            return
+        pods = grew
+        st["survivors"] = [n for n in gw_pods(selector) if n not in pods]
+    st["old_pods"] = pods
     st["t_kill"] = time.monotonic()
     st["kill_utc"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds")
     args = ["delete", "pod", *st["old_pods"], "--wait=false"]
@@ -114,7 +147,7 @@ async def watch_recovery(a, selector: str, st: dict) -> None:
         if "end" in st:
             return
         await asyncio.sleep(0.05)
-    t0, old = st["t_kill"], set(st["old_pods"])
+    t0, old = st["t_kill"], set(st["old_pods"]) | set(st.get("survivors", []))   # "new" = the replacement only
     pings, ready_at = [], None
     body = {"model": MODEL, "max_tokens": 1, "messages": [{"role": "user", "content": "ping"}]}
     while time.monotonic() - t0 < a.recover_window:
@@ -132,19 +165,20 @@ async def watch_recovery(a, selector: str, st: dict) -> None:
         except Exception as e:
             res = type(e).__name__
         pings.append((round(t, 2), res))
-        if ready_at is not None and res == 200 and t >= ready_at:
+        if ready_at is not None and res == 200 and t >= ready_at and t >= a.ping_window:
             break
         await asyncio.sleep(0.5)
     st["new_ready_s"], st["pings"] = ready_at, pings
 
 
 async def wait_settled(a, selector: str, url: str) -> None:
-    """Start from: exactly one Ready gateway pod, none terminating, llama.cpp idle."""
+    """Start from: as many Ready gateway pods as the Deployment wants, none terminating, llama.cpp idle."""
+    want = int(kubectl("get", "deploy", a.gateway_deploy, "-o", "jsonpath={.spec.replicas}"))
     async with httpx.AsyncClient() as c:
         for _ in range(240):
             items = json.loads(kubectl("get", "pods", "-l", selector, "-o", "json"))["items"]
             pods = gw_pods(selector)
-            if len(items) == 1 and all(pods.values()) and await processing(c, url) == 0:
+            if len(items) == want and all(pods.values()) and await processing(c, url) == 0:
                 return
             await asyncio.sleep(0.5)
     raise SystemExit("not settled after 120 s (gateway pods or llama.cpp busy)")
@@ -154,7 +188,8 @@ def summarise(st: dict) -> dict:
     t0 = st.get("t_kill")
     rel = lambda t: round(t - t0, 2)
     out = {k: st.get(k) for k in ("kill_utc", "status", "tokens_at_kill", "tokens", "done",
-                                  "finish_reason", "error", "old_pods", "new_pod", "new_ready_s")}
+                                  "finish_reason", "error", "old_pods", "new_pod", "new_ready_s",
+                                  "survivors", "stream_pod_candidates", "error_kill")}
     if t0 is None:
         out["note"] = "stream ended before --kill-after tokens; no kill"
         return out
@@ -185,7 +220,7 @@ async def main(a) -> None:
     print(f"slot gauge  : {url}   grace-period: {a.grace_period if a.grace_period is not None else 'pod default'}")
     for i in range(1, a.runs + 1):
         await wait_settled(a, selector, url)
-        st, ev = {}, asyncio.Event()
+        st, ev = {"conns0": gw_conns(selector)}, asyncio.Event()
         await asyncio.gather(stream(a, st, ev), kill(a, selector, st, ev),
                              watch_slot(a, url, st), watch_recovery(a, selector, st))
         s = {"run": i, "grace_period": a.grace_period, "max_tokens": a.max_tokens, **summarise(st)}
@@ -202,6 +237,7 @@ async def main(a) -> None:
         print(f"  gateway: new pod {s.get('new_pod')} Ready {s.get('new_ready_s')} s after kill; "
               f"first 200 {s.get('first_200_s')} s, first 200 after Ready {s.get('first_200_after_ready_s')} s, "
               f"failed pings {s.get('pings_failed')}")
+        print(f"  killed : {s.get('old_pods')}  survivors: {s.get('survivors')}  {s.get('error_kill') or ''}")
     print(f"\nraw: {out_file}")
 
 
@@ -216,5 +252,9 @@ if __name__ == "__main__":
     p.add_argument("--recover-window", type=float, default=120.0, help="s to wait for Ready + first 200")
     p.add_argument("--read-timeout", type=float, default=30.0, help="client read timeout on the stream")
     p.add_argument("--runs", type=int, default=3)
+    p.add_argument("--target", choices=["stream", "all"], default="stream",
+                   help="with >1 gateway pod: delete only the stream's pod (default) or every pod")
+    p.add_argument("--ping-window", type=float, default=0.0,
+                   help="keep pinging at least this many s after the kill (default: stop at first 200 after Ready)")
     p.add_argument("--out-dir", default="benchmarks/results/probes/p7")
     asyncio.run(main(p.parse_args()))

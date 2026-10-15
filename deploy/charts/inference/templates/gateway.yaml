@@ -12,6 +12,47 @@ metadata:
     {{- include "inference.labels" . | nindent 4 }}
 spec:
   gatewayClassName: {{ $g.className }}
+  {{- if gt (int $g.proxy.replicas) 0 }}
+  infrastructure:
+    parametersRef:
+      group: agentgateway.dev
+      kind: AgentgatewayParameters
+      name: {{ $g.name }}-proxy
+  {{- end }}
   listeners:
     {{- toYaml $g.listeners | nindent 4 }}
+{{- end }}
+{{- if and $g.enabled (gt (int $g.proxy.replicas) 0) }}
+---
+# Proxy Deployment overrides for the Gateway above (agentgateway v1.6.0 AgentgatewayParameters, v1alpha1).
+# deployment.spec / podDisruptionBudget.spec are strategic-merge overlays onto what the controller generates;
+# the PDB selector is filled in by the controller.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: {{ $g.name }}-proxy
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  deployment:
+    spec:
+      replicas: {{ $g.proxy.replicas }}
+      {{- if $g.proxy.softAntiAffinity }}
+      template:
+        spec:
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    topologyKey: kubernetes.io/hostname
+                    labelSelector:
+                      matchLabels:
+                        gateway.networking.k8s.io/gateway-name: {{ $g.name }}
+      {{- end }}
+  {{- if ge (int $g.proxy.replicas) 2 }}
+  podDisruptionBudget:
+    spec:
+      minAvailable: {{ $g.proxy.pdbMinAvailable }}
+  {{- end }}
 {{- end }}

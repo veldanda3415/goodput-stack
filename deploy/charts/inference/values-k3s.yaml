@@ -22,6 +22,8 @@ sim:
 # agentgateway v1.6.0 is installed on this cluster; the LB (k3s ServiceLB) hands out 192.168.117.204.
 gateway:
   enabled: true
+  proxy:
+    replicas: 2             # #20. Both land on the one node: removes the single-pod gap, not the node SPOF (GAPS.md P7)
   listeners:
     - name: http
       protocol: HTTP
