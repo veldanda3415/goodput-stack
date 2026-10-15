@@ -14,7 +14,7 @@ does and does not do, tested on the k3s lab (single node `ravi-home`, ns `infere
 | P3 | Client disconnect | **not propagated by the gateway within 15 s** | new issue (upstream draft below) |
 | P4 | llama.cpp KV / capacity signal | missing; KV scorer contributes nothing | #15 |
 | P5 | Pool choice by prompt size / SLO | header only | #11 (design) |
-| P6 | Admission / scale-from-zero | engine queues, gateway doesn't | #10 (design) |
+| P6 | Admission / scale-from-zero | default: engine queues, gateway doesn't. EPP flow control (experimental) holds requests at 0 replicas and exports a queue KEDA can activate on; agentgateway cuts a held request at 10 s | #10 (works on a scratch pool, autoscaling/README.md) |
 | P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s. 1 replica: ~1 s of refused connections; **2 replicas + PDB: 0 failed new requests**, the killed pod's stream is still lost | #20 (2 replicas in chart), HA → #19 |
 | P9 | Burst inside one EPP metrics refresh | no 8/0 herding; per-run split up to 7/1 vs always 4/4 when spaced (sim-pool, SIMULATED) | #22 |
 
@@ -168,6 +168,15 @@ There is **no KV-cache usage** gauge and **no total-slot** gauge. `n_busy_slots_
 **Evidence.** Both EPPs log `"Experimental Flow Control layer is disabled, using legacy admission control"` (`kubectl -n inference logs deploy/sim-pool-epp | grep -i "flow control"`, same for llamacpp-pool-epp). Under overload the request queues **in the engine** (`requests_deferred`), not at the gateway: in the earlier 7b evidence a request queued ~40 s inside llama.cpp.
 
 **Verdict.** No gateway-level queue or shedding today. With 0 replicas there is nothing to queue at, and the request fails.
+
+**Update (2026-10-14, SIMULATED scratch pool `zero-pool`, details in [autoscaling/README.md](../../autoscaling/README.md)).**
+With `featureGates: [flowControl]` in the EndpointPickerConfig, the v0.9.0 EPP logs `Initializing experimental Flow Control
+layer`, queues requests while the pool has 0 endpoints and exports `llm_d_epp_flow_control_queue_size`. A KEDA ScaledObject
+(min 0) on that metric brought the pool 0→1 with 20/20 requests answered 200 over 4 runs (first token 4.46–7.24 s after the
+first request). Without flow control: 5/5 immediate `HTTP 503 … failed to find endpoint candidates` and no scale-up.
+New limit: agentgateway cancels the held ext_proc call at 10.0 s (`HTTP 500: ext_proc failed: no more response messages`),
+and `AgentgatewayPolicy` extProc has no timeout field, so detection + pod start must fit in 10 s. sim-pool and
+llamacpp-pool stay at minReplicaCount 1.
 
 **Design notes.** Scale-from-zero needs (1) KEDA scaling on EPP/engine queue metrics, and (2) an activator-style hold: the gateway/EPP keeps the request while a pod starts (warm bring-up ≈ 4 s, see `scripts/README.md`), with a deadline. Evaluate EPP Flow Control (queueing + fairness at the EPP) as that hold before building one. P3 matters here: abandoned requests would inflate the queue signal KEDA scales on.
 
@@ -323,6 +332,6 @@ All need `kubectl` access to ns `inference` and the gateway LB reachable from th
 - Sim disconnect behaviour in newer sim releases (only v0.10.2 tested).
 - P1 on llamacpp-pool with 2+ replicas (only 1 replica today); balance quality at moderate load.
 - BBR on agentgateway.
-- EPP Flow Control enabled.
+- EPP Flow Control on the live pools (only the scratch `zero-pool` has it); its behaviour under saturation (not just 0 endpoints).
 - TLS on :443 (no cert; #17).
 - P7: a stream longer than the gateway's 60 s grace period; HTTP/2 clients; which pod served the pings during a graceful drain; a graceful (default-grace) delete with 2 replicas.
