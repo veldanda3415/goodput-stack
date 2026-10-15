@@ -1,0 +1,10 @@
+# Overlay: DRA mode instead of the legacy device plugin (README "Enable DRA plugin in Helm chart", v0.2.1).
+# While this is applied, nvidia.com/gpu is NOT in node allocatable. Switch back with `make gpusim-operator`.
+devicePlugin:
+  enabled: false
+draPlugin:
+  enabled: true
+  kubeletPlugin:
+    # default tolerations are [] (values.yaml v0.2.1), so the t4 taint would keep the plugin off the GPU nodes
+    tolerations:
+      - {key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}

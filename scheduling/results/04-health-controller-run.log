@@ -1,0 +1,25 @@
+{"ts": 1792076912.004, "event": "start", "condition": "GPUXidError"}
+{"ts": 1792076919.036, "event": "signal_seen", "node": "k3d-gpusim-agent-0", "condition": "GPUXidError"}
+{"ts": 1792076919.394, "event": "cordoned", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076920.247, "event": "workload_deactivated", "ns": "team-a", "workload": "job-health-job-2bb77", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076920.636, "event": "workload_reactivated", "ns": "team-a", "workload": "job-health-job-2bb77", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076920.811, "event": "tainted", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076926.339, "event": "signal_cleared", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076926.523, "event": "untainted", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076926.921, "event": "uncordoned", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076942.921, "event": "signal_seen", "node": "k3d-gpusim-agent-1", "condition": "GPUXidError"}
+{"ts": 1792076943.279, "event": "cordoned", "node": "k3d-gpusim-agent-1"}
+{"ts": 1792076944.324, "event": "workload_deactivated", "ns": "team-a", "workload": "job-health-job-2bb77", "node": "k3d-gpusim-agent-1"}
+{"ts": 1792076944.73, "event": "workload_reactivated", "ns": "team-a", "workload": "job-health-job-2bb77", "node": "k3d-gpusim-agent-1"}
+{"ts": 1792076944.923, "event": "tainted", "node": "k3d-gpusim-agent-1"}
+{"ts": 1792076947.173, "event": "signal_cleared", "node": "k3d-gpusim-agent-1"}
+{"ts": 1792076947.356, "event": "untainted", "node": "k3d-gpusim-agent-1"}
+{"ts": 1792076947.755, "event": "uncordoned", "node": "k3d-gpusim-agent-1"}
+{"ts": 1792076963.79, "event": "signal_seen", "node": "k3d-gpusim-agent-0", "condition": "GPUXidError"}
+{"ts": 1792076964.15, "event": "cordoned", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076965.908, "event": "workload_deactivated", "ns": "team-a", "workload": "job-health-job-2bb77", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076966.33, "event": "workload_reactivated", "ns": "team-a", "workload": "job-health-job-2bb77", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076966.519, "event": "tainted", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076969.889, "event": "signal_cleared", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076970.075, "event": "untainted", "node": "k3d-gpusim-agent-0"}
+{"ts": 1792076970.463, "event": "uncordoned", "node": "k3d-gpusim-agent-0"}

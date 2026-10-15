@@ -64,7 +64,7 @@ flowchart LR
 | [router/](router/) | placeholder for a custom router. Not built: routing is agentgateway + Gateway API Inference Extension + the llm-d EPP. Revisit only for SLO/size routing the EPP can't do (#11) | not built |
 | [observability/](observability/) | kube-prometheus-stack, monitors for gateway/EPPs/engines, inference dashboard, EPP alerts | in use (lab) |
 | [autoscaling/](autoscaling/) | KEDA on queue depth (both pools), step load generator, scale-from-zero experiment (#10) | in use (lab) |
-| [scheduling/](scheduling/) | fake GPUs, device plugin vs DRA, time-slicing, Kueue (k3d multi-node) | planned |
+| [scheduling/](scheduling/) | fake GPUs, device plugin vs DRA, Kueue quotas, GPU node health (k3d multi-node, SIMULATED GPUs) | in use (simulated) |
 | [fabric/](fabric/) | leaf-spine intent model, eBGP unnumbered, RoCE v2 design (intent only) | planned |
 
 ## Quick start (k3s lab)

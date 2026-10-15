@@ -1,0 +1,13 @@
+# fake-gpu-operator v0.2.1 values. SIMULATED GPUs: nothing is detected from hardware.
+# Keys: deploy/fake-gpu-operator/values.yaml + README "GPU Topology" at tag v0.2.1
+# (https://github.com/run-ai/fake-gpu-operator/tree/v0.2.1).
+topology:
+  nodePools:
+    t4:                      # nodes labelled run.ai/simulated-gpu-node-pool=t4
+      gpuProduct: Tesla-T4
+      gpuCount: 2
+      gpuMemory: 15360       # MiB, a T4 reports ~15 GiB usable
+# k3s auto-creates RuntimeClass "nvidia" (handler nvidia, owned by its addon); the chart's own
+# (handler runc) would collide with it. Sim pods don't set runtimeClassName, so skip it.
+runtimeClass:
+  enabled: false
