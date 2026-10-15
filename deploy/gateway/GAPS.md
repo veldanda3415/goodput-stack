@@ -315,11 +315,36 @@ All 208 requests returned 200. Worst burst run (3-repeat series, #2): 0.3 s afte
 - **But burst balance is luck, spaced balance is load-aware.** Spaced requests were split 4/4 every time, because each pick saw the previous ones in the scraped `running`/`waiting`. Burst splits scattered from 4/4 to 7/1. That is consistent with every burst request getting the same scores and the picker breaking ties randomly, which the probe can't prove (no per-request scores logged). The cost is a queue on one pod while the other has free slots.
 - At 2 pods × 2 slots the damage is bounded. With more pods and larger bursts (agent fan-out, batch clients), a stale snapshot with random tie-breaks leaves capacity idle in the same way. The sim's timing is synthetic, but the routing decisions are real EPP behaviour.
 
-**Update (2026-10-15, v4 logs, `benchmarks/results/probes/burst/p22-epp-log-*.txt`).** In 24 of 24 burst requests (stock profile) queue-scorer gave every endpoint the same score (all 1: min-max over equal values), so ties are decided by `max-score-picker`, which shuffles equal-score candidates (`pkg/epp/framework/plugins/scheduling/picker/maxscore/picker.go:91-92`). Whether requests share one metrics snapshot cannot be told from scores alone; they were all equal. With `token-load-scorer` on, the in-flight counter changes between requests inside a burst (e.g. 0.992 -> 0.984 -> 0.977), and 4 of 5 bursts split 4/4 (one 5/3); stock sample in the same log: 6/2, 4/4, 5/3 (n small).
+**Update (2026-10-15, v4 logs, `benchmarks/results/probes/burst/p22-epp-log-*.txt`).** In 24 of 24 burst requests (stock profile) queue-scorer gave every endpoint the same score (all 1: min-max over equal values), so ties are decided by `max-score-picker`, which shuffles equal-score candidates (`pkg/epp/framework/plugins/scheduling/picker/maxscore/picker.go:91-92`). Whether requests share one metrics snapshot cannot be told from scores alone; they were all equal. With `token-load-scorer` on, the in-flight counter changes between requests inside a burst (e.g. 0.992 -> 0.984 -> 0.977), and 4 of 5 bursts split 4/4 (one 5/3); stock sample in the same log (3 bursts): 6/2, 5/3, 5/3 (n small).
 
 **Next.** (a) done above. (b) Repeat with in-flight accounting, if the EPP has a plugin that counts requests it has routed but not yet seen in metrics (not checked). (c) Larger N and a shorter refresh (e.g. `--refresh-metrics-interval 10ms`) to see whether the spread changes. (d) llamacpp-pool once it has ≥ 2 replicas.
 
 **Side observation.** Gateway responses carry `x-went-into-resp-headers: true` (`curl -D -` through the gateway to sim-pool). It looks like a debug header from the response-headers path and is visible to clients. Source not checked.
+
+---
+
+## #19 / #21 follow-ups (2026-10-15)
+
+**#19 (source read, agentgateway v1.6.0 at the tag; not exhaustive).** Timeouts that exist: `requestTimeout`, `backendRequestTimeout`,
+`responseIdleTimeout` (`controller/api/v1alpha1/agentgateway/agentgateway_policy_types.go` ~l.2624; `crates/agentgateway/src/http/timeout.rs`).
+A grep for a setting that propagates a downstream disconnect to the upstream found none; P3 measured no propagation within 15 s. A request
+deadline therefore exists (`requestTimeout`/`backendRequestTimeout`) but is not a disconnect substitute for a long stream.
+
+**#21 capacity (SIMULATED, `scripts/probe_capacity.py`, p8-pool with max-num-seqs 256 x 2 pods, short non-streaming requests, 10 s per level, raw `benchmarks/results/probes/capacity/`).**
+Gateway p50 vs direct-to-pod-IP p50 (plugin on / off), rps in brackets:
+
+| conc | direct | gateway on | gateway off |
+|---|---|---|---|
+| 1 | 66 ms (12.4) | 70 ms (12.1) | 54 ms (13.3) |
+| 16 | 56 ms (209) | 69 ms (198) | 69 ms (198) |
+| 64 | 207 ms (154) | 219 ms (121) | 265 ms (115) |
+| 128 | 691 ms (114) | 992 ms (91) | 820 ms (100) |
+| 256 | 2014 ms (103) | 1913 ms (101) | 2018 ms (95) |
+
+Errors: 0 in every level (both paths). Throughput stops scaling between 16 and 64 on **both** paths (direct too), so that bend is the
+simulator/host/single-process client, not the gateway; the gateway adds ~0-15 ms p50 up to 16 and costs ~20-30% rps at 64-128. Plugin on vs
+off differs less than the run-to-run spread seen between the direct runs (66 vs 50 ms at conc 1). EPP CPU (`kubectl top`, rough) 45-330 m, no trend with plugin. Single runs, one load generator: indicative only; no
+real-engine capacity claim.
 
 ---
 
