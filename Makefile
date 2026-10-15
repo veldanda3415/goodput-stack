@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst obs-up obs-down obs-apply keda-up keda-down zero-up zero-down probe-zero t4-run
+.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst probe-p8 epp-plugin-test epp-plugin-on epp-plugin-off obs-up obs-down obs-apply keda-up keda-down zero-up zero-down probe-zero t4-run
 
 help: ## List targets
 > @grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
@@ -135,6 +135,21 @@ probe-p7: ## P7: delete the agentgateway pod mid-stream (llamacpp-pool), 3 runs 
 
 probe-burst: ## P9: N concurrent sim-pool requests inside one EPP refresh vs spaced control (SIMULATED) [ARGS="--n 8"]
 > $(PY) scripts/probe_burst.py $(ARGS)
+
+# ---- token-aware scoring on sim-pool (ADR 0003): upstream token-load-scorer, opt-in values switch ----
+epp-plugin-test: ## Server-side dry-run of the sim-pool EPP with the token-load overlay (no Go plugin: upstream ships it)
+> helm upgrade sim-pool $(EPP_CHART) --version $(EPP_VERSION) -n inference -f deploy/gateway/epp-sim.values.yaml -f deploy/gateway/epp-sim-token-load.values.yaml --dry-run=server >/dev/null && echo "dry-run ok"
+
+epp-plugin-on: ## Enable token-load-scorer on sim-pool's EPP only, then restart it
+> helm upgrade sim-pool $(EPP_CHART) --version $(EPP_VERSION) -n inference -f deploy/gateway/epp-sim.values.yaml -f deploy/gateway/epp-sim-token-load.values.yaml --wait
+> kubectl -n inference rollout restart deploy/sim-pool-epp && kubectl -n inference rollout status deploy/sim-pool-epp --timeout=120s
+
+epp-plugin-off: ## Back to the stock sim-pool EPP profile, then restart it
+> helm upgrade sim-pool $(EPP_CHART) --version $(EPP_VERSION) -n inference -f deploy/gateway/epp-sim.values.yaml --wait
+> kubectl -n inference rollout restart deploy/sim-pool-epp && kubectl -n inference rollout status deploy/sim-pool-epp --timeout=120s
+
+probe-p8: ## P8: size-blind routing on the scratch p8-pool (SIMULATED) [ARGS="--label off-pin --load-path gateway-pin"]
+> $(PY) scripts/probe_p8_size_blind.py $(ARGS)
 
 # ---- T4 engine track on Kaggle (benchmarks/kaggle/, results in benchmarks/results/t4/) ----------
 STAGE ?= smoke

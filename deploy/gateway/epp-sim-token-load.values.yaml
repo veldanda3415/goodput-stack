@@ -1,0 +1,36 @@
+# Opt-in overlay for sim-pool's EPP (ADR 0003, #23): the stock profile (queue 2, kv 2, prefix 3) plus upstream
+# inflight-load-producer + token-load-scorer (llm-d-router v0.9.0, no out-of-tree code). Applied on top of
+# epp-sim.values.yaml by `make epp-plugin-on`; `make epp-plugin-off` re-applies epp-sim.values.yaml alone.
+# queueThresholdTokens 8192 = sim max-num-seqs 2 x max-model-len 4096 (the scorer's default, 4194304, is a no-op here).
+router:
+  epp:
+    pluginsConfigFile: token-load.yaml
+    pluginsCustomConfig:
+      token-load.yaml: |
+        apiVersion: llm-d.ai/v1alpha1
+        kind: EndpointPickerConfig
+        plugins:
+        - type: queue-scorer
+        - type: kv-cache-utilization-scorer
+        - type: prefix-cache-scorer
+        - type: inflight-load-producer
+        - type: token-load-scorer
+          parameters:
+            queueThresholdTokens: 8192
+        - type: metrics-data-source
+          parameters:
+            scheme: "http"
+            path: "/metrics"
+            insecureSkipVerify: true
+        - type: core-metrics-extractor
+        schedulingProfiles:
+        - name: default
+          plugins:
+          - pluginRef: queue-scorer
+            weight: 2
+          - pluginRef: kv-cache-utilization-scorer
+            weight: 2
+          - pluginRef: prefix-cache-scorer
+            weight: 3
+          - pluginRef: token-load-scorer
+            weight: 4
