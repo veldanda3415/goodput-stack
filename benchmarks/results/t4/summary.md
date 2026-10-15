@@ -64,7 +64,7 @@ Measured model: `Qwen/Qwen2.5-3B-Instruct`. The predictions were made for Llama-
 
 | quantity | predicted | measured | why different |
 |---|---|---|---|
-| batch-1 decode tok/s | ≤ 50 (expect 30-35) | 16.30 | see notes |
+| batch-1 decode tok/s | ≤ 50 (expect 30-35) | 16.30 baseline session (spread 64.4 %); 37.16 quant session (spread 1.0 %) | sessions differ in GPU clock (SW power capping), README |
 | KV bytes/token | 114,688 (Llama-3.2-3B) | 36,864 (config.json) | different model (Qwen2.5-3B: 2 KV heads, GQA, per its config.json) |
 | KV pool tokens @ 0.90 | ≈ 55,000 → 171,111 restated (same KV bytes, this model's B/token) | 175,008 (log) | see notes |
 | GPU blocks × block size ≈ KV pool | ≈ KV pool | 10,938 × 16 = 175,008 | — |

@@ -177,7 +177,36 @@ tokens, 128 output, ignore_eos, no jitter, 20 / 64 requests.
 
 ## Task 5 — quantization
 
-(see summary.md; filled in below once the quant run is in)
+One session (run **20261014-224513**: no power capping, zero throttle-counter time in every decode run), one model
+family, four variants. The vLLM variants use `--dtype half --gpu-memory-utilization 0.9 --max-model-len 4096
+--no-enable-prefix-caching`. llama.cpp b11146 uses the CUDA 12.8 prebuilt binary (it ran on sm_75 without a
+source build) with `-ngl 99 -c 8192 -np 16 --metrics`. Full table: [summary.md](summary.md#task-5--quantization-speed-quality-cost).
+
+| Variant | Engine | Weights | Batch-1 decode tok/s (5 runs) | c=16 steady tok/s | c=16 TTFT p50 | PPL wikitext-2 | $/1M output tok @ c=16 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| FP16 | vLLM 0.31.0 | 5.79 GiB | 37.16 (1.0 %) | 341.7 | 196 ms | 8.018 | 0.428 |
+| AWQ INT4 | vLLM 0.31.0 | 1.95 GiB | **84.06** (1.9 %) | **536.6** | 144 ms | 8.659 | **0.272** |
+| GGUF Q8_0 | llama.cpp b11146 | — | 60.04 (2.2 %) | 284.7 | 245 ms | 8.137 ± 0.215 | 0.513 |
+| GGUF Q4_K_M | llama.cpp b11146 | — | 76.61 (2.0 %) | 304.5 | 241 ms | 8.410 ± 0.223 | 0.480 |
+
+- **Decode is memory-bound, as expected:** AWQ INT4 (1.95 GiB of weights) decodes 2.26× faster than FP16 (5.79 GiB).
+  On llama.cpp, Q4_K_M is 1.28× faster than Q8_0.
+- **Under load the engine matters more than the bits:** at c=16, vLLM AWQ gives 537 tok/s, and llama.cpp Q4_K_M only
+  305 tok/s despite similar batch-1 speed. vLLM FP16 (342) beats both GGUF variants at c=16 although it is the
+  slowest at batch 1.
+- **Quality cost (perplexity):** AWQ +8.0 % over FP16 (8.659 vs 8.018); Q8_0 8.137, Q4_K_M 8.410.
+  Method: wikitext-2-raw-v1 test (Salesforce/wikitext), 40 non-overlapping 512-token windows, only the second half of
+  each window scored (positions 257–511, 10,200 tokens). That is llama-perplexity's own scoring (`first = n_ctx/2`,
+  `tools/perplexity/perplexity.cpp:542` at b11146). vLLM is scored through `/v1/completions` with
+  `prompt_logprobs`, text tokenized with the HF tokenizer. llama-perplexity tokenizes with the GGUF vocab and prints a
+  ± stderr; the vLLM path has no stderr. Cross-engine PPL is close in method, not identical.
+- **Cost** = $0.526/h ÷ (c=16 steady tok/s × 3600) × 1e6. Price: Azure `Standard_NC4as_T4_v3` (1× T4, 4 vCPU),
+  East US, Linux, on-demand. Source: Azure Retail Prices API, fetched 2026-10-15T01:46Z, raw response in
+  [pricing/](pricing/). This is a cloud VM price for this hardware class, not what Kaggle charges (free).
+  `benchmarks/cost.py` refuses to run without a cited price.
+- **lm-eval (gsm8k, hellaswag; --limit 250):** the first attempt failed for all variants. The lm-eval venv lacked
+  `transformers` (`ModuleNotFoundError`; `lm-eval[api]` 0.4.12 doesn't install it), which the HF tokenizer backend
+  needs. Results of the rerun: [summary.md](summary.md#task-5--quantization-speed-quality-cost).
 
 ## Limits — what is emulated or missing
 
