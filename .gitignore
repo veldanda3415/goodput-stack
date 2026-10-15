@@ -24,4 +24,6 @@ benchmarks/results/**/prober.log
 benchmarks/results/**/diagnostics/
 benchmarks/results/bringup
 benchmarks/results/sim
-benchmarks/results/engine
+benchmarks/results/engine# T4 (Kaggle) runs: per-request raw files stay local (requests.jsonl/metrics.jsonl above); kernel.log is large
+benchmarks/results/t4/**/kernel.log
+benchmarks/results/t4/**/pip-list.txt

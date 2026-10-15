@@ -1,0 +1,3 @@
+$ /usr/bin/python3 -m pip show vllm
+# rc=1
+WARNING: Package(s) not found: vllm

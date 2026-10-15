@@ -1,0 +1,2 @@
+$ command -v dcgmi && dcgmi discovery -l; command -v nv-hostengine; ls /usr/lib/x86_64-linux-gnu | grep -i dcgm
+# rc=1

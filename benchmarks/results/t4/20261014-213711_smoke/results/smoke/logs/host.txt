@@ -1,0 +1,13 @@
+$ df -h /kaggle/working /tmp /root; free -g; nproc; cat /etc/os-release | head -3
+# rc=0
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/loop2       20G  260K   20G   1% /kaggle/working
+overlay         8.0T  7.0T  1.1T  87% /
+overlay         8.0T  7.0T  1.1T  87% /
+               total        used        free      shared  buff/cache   available
+Mem:              31           1          25           0           4          30
+Swap:              0           0           0
+4
+PRETTY_NAME="Ubuntu 24.04.1 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
