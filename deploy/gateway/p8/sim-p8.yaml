@@ -1,6 +1,6 @@
 # Scratch backend for probe P8 (size-blind routing, GAPS.md P8, #23). SIMULATED.
 # Own labels -> own InferencePool `p8-pool` (release p8-pool, deploy/gateway/p8/epp-p8.values.yaml); never joins sim-pool.
-# Sim config = the chart's inf-vllm-sim config (prefill 2.4 ms/token, ITL 16.3 ms, max-num-seqs 2, max-model-len 4096)
+# Sim config = the chart's inf-vllm-sim config (prefill 2.4 ms/token, ITL 16.3 ms, max-num-seqs 2; the capacity run (#21) applies it with 256 via sed, max-model-len 4096)
 # with the std-devs zeroed so a probe's expected TTFT can be computed before it runs.
 apiVersion: v1
 kind: ConfigMap
