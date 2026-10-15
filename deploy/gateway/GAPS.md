@@ -16,6 +16,7 @@ does and does not do, tested on the k3s lab (single node `ravi-home`, ns `infere
 | P5 | Pool choice by prompt size / SLO | header only | #11 (design) |
 | P6 | Admission / scale-from-zero | default: engine queues, gateway doesn't. EPP flow control (experimental) holds requests at 0 replicas and exports a queue KEDA can activate on; agentgateway cuts a held request at 10 s | #10 (works on a scratch pool, autoscaling/README.md) |
 | P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s. 1 replica: ~1 s of refused connections; **2 replicas + PDB: 0 failed new requests**, the killed pod's stream is still lost | #20 (2 replicas in chart), HA → #19 |
+| P8 | Size-blind routing (few long vs many short prompts) | **stock EPP picks the long-prompt pod 16/16 (TTFT p50 7.75 s vs 0.53 s on the other pod)**; upstream `token-load-scorer` fixes it when the EPP dispatched the load (8/8 short pod, 0.56 s); blind to load it didn't dispatch (SIMULATED) | #23 |
 | P9 | Burst inside one EPP metrics refresh | no 8/0 herding; per-run split up to 7/1 vs always 4/4 when spaced (sim-pool, SIMULATED) | #22 |
 
 ---
@@ -244,9 +245,46 @@ An earlier series the same day (`…/20261014-224832.jsonl`, 20/19/20 pings, 0 f
 
 ---
 
-## P9 — Burst inside one EPP metrics refresh (#22)
+## P8 — Is the EPP size-blind? (#23)
 
-(P8 is unassigned.)
+**Question.** Pod A holds a FEW LONG prompts (more queued prefill work), pod B MORE SHORT ones. Does the stock EPP see that A is the worse choice?
+
+**Setup (SIMULATED).** Scratch pool (removed after the runs; recreate with `kubectl apply -f deploy/gateway/p8/sim-p8.yaml` and `helm upgrade --install p8-pool <EPP_CHART> -f deploy/gateway/p8/epp-p8.values.yaml`) `p8-pool` (`deploy/gateway/p8/`): 2 llm-d-inference-sim v0.10.2 pods, the chart's sim config
+(prefill-overhead 15 ms, prefill-time-per-token 2.4 ms, ITL 16.3 ms, max-num-seqs 2, max-model-len 4096, std-devs 0 for
+determinism; the sim does scale TTFT with prompt length), its own EPP release with `session-affinity-filter` added only to pin
+probe placement. Per run (`scripts/probe_p8_size_blind.py`, 8 runs per condition, roles A/B alternate between the two pods,
+idle guard before each run): A gets 2 closed-loop ~3000-word prompts, B gets 3 ~200-word prompts (B: running 2 / waiting 1; A: running 2 / waiting 0).
+At 3 s one unique ~100-word streaming probe goes through the gateway. Load path `direct` = port-forward to the pods (EPP cannot see it);
+`pin` = through the gateway pinned per pod (EPP in-flight accounting sees it). Pick and per-scorer scores are read from the EPP v4 log by `x-request-id`.
+
+**Prediction (before running).** Queue-scorer: A (waiting 0) gets 1, B (waiting 1) gets 0; kv scorer 1/1 (the sim reports kv 0); prefix 0/0 -> A.
+TTFT on A = remaining long prefill queue + probe prefill = ~7.7 s; on B ~0.27-1.1 s.
+
+| Condition (EPP profile / load path) | n | picks long-pod / short-pod | probe TTFT p50 / max |
+|---|---|---|---|
+| stock / direct | 8 | **8 / 0** | 7.77 / 7.79 s |
+| stock / pin | 8 | **8 / 0** | 7.75 / 7.77 s |
+| stock, probe forced to long pod (counterfactual) | 4 | 4 / 0 | 7.75 / 7.76 s |
+| stock, probe forced to short pod (counterfactual) | 4 | 0 / 4 | 0.53 / 0.58 s |
+| token-load / pin | 8 | **0 / 8** | 0.56 / 0.56 s |
+| token-load / direct | 8 | 8 / 0 | 7.74 / 7.76 s |
+
+Raw: `benchmarks/results/probes/p8/*.jsonl`. Prediction held (7.70 predicted vs 7.67-7.79 measured on A). The KV scorer did not catch it (the sim reports kv 0.000 throughout).
+
+**Fix.** Upstream already ships `inflight-load-producer` + `token-load-scorer` (llm-d-router v0.9.0), so nothing is built (ADR 0003).
+With threshold 8192 and weight 4 the token scores were 0 (long pod) vs 0.890625 (short pod): +3.56 beats the queue-scorer's 2. Opt-in on sim-pool: `make epp-plugin-on` / `epp-plugin-off`.
+
+**Remaining gap.** The scorer counts only what this EPP replica dispatched: load sent directly to pods, by other EPP replicas or after an EPP
+restart is invisible (`token-load / direct` is unchanged, as predicted). Token counts are bytes/4 estimates (about +20% on the probe prompts). Leaked entries (client gone before first token) live ≤5 min.
+llamacpp-pool is untouched. No real engine tested: the llama.cpp / T4 behaviour is unproven.
+
+**Overhead (SIMULATED, n=100 sequential, `scripts/probe_epp_overhead.py`).** Client p50 35.5 ms off / 39.2 ms on (stdev ~13 ms: within noise); EPP
+`scheduler_e2e_duration` mean 0.032 ms off / 0.112 ms on. **Regression:** `probe_p1_saturation.py` with the plugin on: 20/20 to the idle pod.
+**Burst (#22 follow-up):** see P9.
+
+---
+
+## P9 — Burst inside one EPP metrics refresh (#22)
 
 **Question.** The EPP scores pods on scraped metrics. If N requests reach it faster than it refreshes those metrics, are they all scored against the same snapshot and herded onto one pod?
 
@@ -277,9 +315,36 @@ All 208 requests returned 200. Worst burst run (3-repeat series, #2): 0.3 s afte
 - **But burst balance is luck, spaced balance is load-aware.** Spaced requests were split 4/4 every time, because each pick saw the previous ones in the scraped `running`/`waiting`. Burst splits scattered from 4/4 to 7/1. That is consistent with every burst request getting the same scores and the picker breaking ties randomly, which the probe can't prove (no per-request scores logged). The cost is a queue on one pod while the other has free slots.
 - At 2 pods × 2 slots the damage is bounded. With more pods and larger bursts (agent fan-out, batch clients), a stale snapshot with random tie-breaks leaves capacity idle in the same way. The sim's timing is synthetic, but the routing decisions are real EPP behaviour.
 
-**Next.** (a) EPP verbosity up (`-v`) to log per-request scores and confirm ties. (b) Repeat with in-flight accounting, if the EPP has a plugin that counts requests it has routed but not yet seen in metrics (not checked). (c) Larger N and a shorter refresh (e.g. `--refresh-metrics-interval 10ms`) to see whether the spread changes. (d) llamacpp-pool once it has ≥ 2 replicas.
+**Update (2026-10-15, v4 logs, `benchmarks/results/probes/burst/p22-epp-log-*.txt`).** In 24 of 24 burst requests (stock profile) queue-scorer gave every endpoint the same score (all 1: min-max over equal values), so ties are decided by `max-score-picker`, which shuffles equal-score candidates (`pkg/epp/framework/plugins/scheduling/picker/maxscore/picker.go:91-92`). Whether requests share one metrics snapshot cannot be told from scores alone; they were all equal. With `token-load-scorer` on, the in-flight counter changes between requests inside a burst (e.g. 0.992 -> 0.984 -> 0.977), and 4 of 5 bursts split 4/4 (one 5/3); stock sample in the same log (3 bursts): 6/2, 5/3, 5/3 (n small).
+
+**Next.** (a) done above. (b) Repeat with in-flight accounting, if the EPP has a plugin that counts requests it has routed but not yet seen in metrics (not checked). (c) Larger N and a shorter refresh (e.g. `--refresh-metrics-interval 10ms`) to see whether the spread changes. (d) llamacpp-pool once it has ≥ 2 replicas.
 
 **Side observation.** Gateway responses carry `x-went-into-resp-headers: true` (`curl -D -` through the gateway to sim-pool). It looks like a debug header from the response-headers path and is visible to clients. Source not checked.
+
+---
+
+## #19 / #21 follow-ups (2026-10-15)
+
+**#19 (source read, agentgateway v1.6.0 at the tag; not exhaustive).** Timeouts that exist: `requestTimeout`, `backendRequestTimeout`,
+`responseIdleTimeout` (`controller/api/v1alpha1/agentgateway/agentgateway_policy_types.go` ~l.2624; `crates/agentgateway/src/http/timeout.rs`).
+A grep for a setting that propagates a downstream disconnect to the upstream found none; P3 measured no propagation within 15 s. A request
+deadline therefore exists (`requestTimeout`/`backendRequestTimeout`) but is not a disconnect substitute for a long stream.
+
+**#21 capacity (SIMULATED, `scripts/probe_capacity.py`, p8-pool with max-num-seqs 256 x 2 pods, short non-streaming requests, 10 s per level, raw `benchmarks/results/probes/capacity/`).**
+Gateway p50 vs direct-to-pod-IP p50 (plugin on / off), rps in brackets:
+
+| conc | direct | gateway on | gateway off |
+|---|---|---|---|
+| 1 | 66 ms (12.4) | 70 ms (12.1) | 54 ms (13.3) |
+| 16 | 56 ms (209) | 69 ms (198) | 69 ms (198) |
+| 64 | 207 ms (154) | 219 ms (121) | 265 ms (115) |
+| 128 | 691 ms (114) | 992 ms (91) | 820 ms (100) |
+| 256 | 2014 ms (103) | 1913 ms (101) | 2018 ms (95) |
+
+Errors: 0 in every level (both paths). Throughput stops scaling between 16 and 64 on **both** paths (direct too), so that bend is the
+simulator/host/single-process client, not the gateway; the gateway adds ~0-15 ms p50 up to 16 and costs ~20-30% rps at 64-128. Plugin on vs
+off differs less than the run-to-run spread seen between the direct runs (66 vs 50 ms at conc 1). EPP CPU (`kubectl top`, rough) 45-330 m, no trend with plugin. Single runs, one load generator: indicative only; no
+real-engine capacity claim.
 
 ---
 

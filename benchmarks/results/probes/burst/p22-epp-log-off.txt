@@ -1,0 +1,28 @@
+-- burst 0
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'xjzbw': 1, 'p6wgf': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+-- burst 1
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+-- burst 2
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'p6wgf': 1, 'xjzbw': 1} pick=xjzbw
+q={'xjzbw': 1, 'p6wgf': 1} pick=xjzbw
+q={'xjzbw': 1, 'p6wgf': 1} pick=xjzbw
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'p6wgf': 1, 'xjzbw': 1} pick=p6wgf
+q={'xjzbw': 1, 'p6wgf': 1} pick=p6wgf
+requests with identical queue scores across endpoints: 24 of 24

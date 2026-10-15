@@ -18,6 +18,9 @@ and gateway/EPP probes (findings in [`deploy/gateway/GAPS.md`](../deploy/gateway
 | `probe_p3_disconnect.py` | **P3** does a client disconnect free an engine slot, direct vs via gateway, stream vs non-stream | `.venv/bin/python scripts/probe_p3_disconnect.py [--backend sim] [--direct]` | kubectl (llama.cpp: port-forward; sim: pod IPs from the k3s host) |
 | `probe_p7_gateway_kill.py` | **P7** what an in-flight stream, the llama.cpp slot and new requests see when the gateway pod is deleted (#20). With >1 replica it deletes only the stream's pod (`--target all` = every pod); `--ping-window 10` keeps pinging 10 s | `make probe-p7 [ARGS="--grace-period 1 --ping-window 10"]` | kubectl (**deletes an agentgateway pod**; the Deployment recreates it), pod IPs from the k3s host |
 | `probe_burst.py` | **P9** do N requests inside one EPP metrics refresh (50 ms) herd onto one sim pod, vs a spaced control (#22, SIMULATED) | `make probe-burst [ARGS="--repeats 10"]` | kubectl (gateway logs), sim pod IPs from the k3s host, ≥2 sim pods |
+| `probe_p8_size_blind.py` | **P8** is the EPP size-blind: few long vs many short prompts on 2 sim pods, probe pick + TTFT (#23, SIMULATED). Needs the scratch pool `deploy/gateway/p8/` | `make probe-p8 ARGS="--label off-pin --load-path gateway-pin --runs 8"` (`--force A\|B` = counterfactual) | kubectl, port-forwards, p8-pool EPP at `-v 4` |
+| `probe_epp_overhead.py` | EPP hop cost: n sequential requests via the gateway, client p50/p99 + EPP scheduler histogram (SIMULATED) | `.venv/bin/python scripts/probe_epp_overhead.py --label on\|off` | kubectl pod proxy to EPP :9090 |
+| `probe_capacity.py` | **#21** concurrency ramp 1→256, gateway vs direct to sim pods (needs max-num-seqs 256 on `sim-p8`) | `.venv/bin/python scripts/probe_capacity.py --label on` | kubectl top, pod IPs from the k3s host |
 
 ## Engine probes: detail
 

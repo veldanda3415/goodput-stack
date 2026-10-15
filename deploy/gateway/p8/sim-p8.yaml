@@ -1,0 +1,69 @@
+# Scratch backend for probe P8 (size-blind routing, GAPS.md P8, #23). SIMULATED.
+# Own labels -> own InferencePool `p8-pool` (release p8-pool, deploy/gateway/p8/epp-p8.values.yaml); never joins sim-pool.
+# Sim config = the chart's inf-vllm-sim config (prefill 2.4 ms/token, ITL 16.3 ms, max-num-seqs 2; the capacity run (#21) applies it with 256 via sed, max-model-len 4096)
+# with the std-devs zeroed so a probe's expected TTFT can be computed before it runs.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sim-p8
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack, goodput-stack/simulated: "true" }
+data:
+  config.yaml: |
+    force-dummy-tokenizer: true
+    inter-token-latency: 16.3ms
+    inter-token-latency-std-dev: 0ms
+    latency-calculator: per-token
+    max-model-len: 4096
+    max-num-seqs: 2
+    mode: random
+    model: qwen2.5-0.5b-instruct
+    prefill-overhead: 15ms
+    prefill-time-per-token: 2.4ms
+    prefill-time-std-dev: 0ms
+    seed: 42
+    time-factor-under-load: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sim-p8
+  namespace: inference
+  labels: { app.kubernetes.io/name: vllm-sim-p8, app.kubernetes.io/part-of: goodput-stack, goodput-stack/simulated: "true" }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app.kubernetes.io/name: vllm-sim-p8 }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: vllm-sim-p8, app.kubernetes.io/part-of: goodput-stack, goodput-stack/simulated: "true" }
+    spec:
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: vllm-sim
+          image: ghcr.io/llm-d/llm-d-inference-sim:v0.10.2@sha256:86e9d5028e1de478646911bab6f572b314163c408574188d982529e73e6cf27f
+          args: ["--config", "/etc/vllm-sim/config.yaml", "--port", "8000"]
+          ports: [{ name: http, containerPort: 8000 }]
+          startupProbe: { httpGet: { path: /health/ready, port: http }, periodSeconds: 1, failureThreshold: 120, timeoutSeconds: 1 }
+          readinessProbe: { httpGet: { path: /health/ready, port: http }, periodSeconds: 5, failureThreshold: 2, timeoutSeconds: 2 }
+          lifecycle: { preStop: { sleep: { seconds: 5 } } }
+          resources: { requests: { cpu: 100m, memory: 64Mi }, limits: { memory: 256Mi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts: [{ name: config, mountPath: /etc/vllm-sim, readOnly: true }]
+      volumes: [{ name: config, configMap: { name: sim-p8 } }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sim-p8
+  namespace: inference
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: vllm-sim-p8 } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { gateway.networking.k8s.io/gateway-name: inference-gateway } }
+        - podSelector: { matchLabels: { llm-d.ai/igw-mode: llm-d-router-gateway } }
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: prometheus } }
+      ports: [{ port: 8000, protocol: TCP }]

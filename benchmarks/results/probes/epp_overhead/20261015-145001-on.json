@@ -1,0 +1,12 @@
+{
+ "label": "on",
+ "ts": "2026-10-15T18:50:01.050442+00:00",
+ "epp_pod": "sim-pool-epp-859f967ffb-bvdhx",
+ "n": 100,
+ "client_p50_ms": 39.21180000179447,
+ "client_p99_ms": 58.09149899869226,
+ "client_mean_ms": 37.10317433011369,
+ "client_stdev_ms": 12.491616340264443,
+ "epp_decisions": 100.0,
+ "epp_sched_mean_ms": 0.11249499999999991
+}
