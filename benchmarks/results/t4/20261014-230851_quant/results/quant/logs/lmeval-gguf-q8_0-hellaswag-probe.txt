@@ -1,0 +1,259 @@
+$ /tmp/lmeval/bin/lm_eval --model local-completions --model_args model=gguf-q8_0,base_url=http://127.0.0.1:8000/v1/completions,num_concurrent=8,max_retries=3,tokenized_requests=True,tokenizer_backend=huggingface,tokenizer=Qwen/Qwen2.5-3B-Instruct --tasks hellaswag --limit 5 --output_path /kaggle/working/results/quant/lmeval-gguf-q8_0-hellaswag-probe
+# rc=1
+Error in sitecustomize; set PYTHONVERBOSE for traceback:
+ModuleNotFoundError: No module named 'wrapt'
+2026-10-15:03:37:02 WARNING  [config.evaluate_config:287] --limit SHOULD ONLY BE USED FOR TESTING. REAL METRICS SHOULD NOT BE COMPUTED USING LIMIT.
+2026-10-15:03:37:12 INFO     [_cli.run:388] Selected Tasks: ['hellaswag']
+2026-10-15:03:37:12 WARNING  [evaluator:184] pretrained=None appears to be an instruct or chat variant but chat template is not applied. Recommend setting `apply_chat_template`
+        (optionally `fewshot_as_multiturn`).
+2026-10-15:03:37:12 INFO     [evaluator:214] Setting random seed to 0 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234
+2026-10-15:03:37:12 INFO     [evaluator:239] Initializing local-completions model, with arguments: {'model': 'gguf-q8_0', 'base_url': 'http://127.0.0.1:8000/v1/completions', 'num_concurrent': 8, 'max_retries': 3, 'tokenized_requests': True, 'tokenizer_backend': 'huggingface', 'tokenizer': 'Qwen/Qwen2.5-3B-Instruct'}
+2026-10-15:03:37:12 INFO     [models.api_models:179] Using max length 2048 - 1
+2026-10-15:03:37:12 INFO     [models.api_models:200] Using tokenizer huggingface
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-10-15:03:37:17 INFO     [evaluator_utils:446] Selected tasks:
+2026-10-15:03:37:17 INFO     [evaluator_utils:480] Task: hellaswag (hellaswag/hellaswag.yaml)
+2026-10-15:03:37:17 INFO     [api.task:312] Building contexts for hellaswag on rank 0...
+
+  0%|          | 0/5 [00:00<?, ?it/s]
+100%|██████████| 5/5 [00:00<00:00, 931.90it/s]
+2026-10-15:03:37:17 INFO     [evaluator:585] Running loglikelihood requests
+
+Tokenizing inputs:   0%|          | 0/20 [00:00<?, ?it/s]
+Tokenizing inputs: 100%|██████████| 20/20 [00:00<00:00, 3138.63it/s]
+
+Requesting API:   0%|          | 0/20 [00:00<?, ?it/s]2026-10-15:03:37:40 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.3183201551437378, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.3183201551437378}]}]}, 'finish_reason': 'length'}], 'created': 1792035460, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 64, 'total_tokens': 65, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-yq0mj9ZSYeLe4SIGQK7hjCSbLGImaqNT', 'timings': {'cache_n': 0, 'prompt_n': 64, 'prompt_ms': 22507.83, 'prompt_per_token_ms': 351.68484375, 'prompt_per_second': 2.8434549221315426, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:40 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:40 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.4478323459625244, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.4478323459625244}]}]}, 'finish_reason': 'length'}], 'created': 1792035460, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 56, 'total_tokens': 57, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-PKwvgDCCj1gnFovs882e7mRrOcsrIdKp', 'timings': {'cache_n': 0, 'prompt_n': 56, 'prompt_ms': 22510.046, 'prompt_per_token_ms': 401.9651071428571, 'prompt_per_second': 2.4877781235986816, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:40 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' A', 'index': 0, 'logprobs': {'content': [{'id': 362, 'token': ' A', 'bytes': [32, 65], 'logprob': -1.3326462507247925, 'top_logprobs': [{'id': 362, 'token': ' A', 'bytes': [32, 65], 'logprob': -1.3326462507247925}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 50, 'total_tokens': 51, 'prompt_tokens_details': {'cached_tokens': 40}}, 'id': 'chatcmpl-ZfKsp7qZZatxacdKMEvigT5Ci4iLVwlC', 'timings': {'cache_n': 40, 'prompt_n': 10, 'prompt_ms': 12633.124, 'prompt_per_token_ms': 1263.3124, 'prompt_per_second': 0.7915698444818559, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.624873697757721, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.624873697757721}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 38, 'total_tokens': 39, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-kxi8iDrCT5iNszeMNToLpgqAftWI7mqw', 'timings': {'cache_n': 0, 'prompt_n': 38, 'prompt_ms': 12635.668, 'prompt_per_token_ms': 332.5175789473684, 'prompt_per_second': 3.0073598008431373, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.7494890689849854, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.7494890689849854}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 37, 'total_tokens': 38, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-jfTvG5r20HDfWKpWw4IKUuQ0UcA4QXlg', 'timings': {'cache_n': 0, 'prompt_n': 37, 'prompt_ms': 12638.342, 'prompt_per_token_ms': 341.5768108108108, 'prompt_per_second': 2.927599205655299, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.43999844789505005, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.43999844789505005}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 37, 'total_tokens': 38, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-81oyOUHO1Xdz7oNAITamIO39voY9Mygj', 'timings': {'cache_n': 0, 'prompt_n': 37, 'prompt_ms': 12641.402, 'prompt_per_token_ms': 341.6595135135135, 'prompt_per_second': 2.9268905458429373, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.6462522149085999, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.6462522149085999}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 35, 'total_tokens': 36, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-f09rB6I26o4ZtuKw0MvEkQz31Xejfnxb', 'timings': {'cache_n': 0, 'prompt_n': 35, 'prompt_ms': 12643.943, 'prompt_per_token_ms': 361.25551428571424, 'prompt_per_second': 2.7681238360533578, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.1402918100357056, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.1402918100357056}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 31, 'total_tokens': 32, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-S8cTUx9SQYCPt6mqWmkbBy1o1lNCM6Bq', 'timings': {'cache_n': 0, 'prompt_n': 31, 'prompt_ms': 12647.514, 'prompt_per_token_ms': 407.98432258064514, 'prompt_per_second': 2.451074574813675, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' She', 'index': 0, 'logprobs': {'content': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -0.9823293089866638, 'top_logprobs': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -0.9823293089866638}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 31, 'total_tokens': 32, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-PmllvUUl2PVnD8VzjZlZV0Qax5eEh4vd', 'timings': {'cache_n': 0, 'prompt_n': 31, 'prompt_ms': 12650.891, 'prompt_per_token_ms': 408.09325806451614, 'prompt_per_second': 2.4504202905550287, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.202073574066162, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.202073574066162}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 55, 'total_tokens': 56, 'prompt_tokens_details': {'cached_tokens': 41}}, 'id': 'chatcmpl-he6Do8ojCuMDOUsB8addZL8xjj5g5J0n', 'timings': {'cache_n': 41, 'prompt_n': 14, 'prompt_ms': 12654.169, 'prompt_per_token_ms': 903.8692142857143, 'prompt_per_second': 1.106354751544728, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.4883513450622559, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.4883513450622559}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 23, 'total_tokens': 24, 'prompt_tokens_details': {'cached_tokens': 3}}, 'id': 'chatcmpl-ySznM65AkqrTh12stA9HZRUUszkkWNrn', 'timings': {'cache_n': 3, 'prompt_n': 20, 'prompt_ms': 225.177, 'prompt_per_token_ms': 11.258849999999999, 'prompt_per_second': 88.81901792811877, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.0244536399841309, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.0244536399841309}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 20, 'total_tokens': 21, 'prompt_tokens_details': {'cached_tokens': 3}}, 'id': 'chatcmpl-6djxsDjjPYqlU3GhG6ndjee0V9YGgmDk', 'timings': {'cache_n': 3, 'prompt_n': 17, 'prompt_ms': 227.235, 'prompt_per_token_ms': 13.366764705882353, 'prompt_per_second': 74.812418861531, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' She', 'index': 0, 'logprobs': {'content': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -0.8413052558898926, 'top_logprobs': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -0.8413052558898926}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 29, 'total_tokens': 30, 'prompt_tokens_details': {'cached_tokens': 22}}, 'id': 'chatcmpl-eE3ntLhB4CJ8sV7xJjt71SkUL3QqoBkO', 'timings': {'cache_n': 22, 'prompt_n': 7, 'prompt_ms': 229.659, 'prompt_per_token_ms': 32.80842857142857, 'prompt_per_second': 30.479972480939136, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -0.8725636005401611, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -0.8725636005401611}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 26, 'total_tokens': 27, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-SQYVMDaaS3nmgRqlMqGRR5KjztgdKMft', 'timings': {'cache_n': 0, 'prompt_n': 26, 'prompt_ms': 231.945, 'prompt_per_token_ms': 8.920961538461539, 'prompt_per_second': 112.09553989092242, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' She', 'index': 0, 'logprobs': {'content': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -1.0522613525390625, 'top_logprobs': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -1.0522613525390625}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 28, 'total_tokens': 29, 'prompt_tokens_details': {'cached_tokens': 22}}, 'id': 'chatcmpl-LFZS7UfaJfI9wNfC2CYizCghitdmCTmz', 'timings': {'cache_n': 22, 'prompt_n': 6, 'prompt_ms': 234.228, 'prompt_per_token_ms': 39.038000000000004, 'prompt_per_second': 25.6160663968441, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -0.8649235367774963, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -0.8649235367774963}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 23, 'total_tokens': 24, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-LFMIB5gx1VoKZsBA48TZYFlI7YwQ67od', 'timings': {'cache_n': 0, 'prompt_n': 23, 'prompt_ms': 236.562, 'prompt_per_token_ms': 10.285304347826088, 'prompt_per_second': 97.22609717537051, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.1913987398147583, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.1913987398147583}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 23, 'total_tokens': 24, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-TT5KXR23rLWcBHG3gaVJKJQzjEaqBVOI', 'timings': {'cache_n': 0, 'prompt_n': 23, 'prompt_ms': 238.844, 'prompt_per_token_ms': 10.384521739130435, 'prompt_per_second': 96.29716467652527, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.0685663223266602, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.0685663223266602}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 21, 'total_tokens': 22, 'prompt_tokens_details': {'cached_tokens': 0}}, 'id': 'chatcmpl-Cqe9BWORLjBKhT9UvZc0vguWlHlIVMM3', 'timings': {'cache_n': 0, 'prompt_n': 21, 'prompt_ms': 241.142, 'prompt_per_token_ms': 11.48295238095238, 'prompt_per_second': 87.08561760290617, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.3183201551437378, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.3183201551437378}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 64, 'total_tokens': 65, 'prompt_tokens_details': {'cached_tokens': 40}}, 'id': 'chatcmpl-7Lki6aK8lJfeWcpZhMGYFxCCgLKwYpg7', 'timings': {'cache_n': 40, 'prompt_n': 24, 'prompt_ms': 75.412, 'prompt_per_token_ms': 3.1421666666666668, 'prompt_per_second': 318.25173712406513, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.1322392225265503, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.1322392225265503}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 18, 'total_tokens': 19, 'prompt_tokens_details': {'cached_tokens': 13}}, 'id': 'chatcmpl-Heedzh5lnas1Zd3RB7PHPDYT0Ns5UqdK', 'timings': {'cache_n': 13, 'prompt_n': 5, 'prompt_ms': 77.47, 'prompt_per_token_ms': 15.494, 'prompt_per_second': 64.54111268878276, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.8735516667366028, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.8735516667366028}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 18, 'total_tokens': 19, 'prompt_tokens_details': {'cached_tokens': 13}}, 'id': 'chatcmpl-LxXgoxLefzqba0Gk4m9euV5NBLfnVnUN', 'timings': {'cache_n': 13, 'prompt_n': 5, 'prompt_ms': 79.689, 'prompt_per_token_ms': 15.9378, 'prompt_per_second': 62.74391697724906, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 1
+2026-10-15:03:37:53 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.4478323459625244, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.4478323459625244}]}]}, 'finish_reason': 'length'}], 'created': 1792035473, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 56, 'total_tokens': 57, 'prompt_tokens_details': {'cached_tokens': 41}}, 'id': 'chatcmpl-Ig2oiASk6dVZsM53j1je0aNWKDVtbZLh', 'timings': {'cache_n': 41, 'prompt_n': 15, 'prompt_ms': 81.985, 'prompt_per_token_ms': 5.4656666666666665, 'prompt_per_second': 182.96029761541746, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:53 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' A', 'index': 0, 'logprobs': {'content': [{'id': 362, 'token': ' A', 'bytes': [32, 65], 'logprob': -1.3326462507247925, 'top_logprobs': [{'id': 362, 'token': ' A', 'bytes': [32, 65], 'logprob': -1.3326462507247925}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 50, 'total_tokens': 51, 'prompt_tokens_details': {'cached_tokens': 40}}, 'id': 'chatcmpl-94FuZ9urlKQxMSf6L8qVdq3hiNiUSwgP', 'timings': {'cache_n': 40, 'prompt_n': 10, 'prompt_ms': 46.468, 'prompt_per_token_ms': 4.646800000000001, 'prompt_per_second': 215.2018593440647, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.6225751042366028, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.6225751042366028}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 38, 'total_tokens': 39, 'prompt_tokens_details': {'cached_tokens': 29}}, 'id': 'chatcmpl-Aba1D0UxObLzkFqE3FVBWwMSOteH1OSG', 'timings': {'cache_n': 29, 'prompt_n': 9, 'prompt_ms': 48.54, 'prompt_per_token_ms': 5.3933333333333335, 'prompt_per_second': 185.41409147095177, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.7324932813644409, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.7324932813644409}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 37, 'total_tokens': 38, 'prompt_tokens_details': {'cached_tokens': 29}}, 'id': 'chatcmpl-MPIp6X5vi2kbC89R6Z9chQzQUepNN70g', 'timings': {'cache_n': 29, 'prompt_n': 8, 'prompt_ms': 110.81, 'prompt_per_token_ms': 13.85125, 'prompt_per_second': 72.19565021207472, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.4188110828399658, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.4188110828399658}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 37, 'total_tokens': 38, 'prompt_tokens_details': {'cached_tokens': 29}}, 'id': 'chatcmpl-HcOO8TpRYfbdqQGjP5KAcOc8R2KgC6X8', 'timings': {'cache_n': 29, 'prompt_n': 8, 'prompt_ms': 113.128, 'prompt_per_token_ms': 14.141, 'prompt_per_second': 70.71635669330315, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' She', 'index': 0, 'logprobs': {'content': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -0.9594113230705261, 'top_logprobs': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -0.9594113230705261}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 31, 'total_tokens': 32, 'prompt_tokens_details': {'cached_tokens': 22}}, 'id': 'chatcmpl-Oyep6EzLpIuDiEHYwx7Ze5plP0c1JySK', 'timings': {'cache_n': 22, 'prompt_n': 9, 'prompt_ms': 115.394, 'prompt_per_token_ms': 12.821555555555555, 'prompt_per_second': 77.99365651593669, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.6314225196838379, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -0.6314225196838379}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 35, 'total_tokens': 36, 'prompt_tokens_details': {'cached_tokens': 34}}, 'id': 'chatcmpl-fD8nJyJFs3RL0ABcS7MJfoG1Wy38FNKQ', 'timings': {'cache_n': 34, 'prompt_n': 1, 'prompt_ms': 117.607, 'prompt_per_token_ms': 117.607, 'prompt_per_second': 8.502895235827799, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.1126428842544556, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.1126428842544556}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 31, 'total_tokens': 32, 'prompt_tokens_details': {'cached_tokens': 23}}, 'id': 'chatcmpl-2KDziylrpkl5XJall4tK8UVQVlhof83s', 'timings': {'cache_n': 23, 'prompt_n': 8, 'prompt_ms': 119.745, 'prompt_per_token_ms': 14.968125, 'prompt_per_second': 66.80863501607583, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.202073574066162, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.202073574066162}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 55, 'total_tokens': 56, 'prompt_tokens_details': {'cached_tokens': 41}}, 'id': 'chatcmpl-wpe5aZMNrSTBHRPfbkbibpk7DXYt7Y1r', 'timings': {'cache_n': 41, 'prompt_n': 14, 'prompt_ms': 121.815, 'prompt_per_token_ms': 8.701071428571428, 'prompt_per_second': 114.92837499486927, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.4883513450622559, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.4883513450622559}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 23, 'total_tokens': 24, 'prompt_tokens_details': {'cached_tokens': 13}}, 'id': 'chatcmpl-D3r7SFlMXkEBiFKlOBxSKhh7ZBsm8mGF', 'timings': {'cache_n': 13, 'prompt_n': 10, 'prompt_ms': 41.266, 'prompt_per_token_ms': 4.1266, 'prompt_per_second': 242.33024766151314, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.0244536399841309, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.0244536399841309}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 20, 'total_tokens': 21, 'prompt_tokens_details': {'cached_tokens': 13}}, 'id': 'chatcmpl-WnrYensAzCKhDIhNWHSnW7L4UiP52tdi', 'timings': {'cache_n': 13, 'prompt_n': 7, 'prompt_ms': 43.366, 'prompt_per_token_ms': 6.195142857142857, 'prompt_per_second': 161.4167781211087, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' She', 'index': 0, 'logprobs': {'content': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -0.8602975606918335, 'top_logprobs': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -0.8602975606918335}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 29, 'total_tokens': 30, 'prompt_tokens_details': {'cached_tokens': 22}}, 'id': 'chatcmpl-QRoqW3wQmkaEA9JdlMVsnJSRtMBOz4D0', 'timings': {'cache_n': 22, 'prompt_n': 7, 'prompt_ms': 82.796, 'prompt_per_token_ms': 11.828000000000001, 'prompt_per_second': 84.54514710855597, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -0.9357010722160339, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -0.9357010722160339}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 26, 'total_tokens': 27, 'prompt_tokens_details': {'cached_tokens': 25}}, 'id': 'chatcmpl-N1Yol97qy3QVlIL5xLIxZZbUyyMUzBxB', 'timings': {'cache_n': 25, 'prompt_n': 1, 'prompt_ms': 84.793, 'prompt_per_token_ms': 84.793, 'prompt_per_second': 11.793426344155767, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' She', 'index': 0, 'logprobs': {'content': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -1.0096306800842285, 'top_logprobs': [{'id': 2932, 'token': ' She', 'bytes': [32, 83, 104, 101], 'logprob': -1.0096306800842285}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 28, 'total_tokens': 29, 'prompt_tokens_details': {'cached_tokens': 23}}, 'id': 'chatcmpl-udakYljPLldMY1LTUs5Pd50uBI2RcsSP', 'timings': {'cache_n': 23, 'prompt_n': 5, 'prompt_ms': 87.111, 'prompt_per_token_ms': 17.4222, 'prompt_per_second': 57.39803239544948, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -0.8649235367774963, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -0.8649235367774963}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 23, 'total_tokens': 24, 'prompt_tokens_details': {'cached_tokens': 22}}, 'id': 'chatcmpl-6x5uuE0hlam29FSPlnR5PjXoekQ8Hh0w', 'timings': {'cache_n': 22, 'prompt_n': 1, 'prompt_ms': 89.314, 'prompt_per_token_ms': 89.314, 'prompt_per_second': 11.1964529637011, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.1913987398147583, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.1913987398147583}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 23, 'total_tokens': 24, 'prompt_tokens_details': {'cached_tokens': 22}}, 'id': 'chatcmpl-Ha0IG4UJiHroeUYGPRwM3EUjnoXpV0m9', 'timings': {'cache_n': 22, 'prompt_n': 1, 'prompt_ms': 91.55, 'prompt_per_token_ms': 91.55, 'prompt_per_second': 10.922992900054615, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' He', 'index': 0, 'logprobs': {'content': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.012597918510437, 'top_logprobs': [{'id': 1260, 'token': ' He', 'bytes': [32, 72, 101], 'logprob': -1.012597918510437}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 21, 'total_tokens': 22, 'prompt_tokens_details': {'cached_tokens': 20}}, 'id': 'chatcmpl-PnCl6t71cnh3IvLCStyyJB96lljleiAl', 'timings': {'cache_n': 20, 'prompt_n': 1, 'prompt_ms': 93.759, 'prompt_per_token_ms': 93.759, 'prompt_per_second': 10.66564276496123, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:KeyError('token_logprobs'), {'choices': [{'text': ' The', 'index': 0, 'logprobs': {'content': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.3183201551437378, 'top_logprobs': [{'id': 576, 'token': ' The', 'bytes': [32, 84, 104, 101], 'logprob': -1.3183201551437378}]}]}, 'finish_reason': 'length'}], 'created': 1792035474, 'model': 'gguf-q8_0', 'system_fingerprint': 'b11146-7fe450e19', 'object': 'text_completion', 'usage': {'completion_tokens': 1, 'prompt_tokens': 64, 'total_tokens': 65, 'prompt_tokens_details': {'cached_tokens': 40}}, 'id': 'chatcmpl-8uxJ1L2kze2xYUU2Lirmd2yWmy4WBCYu', 'timings': {'cache_n': 40, 'prompt_n': 24, 'prompt_ms': 76.376, 'prompt_per_token_ms': 3.1823333333333337, 'prompt_per_second': 314.2348381690583, 'predicted_n': 1, 'predicted_ms': 0.001, 'predicted_per_token_ms': 0.0, 'predicted_per_second': 0.0}}, retrying.
+
+Requesting API:   0%|          | 0/20 [00:36<?, ?it/s]
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:ServerDisconnectedError('Server disconnected'), (no outputs), retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:ServerDisconnectedError('Server disconnected'), (no outputs), retrying.
+2026-10-15:03:37:54 INFO     [models.api_models:607] Retry attempt 2
+2026-10-15:03:37:54 ERROR    [models.api_models:559] Exception:ServerDisconnectedError('Server disconnected'), (no outputs), retrying.
+Traceback (most recent call last):
+  File "/tmp/lmeval/bin/lm_eval", line 10, in <module>
+    sys.exit(cli_evaluate())
+             ~~~~~~~~~~~~^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/__main__.py", line 10, in cli_evaluate
+    parser.execute(args)
+    ~~~~~~~~~~~~~~^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/_cli/harness.py", line 60, in execute
+    args.func(args)
+    ~~~~~~~~~^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/_cli/run.py", line 391, in _execute
+    results = simple_evaluate(
+        model=cfg.model,
+    ...<32 lines>...
+        metadata=cfg.metadata,
+    )
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/utils.py", line 575, in _wrapper
+    return fn(*args, **kwargs)
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/evaluator.py", line 358, in simple_evaluate
+    results = evaluate(
+        lm=lm,
+    ...<12 lines>...
+        confirm_run_unsafe_code=confirm_run_unsafe_code,
+    )
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/utils.py", line 575, in _wrapper
+    return fn(*args, **kwargs)
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/evaluator.py", line 596, in evaluate
+    resps = getattr(lm, reqtype)(cloned_reqs)
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/api/model.py", line 446, in loglikelihood
+    return self._loglikelihood_tokens(new_reqs, disable_tqdm=disable_tqdm)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/api_models.py", line 687, in _loglikelihood_tokens
+    asyncio.run(
+    ~~~~~~~~~~~^
+        self.get_batched_requests(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+            inputs, cache_keys, generate=False, ctxlens=ctxlens
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        )
+        ^
+    )
+    ^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 196, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 119, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/base_events.py", line 726, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/api_models.py", line 631, in get_batched_requests
+    return await tqdm_asyncio.gather(*tasks, desc="Requesting API")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tqdm/asyncio.py", line 89, in gather
+    res = [await f for f in cls.as_completed(ifs, loop=loop, timeout=timeout,
+           ^^^^^^^
+  File "/usr/lib/python3.13/asyncio/tasks.py", line 634, in _wait_for_one
+    return f.result() if resolve else f
+           ~~~~~~~~^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tqdm/asyncio.py", line 82, in wrap_awaitable
+    return i, await f
+              ^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/asyncio/__init__.py", line 232, in async_wrapped
+    return await copy(fn, *args, **kwargs)  # type: ignore[type-var]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/asyncio/__init__.py", line 126, in __call__
+    do = await self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/asyncio/__init__.py", line 171, in iter
+    result = await action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/_utils.py", line 130, in inner
+    return call(*args, **kwargs)
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/__init__.py", line 482, in exc_check
+    retry_exc.reraise()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/__init__.py", line 216, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/concurrent/futures/_base.py", line 453, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/concurrent/futures/_base.py", line 402, in __get_result
+    raise self._exception
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/asyncio/__init__.py", line 130, in __call__
+    result = await fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/api_models.py", line 560, in amodel_call
+    raise e
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/api_models.py", line 535, in amodel_call
+    else self.parse_logprobs(
+         ~~~~~~~~~~~~~~~~~~~^
+        outputs=outputs,
+        ^^^^^^^^^^^^^^^^
+        tokens=messages,
+        ^^^^^^^^^^^^^^^^
+        ctxlens=ctxlens,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/openai_completions.py", line 113, in parse_logprobs
+    logprobs = sum(choice["logprobs"]["token_logprobs"][ctxlen:-1])
+                   ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'token_logprobs'
+Task exception was never retrieved
+future: <Task finished name='Task-37' coro=<tqdm_asyncio.gather.<locals>.wrap_awaitable() done, defined at /tmp/lmeval/lib/python3.13/site-packages/tqdm/asyncio.py:80> exception=ServerDisconnectedError('Server disconnected')>
+Traceback (most recent call last):
+  File "/tmp/lmeval/lib/python3.13/site-packages/tqdm/asyncio.py", line 82, in wrap_awaitable
+    return i, await f
+              ^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/asyncio/__init__.py", line 232, in async_wrapped
+    return await copy(fn, *args, **kwargs)  # type: ignore[type-var]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/asyncio/__init__.py", line 126, in __call__
+    do = await self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/asyncio/__init__.py", line 171, in iter
+    result = await action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/_utils.py", line 130, in inner
+    return call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/__init__.py", line 482, in exc_check
+    retry_exc.reraise()
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/__init__.py", line 216, in reraise
+    raise self.last_attempt.result()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/concurrent/futures/_base.py", line 453, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/concurrent/futures/_base.py", line 402, in __get_result
+    raise self._exception
+  File "/tmp/lmeval/lib/python3.13/site-packages/tenacity/asyncio/__init__.py", line 130, in __call__
+    result = await fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/api_models.py", line 560, in amodel_call
+    raise e
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/api_models.py", line 516, in amodel_call
+    async with session.post(
+               ^^^^^^^^^^^^^
+    ...<3 lines>...
+    ) as response:
+    ^
+  File "/tmp/lmeval/lib/python3.13/site-packages/aiohttp/client.py", line 1756, in __aenter__
+  File "/tmp/lmeval/lib/python3.13/site-packages/aiohttp/client.py", line 900, in _request
+  File "/tmp/lmeval/lib/python3.13/site-packages/aiohttp/client.py", line 878, in _connect_and_send_request
+  File "/tmp/lmeval/lib/python3.13/site-packages/aiohttp/client_reqrep.py", line 745, in start
+  File "/tmp/lmeval/lib/python3.13/site-packages/aiohttp/streams.py", line 716, in read
+aiohttp.client_exceptions.ServerDisconnectedError: Server disconnected

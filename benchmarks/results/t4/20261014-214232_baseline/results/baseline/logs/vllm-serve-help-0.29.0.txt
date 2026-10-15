@@ -1,0 +1,45 @@
+$ vllm serve --help
+# rc=1
+Traceback (most recent call last):
+  File "/usr/local/bin/vllm", line 8, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/usr/local/lib/python3.13/dist-packages/vllm/entrypoints/cli/main.py", line 18, in main
+    import vllm.entrypoints.cli.benchmark.main
+  File "/usr/local/lib/python3.13/dist-packages/vllm/entrypoints/cli/benchmark/main.py", line 12, in <module>
+    from vllm.entrypoints.serve.utils.api_utils import VLLM_SUBCMD_PARSER_EPILOG
+  File "/usr/local/lib/python3.13/dist-packages/vllm/entrypoints/serve/utils/api_utils.py", line 19, in <module>
+    from vllm.engine.arg_utils import EngineArgs
+  File "/usr/local/lib/python3.13/dist-packages/vllm/engine/arg_utils.py", line 37, in <module>
+    from vllm.config import (
+    ...<32 lines>...
+    )
+  File "/usr/local/lib/python3.13/dist-packages/vllm/config/__init__.py", line 23, in <module>
+    from vllm.config.model import (
+    ...<4 lines>...
+    )
+  File "/usr/local/lib/python3.13/dist-packages/vllm/config/model.py", line 31, in <module>
+    from vllm.transformers_utils.config import (
+    ...<14 lines>...
+    )
+  File "/usr/local/lib/python3.13/dist-packages/vllm/transformers_utils/config.py", line 20, in <module>
+    from transformers.models.auto.image_processing_auto import get_image_processor_config
+  File "/usr/local/lib/python3.13/dist-packages/transformers/models/auto/image_processing_auto.py", line 24, in <module>
+    from ...image_processing_utils import ImageProcessingMixin
+  File "/usr/local/lib/python3.13/dist-packages/transformers/image_processing_utils.py", line 34, in <module>
+    from .processing_utils import ImagesKwargs, Unpack
+  File "/usr/local/lib/python3.13/dist-packages/transformers/processing_utils.py", line 38, in <module>
+    from .audio_utils import AudioInput, load_audio, make_list_of_audio
+  File "/usr/local/lib/python3.13/dist-packages/transformers/audio_utils.py", line 58, in <module>
+    import torchaudio
+  File "/usr/local/lib/python3.13/dist-packages/torchaudio/__init__.py", line 7, in <module>
+    from . import _extension  # noqa  # usort: skip
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.13/dist-packages/torchaudio/_extension/__init__.py", line 36, in <module>
+    _check_cuda_version()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/local/lib/python3.13/dist-packages/torchaudio/_extension/utils.py", line 124, in _check_cuda_version
+    raise RuntimeError(
+    ...<3 lines>...
+    )
+RuntimeError: Detected that PyTorch and TorchAudio were compiled with different CUDA versions. PyTorch has CUDA version 13.0 whereas TorchAudio has CUDA version 12.8. Please install the TorchAudio version that matches your PyTorch version.

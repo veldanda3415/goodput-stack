@@ -1,0 +1,18 @@
+{
+  "run_id": "20261014-214129_smoke",
+  "stage": "smoke",
+  "args": [],
+  "kernel": "raviveldanda/goodput-t4",
+  "git_sha": "0f8d947-dirty",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-15T01:41:31+00:00",
+  "push_output": "Kernel version 1 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4",
+  "output_cmd_output": "Output file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/kernel_session.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/env.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/logs/dcgm.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/logs/host.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/logs/nvidia-smi-q.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/logs/nvidia-smi.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/logs/pip-list.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/logs/pip-show-vllm.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/smoke.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/results/smoke/stage.json\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214129_smoke/_download/goodput-t4.log",
+  "status": "complete",
+  "finished_at_utc": "2026-10-15T01:42:16+00:00",
+  "wall_push_to_done_min": 0.8,
+  "script_session_s": 20.7,
+  "gpu_hours_script": 0.006,
+  "gpu_hours_upper_bound": 0.013
+}

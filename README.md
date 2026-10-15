@@ -49,6 +49,8 @@ flowchart LR
   Each InferencePool has its own `llm-d-router-gateway` v0.9.0 release (EPP + HTTPRoute),
   [ADR 0002](docs/adr/0002-gateway-in-chart.md). What it does and doesn't do: [GAPS.md](deploy/gateway/GAPS.md).
 - **Benchmarks** ([benchmarks/](benchmarks/)): the engine suite against llama.cpp and the simulator, with recorded provenance.
+- **GPU engine track** ([benchmarks/results/t4/](benchmarks/results/t4/README.md)): vLLM 0.31.0 and llama.cpp CUDA on a
+  free Kaggle T4, driven from the lab with `make t4-run STAGE=...`. Headline numbers with provenance: [RESULTS.md](RESULTS.md).
 - **Probes** ([scripts/](scripts/)): small, single-question tests (queueing, bring-up, EPP routing, fail-open, disconnect, gateway kill, burst vs metrics refresh).
 
 ## Repository

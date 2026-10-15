@@ -1,0 +1,21 @@
+{
+  "run_id": "20261014-224513_quant",
+  "stage": "quant",
+  "args": [
+    "--vllm-version",
+    "0.31.0"
+  ],
+  "kernel": "raviveldanda/goodput-t4",
+  "git_sha": "a32bf63",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-15T02:45:15+00:00",
+  "push_output": "Kernel version 5 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4",
+  "output_cmd_output": "4/20261014-224513_quant/_download/results/quant/logs/lmeval-gguf-q8_0-hellaswag-probe.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/logs/lmeval-gguf-q8_0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/logs/lmeval-install.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/logs/pip-install-vllm-0.31.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/logs/pip-uninstall-before-vllm-0.31.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/logs/server-awq-int4.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/logs/server-fp16.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/logs/server-gguf-q4_k_m.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/logs/server-gguf-q8_0.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/quant.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/stage.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/results/quant/wikitext2_test.txt\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-224513_quant/_download/goodput-t4.log",
+  "status": "complete",
+  "finished_at_utc": "2026-10-15T03:07:25+00:00",
+  "wall_push_to_done_min": 22.2,
+  "script_session_s": 1263.9,
+  "gpu_hours_script": 0.351,
+  "gpu_hours_upper_bound": 0.37
+}

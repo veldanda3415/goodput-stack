@@ -1,0 +1,16 @@
+{
+  "stage": "baseline",
+  "run_id": "20261014-214232_baseline",
+  "git_sha": "1389783",
+  "runtime_s": 759.7,
+  "args": {
+    "stage": "baseline",
+    "model": "meta-llama/Llama-3.2-3B-Instruct",
+    "fallback_model": "Qwen/Qwen2.5-3B-Instruct",
+    "vllm_versions": "0.31.0,0.30.0,0.29.0,0.28.0",
+    "gpu_mem": 0.9,
+    "max_model_len": 4096,
+    "decode_runs": 5,
+    "decode_max_tokens": 256
+  }
+}

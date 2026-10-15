@@ -170,7 +170,8 @@ async def run_load(base_url: str, c: dict) -> tuple[list[dict], float, dict, dic
     """Warmup sequentially, then measured requests via `concurrency` closed-loop workers.
 
     Request count: `requests`, or concurrency x `requests_per_client` if set, never below
-    `min_requests`. De-synchronisation (so clients don't move in lockstep): each worker
+    `min_requests`. With `arrival_rate` (req/s) set, requests arrive open-loop (Poisson, seeded by
+    `arrival_seed`) instead of from closed-loop workers. De-synchronisation (so clients don't move in lockstep): each worker
     starts after a random delay in [0, start_jitter_s], and per-request output length
     varies by +/- max_tokens_jitter. Also returns a /metrics scrape taken after warmup, so
     server-side counter deltas cover only the measured requests.
@@ -203,8 +204,23 @@ async def run_load(base_url: str, c: dict) -> tuple[list[dict], float, dict, dic
                     return
                 records.append(await one_request(client, c, prompt, i, w, max_tokens=n_tok))
 
+        async def open_loop() -> None:
+            # Poisson arrivals at `arrival_rate` req/s, independent of how fast the server answers;
+            # in-flight is bounded only by the connection pool (concurrency + 4): set concurrency high.
+            arr = random.Random(c.get("arrival_seed", 7))
+            tasks, t_next = [], time.monotonic()
+            for i in range(n_requests):
+                await asyncio.sleep(max(0.0, t_next - time.monotonic()))
+                _, prompt, n_tok = queue.get_nowait()
+                tasks.append(asyncio.create_task(one_request(client, c, prompt, i, i, max_tokens=n_tok)))
+                t_next += arr.expovariate(c["arrival_rate"])
+            records.extend(await asyncio.gather(*tasks))
+
         t0 = time.monotonic()
-        await asyncio.gather(*(worker(w) for w in range(c["concurrency"])))
+        if c.get("arrival_rate"):
+            await open_loop()
+        else:
+            await asyncio.gather(*(worker(w) for w in range(c["concurrency"])))
         wall_s = time.monotonic() - t0
 
     for r in records:  # make start/end relative to the measured window

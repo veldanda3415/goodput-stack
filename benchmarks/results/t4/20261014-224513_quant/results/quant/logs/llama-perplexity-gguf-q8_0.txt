@@ -1,0 +1,13 @@
+$ /tmp/llamacpp/llama-b11146/llama-perplexity -m /root/.cache/huggingface/hub/models--Qwen--Qwen2.5-3B-Instruct-GGUF/snapshots/7dabda4d13d513e3e842b20f0d435c732f172cbe/qwen2.5-3b-instruct-q8_0.gguf -f /kaggle/working/results/quant/wikitext2_test.txt -c 512 --chunks 40 -ngl 99
+# rc=0
+0.23 minutes
+[1]7.0356,[2]9.1811,[3]8.5711,[4]8.5535,[5]8.5605,[6]8.8122,[7]9.0234,[8]9.4614,[9]9.9090,[10]10.2451,[11]10.1543,[12]10.3669,[13]10.7209,[14]10.3086,[15]10.1768,[16]10.2936,[17]9.6732,[18]9.7728,[19]9.6294,[20]9.6060,[21]9.3426,[22]9.3597,[23]8.9876,[24]8.5732,[25]8.3556,[26]8.1917,[27]7.9810,[28]7.8829,[29]7.9676,[30]7.9033,[31]7.8490,[32]7.8715,[33]7.7821,[34]7.8338,[35]7.8947,[36]7.9675,[37]8.0886,[38]8.1075,[39]8.0711,[40]8.1370,
+
+0.01.042.638 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.02.060.268 I cmn          init: llama threadpool init, n_threads = 2
+0.02.229.872 I 
+0.02.229.962 I system_info: n_threads = 2 (n_threads_batch = 2) / 4 | CUDA : ARCHS = 500,610,700,750,800,860,890,900,1200 | USE_GRAPHS = 1 | FA_QUANTS = q4_0-q4_0,q8_0-q8_0,f16-f16,bf16-bf16 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | AVX512 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.02.229.983 I perplexity: tokenizing the input ..
+0.03.071.307 I perplexity: tokenization took 841.312 ms
+0.03.071.775 I perplexity: calculating perplexity over 40 chunks, n_ctx=512, batch_size=2048, n_seq=4
+0.04.509.907 I perplexity: 1.44 seconds per pass - ETA 0.17.091.861 I Final estimate: PPL = 8.1370 +/- 0.21534

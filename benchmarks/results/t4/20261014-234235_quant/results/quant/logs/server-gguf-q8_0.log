@@ -1,0 +1,13 @@
+$ /tmp/llamacpp/llama-b11146/llama-server -m /root/.cache/huggingface/hub/models--Qwen--Qwen2.5-3B-Instruct-GGUF/snapshots/7dabda4d13d513e3e842b20f0d435c732f172cbe/qwen2.5-3b-instruct-q8_0.gguf --port 8000 --alias gguf-q8_0 -ngl 99 -c 8192 -np 16 --metrics --no-webui
+0.00.000.587 I srv  llama_server: initializing ...
+0.00.264.290 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.264.453 I srv  init_listene: The UI is disabled
+0.00.264.458 I srv  init_listene: Use --ui/--no-ui (or deprecated --webui/--no-webui) to enable/disable
+0.00.264.546 W srv  llama_server: security: no API key is set and CORS allows all origins (see https://github.com/ggml-org/llama.cpp/pull/25655)
+0.00.267.876 I srv    load_model: loading model '/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-3B-Instruct-GGUF/snapshots/7dabda4d13d513e3e842b20f0d435c732f172cbe/qwen2.5-3b-instruct-q8_0.gguf'
+0.01.198.130 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.02.230.833 I cmn          init: llama threadpool init, n_threads = 2
+0.39.442.040 I srv    load_model: initializing, n_slots = 16, n_ctx_slot = 512, kv_unified = 'false'
+0.39.450.652 I srv  llama_server: model loaded
+0.39.450.670 I srv  llama_server: listening on http://127.0.0.1:8000
+0.40.683.634 I srv    operator(): operator(): cleaning up before exit...

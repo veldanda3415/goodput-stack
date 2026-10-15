@@ -1,0 +1,18 @@
+{
+  "run_id": "20261014-214232_baseline",
+  "stage": "baseline",
+  "args": [],
+  "kernel": "raviveldanda/goodput-t4",
+  "git_sha": "1389783",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-15T01:42:34+00:00",
+  "push_output": "Kernel version 2 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4",
+  "output_cmd_output": "loaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/model-config.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/pip-install-vllm-0.28.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/pip-install-vllm-0.29.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/pip-install-vllm-0.30.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/pip-install-vllm-0.31.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/vllm-serve-help-0.28.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/vllm-serve-help-0.29.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/vllm-serve-help-0.30.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/logs/vllm-serve-help-0.31.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/baseline/stage.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/results/kernel_session.txt\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-214232_baseline/_download/goodput-t4.log",
+  "status": "complete",
+  "finished_at_utc": "2026-10-15T01:56:06+00:00",
+  "wall_push_to_done_min": 13.5,
+  "script_session_s": 760.0,
+  "gpu_hours_script": 0.211,
+  "gpu_hours_upper_bound": 0.225
+}
