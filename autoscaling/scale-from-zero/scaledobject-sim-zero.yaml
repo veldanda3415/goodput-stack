@@ -1,0 +1,38 @@
+# Scale-from-zero for the scratch pool (GAPS.md P6, #10). SIMULATED backend.
+# At 0 replicas there are no engine metrics, so the trigger is the EPP's flow-control queue
+# (llm_d_epp_flow_control_queue_size, label inference_pool; seen live at 0 -> 2 -> 3 while requests were held).
+# Requires featureGates: [flowControl] in the EPP config (epp-zero.values.yaml): without it the EPP has no
+# queue and a request at 0 replicas fails at once.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: sim-zero
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  scaleTargetRef:
+    name: sim-zero
+  minReplicaCount: 0
+  maxReplicaCount: 2
+  pollingInterval: 2          # s; at min 0 KEDA itself does 0 -> 1 on this poll. Budget: 2 s scrape + 2 s poll
+                              # + ~3 s pod start must stay under the gateway's 10 s ext_proc cut-off
+  cooldownPeriod: 60          # s idle (metric at 0) before 1 -> 0
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies: [{ type: Pods, value: 2, periodSeconds: 15 }]
+        scaleDown:
+          stabilizationWindowSeconds: 60
+          policies: [{ type: Pods, value: 1, periodSeconds: 30 }]
+  triggers:
+    - type: prometheus
+      metricType: AverageValue
+      metadata:
+        serverAddress: http://kps-kube-prometheus-stack-prometheus.monitoring.svc:9090
+        # queued at the EPP (held, waiting for an endpoint) + running in the engine once pods exist
+        query: >-
+          sum(llm_d_epp_flow_control_queue_size{namespace="inference",inference_pool="zero-pool"}) or vector(0)
+        threshold: "2"
+        activationThreshold: "0"   # any queued request activates 0 -> 1

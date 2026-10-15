@@ -1,0 +1,47 @@
+# llm-d-router-gateway (EPP_VERSION in the Makefile) for the scratch InferencePool `zero-pool`.
+# Route: `/` + header `x-pool: zero`. Config = the chart's default-plugins.yaml + the flowControl feature gate
+# (key names from the llm-d EPP flow-control docs; whether v0.9.0 honours them is what the experiment checks).
+router:
+  modelServers:
+    matchLabels: { app.kubernetes.io/name: vllm-sim-zero }
+  monitoring:
+    prometheus:
+      auth:
+        enabled: false
+  epp:
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { memory: 512Mi }
+    pluginsConfigFile: flow-plugins.yaml
+    pluginsCustomConfig:
+      flow-plugins.yaml: |
+        apiVersion: llm-d.ai/v1alpha1
+        kind: EndpointPickerConfig
+        featureGates:
+        - flowControl
+        plugins:
+        - type: queue-scorer
+        - type: kv-cache-utilization-scorer
+        - type: prefix-cache-scorer
+        - type: metrics-data-source
+          parameters:
+            scheme: "http"
+            path: "/metrics"
+            insecureSkipVerify: true
+        - type: core-metrics-extractor
+        schedulingProfiles:
+        - name: default
+          plugins:
+          - pluginRef: queue-scorer
+            weight: 2
+          - pluginRef: kv-cache-utilization-scorer
+            weight: 2
+          - pluginRef: prefix-cache-scorer
+            weight: 3
+provider:
+  name: none
+httpRoute:
+  create: true
+  inferenceGatewayName: inference-gateway
+  headerMatches:
+    x-pool: zero

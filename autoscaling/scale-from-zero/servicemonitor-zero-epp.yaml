@@ -1,0 +1,19 @@
+# Scrape the zero-pool EPP every 2 s: KEDA activates sim-zero from 0 on its flow-control queue, and the
+# whole chain (scrape + KEDA poll + pod start) must finish inside agentgateway's 10 s ext_proc cut-off
+# (measured: held requests fail with "HTTP 500: ext_proc failed: no more response messages" at 10.0 s).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: zero-pool-epp
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  selector:
+    matchLabels: { app.kubernetes.io/name: zero-pool-epp }
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 2s
+      relabelings:
+        - targetLabel: pool
+          replacement: zero-pool

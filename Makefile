@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst obs-up obs-down obs-apply keda-up keda-down
+.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst obs-up obs-down obs-apply keda-up keda-down zero-up zero-down probe-zero
 
 help: ## List targets
 > @grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
@@ -165,3 +165,18 @@ keda-up: ## Install KEDA (ns keda), then apply the ScaledObjects in autoscaling/
 keda-down: ## Delete the ScaledObjects (HPAs go with them; replicas stay where they are) and uninstall KEDA
 > -kubectl delete -f autoscaling/scaledobject-llamacpp.yaml -f autoscaling/scaledobject-vllm-sim.yaml --ignore-not-found
 > helm uninstall keda -n keda
+
+# Scale-from-zero scratch pool (autoscaling/scale-from-zero/, GAPS.md P6): sim-zero at 0 replicas, EPP with flowControl.
+zero-up: ## Deploy zero-pool: sim-zero (0 replicas) + EPP release with flowControl + its ServiceMonitor + min-0 ScaledObject
+> kubectl apply -f autoscaling/scale-from-zero/sim-zero.yaml -f autoscaling/scale-from-zero/servicemonitor-zero-epp.yaml
+> helm upgrade --install zero-pool $(EPP_CHART) --version $(EPP_VERSION) -n inference -f autoscaling/scale-from-zero/epp-zero.values.yaml --wait
+> kubectl -n inference rollout restart deploy/zero-pool-epp && kubectl -n inference rollout status deploy/zero-pool-epp --timeout=120s
+> kubectl apply -f autoscaling/scale-from-zero/scaledobject-sim-zero.yaml
+
+zero-down: ## Remove the zero-pool scratch pool
+> -kubectl delete -f autoscaling/scale-from-zero/scaledobject-sim-zero.yaml -f autoscaling/scale-from-zero/servicemonitor-zero-epp.yaml --ignore-not-found
+> -helm uninstall zero-pool -n inference
+> kubectl delete -f autoscaling/scale-from-zero/sim-zero.yaml --ignore-not-found
+
+probe-zero: ## 0->1 through zero-pool (KEDA does the scale): make probe-zero ARGS="--n 5"
+> $(PY) autoscaling/scale-from-zero/probe_zero.py $(ARGS)
