@@ -92,7 +92,24 @@ keys from the chart's commented defaults). `gang-c` submitted 10:54:01:
 What it adds: a job that is admitted but can't actually get all its pods running is evicted and requeued with backoff instead of squatting on GPUs, and after the limit it is deactivated (needs a human).
 What it does not do: it does not make scheduling atomic (the 2 pods did start for up to 60 s) and it does not know *why* pods are not ready.
 
-Not run: **topology-aware scheduling stretch** (skipped for time; see README).
+### Stretch: topology-aware scheduling (TAS), SIMULATED GPUs
+Manifest: `scheduling/manifests/kueue-tas.yaml` (Topology levels block / rack / hostname from the Task 0 node labels;
+flavor `gpu-t4-tas` with `topologyName`; separate ClusterQueue `team-tas` with 4 GPUs; fields checked with `kubectl explain
+topology.spec.levels` and `resourceflavor.spec.topologyName`, annotation names from Kueue v0.20.1
+`site/content/en/docs/concepts/topology_aware_scheduling.md`). TAS is beta and on by default in 0.20.1 per that page.
+Layout: agent-0 = block-a/rack-1, agent-1 = block-a/rack-2, 2 GPUs each. Jobs: `scheduling/kjob.py NAME team-tas --parallelism N
+--required-topology <label>`; run one at a time, 12 s settle.
+
+| job | required level | result (from the Workload) |
+|---|---|---|
+| tas-rack2 (2 pods) | rack | admitted; both pods on agent-0 (topologyAssignment: hostname agent-0, 2 pods) |
+| tas-rack3 (3 pods) | rack | **not admitted**: `QuotaReserved=False/TopologyPlacementFailed: couldn't assign flavors to pod set main: topology "gpu-topology" allows to fit only 2 out of 3 pod(s)`; no pods created |
+| tas-block3 (3 pods) | block | admitted; agent-0 x2, agent-1 x1 (both racks are in block-a) |
+
+Event: `Warning TopologyPlacementFailed workload/job-tas-rack3-ea91b couldn't assign flavors to pod set main: topology
+"gpu-topology" allows to fit only 2 out of 3 pod(s)`. Note the rack3 case holds the whole workload back (no pods, so no
+partial start), unlike a plain Job. Caveat: the "racks" are node labels I applied; no real network locality exists. The TAS
+objects were deleted after the test (`kubectl delete -f` the manifest).
 
 ## Why
 Kueue gates *admission* by quota (it unsuspends the Job); kube-scheduler still does placement. So quota-gang is atomic, placement-gang is not: only a gang scheduler (KAI/Volcano

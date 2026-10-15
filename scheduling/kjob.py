@@ -14,6 +14,7 @@ p.add_argument("--parallelism", type=int, default=1)
 p.add_argument("--priority")
 p.add_argument("--queue", default="lq")
 p.add_argument("--prefer-node", help="preferred (not required) node name")
+p.add_argument("--required-topology", help="node label key for kueue.x-k8s.io/podset-required-topology")
 p.add_argument("--backoff", type=int, default=0)
 a = p.parse_args()
 labels = {"kueue.x-k8s.io/queue-name": a.queue}
@@ -32,4 +33,6 @@ job = {
 if a.prefer_node:
     job["spec"]["template"]["spec"]["affinity"] = {"nodeAffinity": {"preferredDuringSchedulingIgnoredDuringExecution": [
         {"weight": 100, "preference": {"matchExpressions": [{"key": "kubernetes.io/hostname", "operator": "In", "values": [a.prefer_node]}]}}]}}
+if a.required_topology:
+    job["spec"]["template"].setdefault("metadata", {}).setdefault("annotations", {})["kueue.x-k8s.io/podset-required-topology"] = a.required_topology
 print(json.dumps(job))

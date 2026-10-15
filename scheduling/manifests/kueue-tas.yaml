@@ -1,0 +1,43 @@
+# Kueue topology-aware scheduling (SIMULATED GPUs). Fields per kubectl explain topology / resourceflavor.spec.topologyName
+# on Kueue 0.20.1 and site/content/en/docs/concepts/topology_aware_scheduling.md at tag v0.20.1.
+# Separate ClusterQueue so it does not disturb scenario 03's queues; run only when team-a/team-b are idle.
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: Topology
+metadata: {name: gpu-topology}
+spec:
+  levels:
+    - nodeLabel: topology.goodput/block
+    - nodeLabel: topology.goodput/rack
+    - nodeLabel: kubernetes.io/hostname
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ResourceFlavor
+metadata: {name: gpu-t4-tas}
+spec:
+  nodeLabels: {gpu-pool: t4}
+  topologyName: gpu-topology
+  tolerations:
+    - {key: nvidia.com/gpu, operator: Equal, value: present, effect: NoSchedule}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: team-tas}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata: {name: team-tas}
+spec:
+  namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: team-tas}}
+  resourceGroups:
+    - coveredResources: ["nvidia.com/gpu", "cpu", "memory"]
+      flavors:
+        - name: gpu-t4-tas
+          resources:
+            - {name: nvidia.com/gpu, nominalQuota: 4}
+            - {name: cpu, nominalQuota: 8}
+            - {name: memory, nominalQuota: 8Gi}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: LocalQueue
+metadata: {name: lq, namespace: team-tas}
+spec: {clusterQueue: team-tas}

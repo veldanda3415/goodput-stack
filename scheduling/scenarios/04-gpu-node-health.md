@@ -47,7 +47,7 @@ Command: `make gpusim-health-run RUNS=3` (2026-10-15 ~11:06-11:09 EDT). Seconds,
 | 2 | agent-1 | 2.67 | 0.22 | 0.90 | 3.79 | 0.76 |
 | 3 | agent-0 | 3.44 | 0.25 | 1.68 | 5.37 | 0.76 |
 
-"signal → taint" includes the controller's cordon + Kueue requeue (~1.0-1.8 s in the log: cordon → reactivated) because
+"signal → taint" includes the controller's cordon + Kueue requeue (1.2-2.2 s in the log: cordoned → reactivated) because
 the taint is deliberately last. Run 1's slower Ready is a cold image/pod start on agent-1; I did not isolate why.
 In all 3 runs the Job's new pod landed Running on the healthy node and the Workload ended
 `Admitted=True`, `Requeued=True/Reactivated`.
