@@ -4,7 +4,7 @@
 Podman: rootless user socket (the rootful socket was not reachable from this account,
 see scenarios/README note). Never touches the default kubeconfig or the k3s cluster.
 
-  gpusim.py up | down | status | guard
+  gpusim.py up | down | status | guard | operator
 """
 import os, subprocess, sys
 
@@ -62,11 +62,22 @@ def up():
     kubectl("get", "nodes", "-L", "gpu-pool,topology.goodput/block,topology.goodput/rack")
 
 
+def operator():
+    guard()
+    for n in ("k3d-gpusim-agent-0", "k3d-gpusim-agent-1"):
+        kubectl("label", "node", n, "run.ai/simulated-gpu-node-pool=t4", "--overwrite")
+    here = os.path.dirname(os.path.abspath(__file__))
+    kubectl_helm = ["helm", "--kubeconfig", KUBECONFIG, "--kube-context", CONTEXT]
+    run(*kubectl_helm, "upgrade", "-i", "gpu-operator", "oci://ghcr.io/run-ai/fake-gpu-operator/fake-gpu-operator",
+        "-n", "gpu-operator", "--create-namespace", "--version", "0.2.1",
+        "-f", os.path.join(here, "fake-gpu-operator.values.yaml"), "--wait", "--timeout", "5m")
+
+
 def down():
     run("k3d", "cluster", "delete", CLUSTER)
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"up": up, "down": down, "guard": guard,
+    {"up": up, "down": down, "guard": guard, "operator": operator,
      "status": lambda: (guard(), kubectl("get", "nodes", "-o", "wide"))}.get(cmd, lambda: sys.exit(__doc__))()
