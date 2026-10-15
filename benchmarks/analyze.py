@@ -207,6 +207,14 @@ def section_kv(rows: dict, base_md: Path) -> list[str]:
         out.append(f"| {r['gpu_memory_utilization']} | {r['max_model_len']} | {'yes' if r.get('started') else 'no'} | {fmt(r.get('num_gpu_blocks'))} | "
                    f"{fmt(r.get('block_size'))} | {fmt(r.get('kv_tokens'))} | {fmt(r.get('max_full_len_seqs'), 2)} | {r.get('max_full_len_seqs_source', '—')} | "
                    f"{fmt(r.get('model_weights_gib'), 2)} | {fmt(r.get('available_kv_gib'), 2)} | {err} | {link(r, base_md)} |")
+    cfgf = REPO / Path(r0["_src"]).parent / "logs" / "model-config.json"
+    if cfgf.exists():
+        b, formula = kv_bytes_per_token(json.loads(cfgf.read_text()))
+        out += ["", f"KV bytes/token from the model's `config.json`: {formula}. Check (computed): "
+                + "; ".join(f"{r['available_kv_gib']} GiB / {b:,} B = {int(r['available_kv_gib'] * 2**30 / b):,} tokens vs {fmt(r.get('kv_tokens'))} reported"
+                            for r in cells if r.get("max_model_len") == cells[0]["max_model_len"] and r.get("available_kv_gib")) + "."]
+    out += ["", "Reading: the KV pool is set by `--gpu-memory-utilization` alone (memory left after weights, activations and "
+            "CUDA graphs); `--max-model-len` only changes how many full-length sequences fit in it."]
     return out + [""]
 
 

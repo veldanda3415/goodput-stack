@@ -134,5 +134,6 @@ No quant rows yet.
 | 20261014-214232_baseline | baseline | complete | 760.0 | 0.211 | 0.225 |
 | 20261014-215653_baseline | baseline | complete | 636.8 | 0.177 | 0.190 |
 | 20261014-220946_sweep | sweep | complete | 2,064.3 | 0.573 | 0.587 |
-| **total** | | | | **0.981** | **1.047** |
+| 20261014-220938_kvgrid | kvgrid | complete | 2,372.8 | 0.659 | 0.667 |
+| **total** | | | | **1.640** | **1.714** |
 

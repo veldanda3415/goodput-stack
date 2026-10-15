@@ -10,5 +10,12 @@
   "resume_from": null,
   "machine_shape": "NvidiaTeslaT4",
   "pushed_at_utc": "2026-10-15T02:09:40+00:00",
-  "push_output": "Kernel version 1 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4-kv"
+  "push_output": "Kernel version 1 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4-kv",
+  "output_cmd_output": "d/logs/server-kv-0.8-4096.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.8-8192.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.9-16384.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.9-2048.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.9-4096.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.9-8192.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.95-16384.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.95-2048.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.95-4096.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/server-kv-0.95-8192.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/logs/vllm-serve-help-0.31.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/results/kvgrid/stage.json\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-220938_kvgrid/_download/goodput-t4-kv.log",
+  "status": "complete",
+  "finished_at_utc": "2026-10-15T02:49:41+00:00",
+  "wall_push_to_done_min": 40.0,
+  "script_session_s": 2372.8,
+  "gpu_hours_script": 0.659,
+  "gpu_hours_upper_bound": 0.667
 }

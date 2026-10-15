@@ -1,0 +1,13 @@
+{
+  "stage": "kvgrid",
+  "run_id": "20261014-220938_kvgrid",
+  "git_sha": "f03cd60",
+  "runtime_s": 2372.5,
+  "args": {
+    "stage": "kvgrid",
+    "vllm_version": "0.31.0",
+    "model": "hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4",
+    "utils": "0.80,0.90,0.95",
+    "lens": "2048,4096,8192,16384"
+  }
+}

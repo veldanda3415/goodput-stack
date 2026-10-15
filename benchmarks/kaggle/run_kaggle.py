@@ -124,6 +124,9 @@ def push(stage: str, args: list[str], resume: Path | None, slug: str = "goodput-
     (build / "kernel-metadata.json").write_text(json.dumps(meta, indent=2))
     out = kaggle("kernels", "push", "-p", str(build))
     shutil.rmtree(build)
+    if "error" in out.lower():   # the CLI exits 0 on e.g. "Maximum batch GPU session count of 2 reached."
+        shutil.rmtree(run_dir)
+        raise SystemExit(f"push failed: {out}")
     rec = {"run_id": run_id, "stage": stage, "args": args, "kernel": meta["id"], "git_sha": sha,
            "resume_from": str(resume.relative_to(REPO)) if resume else None, "machine_shape": meta["machine_shape"],
            "pushed_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "push_output": out}
