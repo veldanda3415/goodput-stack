@@ -116,6 +116,13 @@ Both in the **same Kaggle session, back to back**, same server (default max-num-
 | 16 | harness | 1,215.7 | 1,570.5 | 38.2 | 41.4 | 316.1 (wall) | 754 | 1,156.3 | [20261014-230457_sweep](../../../benchmarks/results/t4/20261014-230457_sweep/results/sweep/sweep.jsonl) |
 | 16 | vllm bench serve | 1,574.6 | 10,510.6 | 38.4 | 39.6 | 234.1 | 762 | — | [20261014-230457_sweep](../../../benchmarks/results/t4/20261014-230457_sweep/results/sweep/sweep.jsonl) |
 
+### c=16 TTFT-tail diagnosis (`vllm bench serve`, one fresh session)
+
+| run | extra flags | TTFT p50 / p95 ms | first 16 requests TTFT s (min–max) | later requests TTFT s (max) | TPOT p50 ms | output tok/s | row |
+|---|---|---:|---:|---:|---:|---:|---|
+| benchdiag-A | `--save-detailed` | 1,488.9 / 12,463.1 | 4.48–12.47 | 1.56 | 39.4 | 223.5 | [20261014-232257_sweep](../../../benchmarks/results/t4/20261014-232257_sweep/results/sweep/sweep.jsonl) |
+| benchdiag-B | `--save-detailed --num-warmups 2 --temperature 0` | 1,237.8 / 1,606.3 | 0.11–1.57 | 1.61 | 42.9 | 305.8 | [20261014-232257_sweep](../../../benchmarks/results/t4/20261014-232257_sweep/results/sweep/sweep.jsonl) |
+
 ![throughput](charts/sweep_throughput.png)
 ![ttft](charts/sweep_ttft.png)
 ![itl](charts/sweep_itl.png)
@@ -150,5 +157,6 @@ Cost: Azure Standard_NC4as_T4_v3 US East Linux on-demand 0.526 USD/1 Hour; fetch
 | 20261014-224513_quant | quant | complete | 1,263.9 | 0.351 | 0.370 |
 | 20261014-230757_smoke | smoke | complete | 20.3 | 0.006 | 0.013 |
 | 20261014-230457_sweep | sweep | complete | 895.7 | 0.249 | 0.260 |
-| **total** | | | | **2.468** | **2.589** |
+| 20261014-232257_sweep | sweep | complete | 882.7 | 0.245 | 0.258 |
+| **total** | | | | **2.713** | **2.847** |
 

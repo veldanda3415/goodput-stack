@@ -172,9 +172,16 @@ tokens, 128 output, ignore_eos, no jitter, 20 / 64 requests.
   does cap in-flight requests at 16 (`serve.py:980–990`), and `start_time` is taken after the semaphore, so bench
   TTFT excludes client-side waiting. (b) The probe loop is off by default (`probe_request_rate = 0.0`, `serve.py:815`).
   Also seen: bench 0.31.0 no longer sends `temperature=0` (it prints a warning), and it ran no warmup requests,
-  while the harness sends 2. Next step: rerun with `--num-warmups 2 --save-detailed` and look at which requests
-  carry the 10.5 s TTFT. bench's GPU-util mean (34 %) is diluted because its sampler window also covers the tool's
-  start-up.
+  while the harness sends 2. bench's GPU-util mean (34 %) is diluted because its sampler window also covers the
+  tool's start-up.
+- **Diagnosis (run 20261014-232257, one fresh session, `--save-detailed`).** A = the original command: **15 of the
+  first 16 requests** had TTFT 12.46 s, and every later request ≤ 1.6 s. The tail is the **first concurrent wave
+  only**. B = the same plus `--num-warmups 2 --temperature 0`: the tail is gone (TTFT p95 1,606 ms, 305.8 tok/s,
+  TPOT p50 42.9 ms), in line with the harness (1,571 ms, 316.1 tok/s, 41.4 ms). B changed two things, so which one
+  removes the first-wave stall (warmup, or greedy instead of the model's default sampling path) is **not
+  separated**. One more pair of runs, each changing a single flag, would separate them. Practical reading: the
+  harness and `vllm bench serve` agree once both warm up and sample the same way, and a cold first wave of 16 on
+  this server can cost ~12 s TTFT.
 - **Power capping.** In this session NVML's "SW Power Capping" throttle counter grew by 86.4 s during the 107 s
   harness c=1 run and 117.4 s during bench c=1, with the SM clock near 500 MHz. In the quant session the same
   counters stayed at 0 for all 20 decode runs, with clocks at 964–1,231 MHz. **Session-to-session speed differences

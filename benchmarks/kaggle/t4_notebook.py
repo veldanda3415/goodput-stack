@@ -650,29 +650,32 @@ def help_default(help_text: str, flag: str) -> str | None:
     return m.group(1).rstrip(".") if m else None
 
 
-def bench_serve(st: Stage, model: str, concurrency: int, num_prompts: int, input_len: int, output_len: int) -> dict:
+def bench_serve(st: Stage, model: str, concurrency: int, num_prompts: int, input_len: int, output_len: int,
+                extra: list[str] | None = None, tag: str = "") -> dict:
     """Cross-check with the benchmark tool shipped in the pinned vLLM (`vllm bench serve`)."""
     # plain --help lists only the config groups (sweep run 1); flags are under --help=all
     rc, help_text = sh(["vllm", "bench", "serve", "--help=all"], timeout=300, out=st.logs / "vllm-bench-serve-help.txt")
     want = ["--backend", "--base-url", "--model", "--endpoint", "--dataset-name", "--random-input-len",
             "--random-output-len", "--num-prompts", "--max-concurrency", "--ignore-eos", "--save-result",
             "--result-dir", "--result-filename", "--percentile-metrics", "--metric-percentiles"]
-    missing = require_flags(help_text, want)
+    missing = require_flags(help_text, want + [x for x in (extra or []) if x.startswith("--")])
     if rc != 0 or missing:
         return {"bench_rc": rc, "bench_flags_missing": missing}
     out_dir = st.dir / "bench_serve"
     out_dir.mkdir(exist_ok=True)
-    fname = f"bench-c{concurrency}.json"
+    fname = f"bench-c{concurrency}{tag}.json"
     cmd = ["vllm", "bench", "serve", "--backend", "vllm", "--base-url", f"http://127.0.0.1:{PORT}", "--model", model,
            "--endpoint", "/v1/completions", "--dataset-name", "random", "--random-input-len", str(input_len),
            "--random-output-len", str(output_len), "--num-prompts", str(num_prompts), "--max-concurrency", str(concurrency),
            "--ignore-eos", "--percentile-metrics", "ttft,tpot,itl,e2el", "--metric-percentiles", "50,95,99",
-           "--save-result", "--result-dir", str(out_dir), "--result-filename", fname]
-    rc, out = sh(cmd, timeout=1800, out=st.logs / f"vllm-bench-serve-c{concurrency}.txt")
+           "--save-result", "--result-dir", str(out_dir), "--result-filename", fname, *(extra or [])]
+    rc, out = sh(cmd, timeout=1800, out=st.logs / f"vllm-bench-serve-c{concurrency}{tag}.txt")
     row = {"bench_cmd": shlex.join(cmd), "bench_rc": rc}
     if (out_dir / fname).exists():
         j = json.loads((out_dir / fname).read_text())
         row["bench"] = {k: v for k, v in j.items() if not isinstance(v, list)}
+        if isinstance(j.get("ttfts"), list):   # --save-detailed: per-request TTFT in completion order
+            row["bench_ttfts_s"] = [round(x, 4) for x in j["ttfts"]]
     else:
         row["bench_tail"] = out[-1500:]
     return row
@@ -693,6 +696,27 @@ def stage_sweep(a) -> None:
     done = {r["key"] for r in st.rows() if not (r.get("kind") == "bench_serve" and not r.get("bench"))}
     if a.redo_bench:
         done -= {"bench-c1", "bench-c16"}
+    if a.bench_diag:
+        # c=16 TTFT tail diagnosis (cross-check run 20261014-230457: p95 10.5 s vs harness 1.6 s), one session:
+        # A = the same command + per-request detail; B = + 2 warmups and temperature 0 (as the harness sends)
+        flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching"]
+        prov = {"model": model, "model_revision": rev, "serving_flags": flags, "vllm_version": a.vllm_version,
+                "torch": inst["torch_after_install"]} | choice
+        from benchmarks.gpu_sampler import GpuSampler, summarize as gpu_summary
+        with VllmServer(model, flags, st.logs / "server-benchdiag.log") as srv:
+            res = srv.start()
+            if not res["started"]:
+                st.write("benchdiag-server", {"kind": "server_fail", **res, "error_lines": error_lines(srv.log_text())}, **prov)
+                return
+            for tag, extra in (("-A", ["--save-detailed"]),
+                               ("-B", ["--save-detailed", "--num-warmups", "2", "--temperature", "0"])):
+                t0 = throttle_counters()
+                with GpuSampler(st.dir / f"benchdiag{tag}-gpu.csv"):
+                    row = bench_serve(st, model, 16, 64, 256, 128, extra, tag)
+                t1 = throttle_counters()
+                row |= gpu_summary(st.dir / f"benchdiag{tag}-gpu.csv") | {"throttle_us_delta": {k: t1[k] - t0.get(k, 0) for k in t1}}
+                st.write(f"benchdiag{tag}", {"kind": "bench_diag", "concurrency": 16, "extra": extra, **row}, **prov)
+        return
     for mns in a.max_num_seqs.split(","):
         flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching"]
         if mns != "default":
@@ -764,6 +788,7 @@ STAGE_ARGS["sweep"] = [
     lambda p: p.add_argument("--no-open-loop", dest="open_loop", action="store_false"),
     lambda p: p.add_argument("--no-bench", dest="bench", action="store_false"),
     lambda p: p.add_argument("--redo-bench", action="store_true", help="re-run the matched harness + bench pairs"),
+    lambda p: p.add_argument("--bench-diag", action="store_true", help="only the c=16 bench TTFT-tail diagnosis runs"),
 ]
 
 

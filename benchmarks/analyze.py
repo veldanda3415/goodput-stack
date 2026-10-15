@@ -277,6 +277,18 @@ def section_sweep(rows: dict, out: list[str], base: Path) -> None:
             else:
                 out.append(f"| {c} | vllm bench serve | failed: rc {b.get('bench_rc')} {b.get('bench_flags_missing') or ''} | | | | | | | {link(b, base)} |")
         out.append("")
+    diags = [rows[k] for k in ("benchdiag-A", "benchdiag-B") if k in rows]
+    if diags:
+        out += ["### c=16 TTFT-tail diagnosis (`vllm bench serve`, one fresh session)", "",
+                "| run | extra flags | TTFT p50 / p95 ms | first 16 requests TTFT s (min–max) | later requests TTFT s (max) | TPOT p50 ms | output tok/s | row |",
+                "|---|---|---:|---:|---:|---:|---:|---|"]
+        for d in diags:
+            j, t = d.get("bench") or {}, d.get("bench_ttfts_s") or []
+            first, rest = t[:16], t[16:]
+            out.append(f"| {d['key']} | `{' '.join(d.get('extra', []))}` | {fmt(j.get('median_ttft_ms'))} / {fmt(j.get('p95_ttft_ms'))} | "
+                       f"{fmt(min(first), 2) if first else '—'}–{fmt(max(first), 2) if first else '—'} | {fmt(max(rest), 2) if rest else '—'} | "
+                       f"{fmt(j.get('median_tpot_ms'))} | {fmt(j.get('output_throughput'))} | {link(d, base)} |")
+        out.append("")
     # charts
     names = sorted(by_mns)
     for metric, title, ylabel, fname in (("steady_output_tok_s", "Output throughput vs concurrency", "output tok/s (steady window)", "sweep_throughput.png"),):
