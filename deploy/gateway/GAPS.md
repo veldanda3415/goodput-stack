@@ -249,7 +249,7 @@ An earlier series the same day (`…/20261014-224832.jsonl`, 20/19/20 pings, 0 f
 
 **Question.** Pod A holds a FEW LONG prompts (more queued prefill work), pod B MORE SHORT ones. Does the stock EPP see that A is the worse choice?
 
-**Setup (SIMULATED).** Scratch pool `p8-pool` (`deploy/gateway/p8/`): 2 llm-d-inference-sim v0.10.2 pods, the chart's sim config
+**Setup (SIMULATED).** Scratch pool (removed after the runs; recreate with `kubectl apply -f deploy/gateway/p8/sim-p8.yaml` and `helm upgrade --install p8-pool <EPP_CHART> -f deploy/gateway/p8/epp-p8.values.yaml`) `p8-pool` (`deploy/gateway/p8/`): 2 llm-d-inference-sim v0.10.2 pods, the chart's sim config
 (prefill-overhead 15 ms, prefill-time-per-token 2.4 ms, ITL 16.3 ms, max-num-seqs 2, max-model-len 4096, std-devs 0 for
 determinism; the sim does scale TTFT with prompt length), its own EPP release with `session-affinity-filter` added only to pin
 probe placement. Per run (`scripts/probe_p8_size_blind.py`, 8 runs per condition, roles A/B alternate between the two pods,
