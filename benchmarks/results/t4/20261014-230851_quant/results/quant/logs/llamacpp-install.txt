@@ -1,0 +1,5 @@
+$ mkdir -p /tmp/llamacpp && cd /tmp/llamacpp && curl -sSfL -o a.tgz https://github.com/ggml-org/llama.cpp/releases/download/b11146/llama-b11146-bin-ubuntu-cuda-12.8-x64.tar.gz && curl -sSfL -o b.tgz https://github.com/ggml-org/llama.cpp/releases/download/b11146/cudart-llama-b11146-bin-ubuntu-cuda-12.8-x64.tar.gz && tar xzf a.tgz && tar xzf b.tgz && find /tmp/llamacpp -name llama-server -o -name llama-perplexity -o -name 'libcudart*'
+# rc=0
+/tmp/llamacpp/cudart-llama-b11146-bin-ubuntu-cuda-12.8-x64/libcudart.so.12
+/tmp/llamacpp/llama-b11146/llama-perplexity
+/tmp/llamacpp/llama-b11146/llama-server

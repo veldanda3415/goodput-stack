@@ -966,6 +966,14 @@ def stage_quant(a) -> None:
                 except Exception as exc:
                     p = {"ppl_error": f"{type(exc).__name__}: {exc}"}
                 st.write(f"{name}-ppl", {"kind": "perplexity", "variant": name, "text": "wikitext-2-raw-v1 test (Salesforce/wikitext)", **p}, **prov)
+            if "lmeval" in parts and engine == "llamacpp":
+                # -c 8192 -np 16 leaves 512 tokens per slot; gsm8k 5-shot prompts are 1.2-1.6K tokens (HTTP 400
+                # "exceeds the available context size (512 tokens)", quant rerun 1). 2048 per slot for lm-eval.
+                srv.stop()
+                eval_flags = ["-ngl", "99", "-c", "16384", "-np", "8", "--metrics", "--no-webui"]
+                srv = LlamaCppServer(lcpp["llama_server"], gguf, eval_flags, st.logs / f"server-{name}-lmeval.log", served_name=name)
+                prov["serving_flags_lmeval"] = eval_flags
+                srv.start()
             if "lmeval" in parts and srv.proc and srv.proc.poll() is None:
                 if engine == "vllm":
                     row = lm_eval(st, name, a.fp16_model, a.lmeval_tasks, a.lmeval_limit, name, a.lmeval_version)
@@ -975,6 +983,7 @@ def stage_quant(a) -> None:
                     probe = lm_eval(st, name, a.fp16_model, "hellaswag", 5, f"{name}-hellaswag-probe", a.lmeval_version)
                     row["hellaswag_probe"] = {k: v for k, v in probe.items() if k != "lmeval_cmd"}
                 st.write(f"{name}-lmeval", {"kind": "lmeval", "variant": name, **row}, **prov)
+            srv.stop()   # `srv` may have been replaced above; the with-block only stops the original
 
 
 STAGE_ARGS["quant"] = [

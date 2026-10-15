@@ -158,8 +158,18 @@ def fetch(run_dir: Path, poll_s: int, timeout_min: float) -> dict:
             return rec
         time.sleep(poll_s)
     dl = run_dir / "_download"
-    shutil.rmtree(dl, ignore_errors=True)
-    rec["output_cmd_output"] = kaggle("kernels", "output", rec["kernel"], "-p", str(dl), check=False)[-2000:]
+    for attempt in range(4):
+        # `kaggle kernels output` can save a 502 HTML error page in place of a file (quant rerun, 2026-10-15)
+        shutil.rmtree(dl, ignore_errors=True)
+        rec["output_cmd_output"] = kaggle("kernels", "output", rec["kernel"], "-p", str(dl), check=False)[-2000:]
+        bad = [p for p in dl.rglob("*") if p.is_file() and p.stat().st_size < 4096
+               and b"502 Server Error" in p.read_bytes()]
+        if not bad:
+            break
+        print(f"  {len(bad)} file(s) came back as a 502 page ({bad[0].name}); retrying download")
+        time.sleep(30)
+    else:
+        rec["download_warning"] = f"files still 502 pages after 4 tries: {[str(p.relative_to(dl)) for p in bad]}"
     if (dl / "results").is_dir():
         shutil.copytree(dl / "results", run_dir / "results", dirs_exist_ok=True)
     for log in dl.glob("*.log"):
@@ -167,19 +177,24 @@ def fetch(run_dir: Path, poll_s: int, timeout_min: float) -> dict:
     shutil.rmtree(dl, ignore_errors=True)
     session = run_dir / "results" / "kernel_session.txt"
     m = re.search(r"session_s=([\d.]+)", session.read_text()) if session.exists() else None
-    rec |= {"status": st, "finished_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    pushed = datetime.fromisoformat(rec["pushed_at_utc"])
-    rec["wall_push_to_done_min"] = round((datetime.now(timezone.utc) - pushed).total_seconds() / 60, 1)
+    if "finished_at_utc" not in rec:   # a re-fetch (re-download) keeps the first completion time
+        rec["finished_at_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rec["status"] = st
+    pushed, done = datetime.fromisoformat(rec["pushed_at_utc"]), datetime.fromisoformat(rec["finished_at_utc"])
+    rec["wall_push_to_done_min"] = round((done - pushed).total_seconds() / 60, 1)
     # GPU-hours: the script's own session time (start -> stage exit) on a T4 machine. Kaggle's boot/queue
     # time before the script starts is not in it; wall_push_to_done_min is the upper bound.
     rec["script_session_s"] = float(m.group(1)) if m else None
     rec["gpu_hours_script"] = round(rec["script_session_s"] / 3600, 3) if m else None
     rec["gpu_hours_upper_bound"] = round(rec["wall_push_to_done_min"] / 60, 3)
     (run_dir / "run.json").write_text(json.dumps(rec, indent=2) + "\n")
-    with open(RESULTS / "runs.jsonl", "a") as f:
-        f.write(json.dumps({k: rec.get(k) for k in ("run_id", "stage", "args", "kernel", "git_sha", "status",
-                                                     "pushed_at_utc", "finished_at_utc", "wall_push_to_done_min",
-                                                     "script_session_s", "gpu_hours_script", "gpu_hours_upper_bound")}) + "\n")
+    ledger = RESULTS / "runs.jsonl"
+    rows = [json.loads(l) for l in ledger.read_text().splitlines() if l.strip()] if ledger.exists() else []
+    rows = [r for r in rows if r["run_id"] != rec["run_id"]]   # a re-fetch replaces the run's line
+    rows.append({k: rec.get(k) for k in ("run_id", "stage", "args", "kernel", "git_sha", "status", "pushed_at_utc",
+                                         "finished_at_utc", "wall_push_to_done_min", "script_session_s",
+                                         "gpu_hours_script", "gpu_hours_upper_bound")})
+    ledger.write_text("".join(json.dumps(r) + "\n" for r in rows))
     print(f"  {st}: session {rec['script_session_s']} s, push->done {rec['wall_push_to_done_min']} min -> {run_dir.relative_to(REPO)}")
     return rec
 
