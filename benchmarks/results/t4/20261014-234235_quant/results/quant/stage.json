@@ -1,0 +1,22 @@
+{
+  "stage": "quant",
+  "run_id": "20261014-234235_quant",
+  "git_sha": "a635993",
+  "runtime_s": 1484.2,
+  "args": {
+    "stage": "quant",
+    "vllm_version": "0.31.0",
+    "fp16_model": "Qwen/Qwen2.5-3B-Instruct",
+    "awq_model": "Qwen/Qwen2.5-3B-Instruct-AWQ",
+    "gguf_repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+    "llamacpp_tag": "b11146",
+    "variants": "gguf-q8_0,gguf-q4_k_m",
+    "decode_runs": 5,
+    "decode_max_tokens": 256,
+    "ppl_ctx": 512,
+    "ppl_chunks": 40,
+    "lmeval_tasks": "gsm8k,hellaswag",
+    "lmeval_limit": 250,
+    "lmeval_version": "0.4.12"
+  }
+}

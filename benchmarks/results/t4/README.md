@@ -178,8 +178,18 @@ tokens, 128 output, ignore_eos, no jitter, 20 / 64 requests.
   **15 of the first 16 requests** had TTFT 12.46 s, and every later request ≤ 1.6 s. The tail is the **first
   concurrent wave on a cold server**. B = the same plus `--num-warmups 2 --temperature 0`, run on the **same server
   right after A**: no tail (TTFT p95 1,606 ms, 305.8 tok/s, TPOT p50 42.9 ms), in line with the harness (1,571 ms,
-  316.1 tok/s, 41.4 ms). Because B's server was already warm, B alone doesn't show that either flag matters. The
-  separating runs, C (`--num-warmups 2` only) and D (`--temperature 0` only), each on a fresh server: see below.
+  316.1 tok/s, 41.4 ms). Because B's server was already warm, B alone doesn't show that either flag matters.
+  **Separating runs (20261014-233928), each on a fresh server:** C = `--num-warmups 2` only: the stall stays (first
+  wave 3.7–12.4 s, TTFT p95 12.4 s, 226 tok/s). D = `--temperature 0` only: the stall is gone (first wave
+  1.2–2.7 s, p95 2.7 s, 298 tok/s). **The cold first-wave stall comes with the non-greedy sampling path.** bench
+  0.31.0 no longer sends `temperature`, so the model's default sampling applies; the harness always sends
+  `temperature: 0`. Warmup requests don't prevent it. Hypothesis, not verified: one-time setup of the sampling
+  fallback at batch 16 (the startup log says FlashInfer top-p/top-k sampling is unavailable on compute capability
+  7.5 and vLLM falls back). The server logs of C/D came back as Kaggle 502 pages, so the stall isn't yet
+  matched to log lines.
+- **Practical reading:** the harness and `vllm bench serve` agree when both send greedy requests. On this T4 the
+  first concurrent wave of *sampled* requests on a fresh server can cost ~12 s TTFT, which matters for
+  scale-from-zero (#10).
 - **Power capping.** In this session NVML's "SW Power Capping" throttle counter grew by 86.4 s during the 107 s
   harness c=1 run and 117.4 s during bench c=1, with the SM clock near 500 MHz. In the quant session the same
   counters stayed at 0 for all 20 decode runs, with clocks at 964–1,231 MHz. **Session-to-session speed differences

@@ -158,6 +158,7 @@ def fetch(run_dir: Path, poll_s: int, timeout_min: float) -> dict:
             return rec
         time.sleep(poll_s)
     dl = run_dir / "_download"
+    bad: list[Path] = []
     for attempt in range(4):
         # `kaggle kernels output` can save a 502 HTML error page in place of a file (quant rerun, 2026-10-15)
         shutil.rmtree(dl, ignore_errors=True)
@@ -171,7 +172,13 @@ def fetch(run_dir: Path, poll_s: int, timeout_min: float) -> dict:
     else:
         rec["download_warning"] = f"files still 502 pages after 4 tries: {[str(p.relative_to(dl)) for p in bad]}"
     if (dl / "results").is_dir():
-        shutil.copytree(dl / "results", run_dir / "results", dirs_exist_ok=True)
+        # copy file by file; a 502 page never overwrites anything (a re-fetch must not destroy good data)
+        bad_rel = {str(p.relative_to(dl)) for p in bad} if bad else set()
+        for src in (dl / "results").rglob("*"):
+            rel = src.relative_to(dl)
+            if src.is_file() and str(rel) not in bad_rel:
+                (run_dir / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, run_dir / rel)
     for log in dl.glob("*.log"):
         shutil.copy(log, run_dir / "kernel.log")
     shutil.rmtree(dl, ignore_errors=True)

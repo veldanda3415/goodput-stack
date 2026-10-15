@@ -323,12 +323,15 @@ def section_quant(rows: dict, out: list[str], base: Path, price: tuple[float, st
         lm = (l or {}).get("lmeval") or {}
         def task(t):
             m = lm.get(t) or {}
-            keys = [k for k in m if not k.endswith("_stderr") and "stderr" not in k and isinstance(m[k], (int, float))]
-            pick = next((k for k in keys if k.startswith("exact_match,strict")), None) or next((k for k in keys if k.startswith("acc_norm")), None) or (keys[0] if keys else None)
-            if not pick:
+            keys = [k for k in m if "stderr" not in k and isinstance(m[k], (int, float)) and k not in ("sample_len",)
+                    and (k.startswith("exact_match") or k.startswith("acc"))]
+            if not keys:
                 return f"failed (rc {(l or {}).get('lmeval_rc')})" if l else "—"
-            se = m.get(pick.replace(",", "_stderr,", 1))
-            return f"{m[pick]:.3f} ± {se:.3f} (`{pick}`)" if isinstance(se, (int, float)) else f"{m[pick]:.3f} (`{pick}`)"
+            parts = []
+            for k in sorted(keys):
+                se = m.get(k.replace(",", "_stderr,", 1))
+                parts.append(f"{k.split(',')[0] if t == 'hellaswag' else k.split(',')[1]} {m[k]:.3f}" + (f" ± {se:.3f}" if isinstance(se, (int, float)) else ""))
+            return "<br>".join(parts)
         ppl = (p or {}).get("ppl")
         tok16 = (c or {}).get("steady_output_tok_s")
         cost = f"{price[0] / (tok16 * 3600) * 1e6:.3f}" if price and tok16 else "—"
@@ -396,6 +399,13 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
         if (r := q.get(f"{v}-c16")) and r.get("steady_output_tok_s"):
             cost = f"; ${price[0] / (r['steady_output_tok_s'] * 3600) * 1e6:.3f}/1M output tokens" if price else ""
             rows.append((f"{v} c=16 steady output", f"{r['steady_output_tok_s']:,.1f} tok/s{cost}", r["model"], r))
+        if (r := q.get(f"{v}-lmeval")) and r.get("lmeval"):
+            for task, metric in (("gsm8k", "exact_match,flexible-extract"), ("hellaswag", "acc_norm,none")):
+                m = r["lmeval"].get(task) or {}
+                if metric in m:
+                    se = m.get(metric.replace(",", "_stderr,", 1))
+                    rows.append((f"{v} {task} {metric.split(',')[0]} ({metric.split(',')[1]}), --limit {r.get('lmeval_limit')}",
+                                 f"{m[metric]:.3f}" + (f" ± {se:.3f}" if se is not None else ""), r["model"], r))
         if (r := q.get(f"{v}-ppl")) and r.get("ppl"):
             rows.append((f"{v} perplexity (wikitext-2, {r.get('ppl_chunks')}×{r.get('ppl_ctx')})", f"{r['ppl']}", r["model"], r))
     out = ["# RESULTS", "", "One row per headline number. Every number is from a recorded run; the link is the raw JSONL row "

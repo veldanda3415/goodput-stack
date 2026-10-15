@@ -116,12 +116,16 @@ Both in the **same Kaggle session, back to back**, same server (default max-num-
 | 16 | harness | 1,215.7 | 1,570.5 | 38.2 | 41.4 | 316.1 (wall) | 754 | 1,156.3 | [20261014-230457_sweep](../../../benchmarks/results/t4/20261014-230457_sweep/results/sweep/sweep.jsonl) |
 | 16 | vllm bench serve | 1,574.6 | 10,510.6 | 38.4 | 39.6 | 234.1 | 762 | — | [20261014-230457_sweep](../../../benchmarks/results/t4/20261014-230457_sweep/results/sweep/sweep.jsonl) |
 
-### c=16 TTFT-tail diagnosis (`vllm bench serve`, one fresh session)
+### c=16 TTFT-tail diagnosis (`vllm bench serve`)
+
+A then B on one server (A on a cold server, B warm); C and D each on a fresh server.
 
 | run | extra flags | TTFT p50 / p95 ms | first 16 requests TTFT s (min–max) | later requests TTFT s (max) | TPOT p50 ms | output tok/s | row |
 |---|---|---:|---:|---:|---:|---:|---|
 | benchdiag-A | `--save-detailed` | 1,488.9 / 12,463.1 | 4.48–12.47 | 1.56 | 39.4 | 223.5 | [20261014-232257_sweep](../../../benchmarks/results/t4/20261014-232257_sweep/results/sweep/sweep.jsonl) |
 | benchdiag-B | `--save-detailed --num-warmups 2 --temperature 0` | 1,237.8 / 1,606.3 | 0.11–1.57 | 1.61 | 42.9 | 305.8 | [20261014-232257_sweep](../../../benchmarks/results/t4/20261014-232257_sweep/results/sweep/sweep.jsonl) |
+| benchdiag-C | `--save-detailed --num-warmups 2` | 1,407.9 / 12,367.4 | 3.71–12.37 | 1.58 | 38.8 | 226.4 | [20261014-233928_sweep](../../../benchmarks/results/t4/20261014-233928_sweep/results/sweep/sweep.jsonl) |
+| benchdiag-D | `--save-detailed --temperature 0` | 1,561.9 / 2,680.4 | 1.23–2.69 | 1.60 | 42.3 | 298.0 | [20261014-233928_sweep](../../../benchmarks/results/t4/20261014-233928_sweep/results/sweep/sweep.jsonl) |
 
 ![throughput](charts/sweep_throughput.png)
 ![ttft](charts/sweep_ttft.png)
@@ -131,10 +135,10 @@ Both in the **same Kaggle session, back to back**, same server (default max-num-
 
 | variant | engine | model | batch-1 decode tok/s (median, spread) | c=16 steady tok/s | c=16 TTFT p50 ms | PPL (wikitext-2, 40×512, 2nd half) | gsm8k | hellaswag | $/1M out tok @ c=16 | rows |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| fp16 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct` | 37.16 (1.0 %) | 341.7 | 196 | 8.018 | failed (rc 1) | failed (rc 1) | 0.428 | [20261014-224513_quant](../../../benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl) |
-| awq-int4 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct-AWQ` | 84.06 (1.9 %) | 536.6 | 144 | 8.659 | failed (rc 1) | failed (rc 1) | 0.272 | [20261014-224513_quant](../../../benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl) |
-| gguf-q8_0 | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q8_0.gguf` | 60.04 (2.2 %) | 284.7 | 245 | 8.137 | failed (rc 1) | failed (rc 1) | 0.513 | [20261014-224513_quant](../../../benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl) |
-| gguf-q4_k_m | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf` | 76.61 (2.0 %) | 304.5 | 241 | 8.410 | failed (rc 1) | failed (rc 1) | 0.480 | [20261014-224513_quant](../../../benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl) |
+| fp16 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct` | 37.16 (1.0 %) | 341.7 | 196 | 8.018 | flexible-extract 0.656 ± 0.030<br>strict-match 0.116 ± 0.020 | acc 0.536 ± 0.032<br>acc_norm 0.656 ± 0.030 | 0.428 | [20261014-230851_quant](../../../benchmarks/results/t4/20261014-230851_quant/results/quant/quant.jsonl) |
+| awq-int4 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct-AWQ` | 84.06 (1.9 %) | 536.6 | 144 | 8.659 | flexible-extract 0.624 ± 0.031<br>strict-match 0.120 ± 0.021 | acc 0.512 ± 0.032<br>acc_norm 0.628 ± 0.031 | 0.272 | [20261014-230851_quant](../../../benchmarks/results/t4/20261014-230851_quant/results/quant/quant.jsonl) |
+| gguf-q8_0 | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q8_0.gguf` | 60.04 (2.2 %) | 284.7 | 245 | 8.137 | failed (rc 1) | failed (rc 1) | 0.513 | [20261014-230851_quant](../../../benchmarks/results/t4/20261014-230851_quant/results/quant/quant.jsonl) |
+| gguf-q4_k_m | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf` | 76.61 (2.0 %) | 304.5 | 241 | 8.410 | failed (rc 1) | failed (rc 1) | 0.480 | [20261014-230851_quant](../../../benchmarks/results/t4/20261014-230851_quant/results/quant/quant.jsonl) |
 
 lm-eval 0.4.12 `local-completions`, --limit 250 (first N docs), command in the row (`lmeval_cmd`).
 
@@ -158,5 +162,7 @@ Cost: Azure Standard_NC4as_T4_v3 US East Linux on-demand 0.526 USD/1 Hour; fetch
 | 20261014-230757_smoke | smoke | complete | 20.3 | 0.006 | 0.013 |
 | 20261014-230457_sweep | sweep | complete | 895.7 | 0.249 | 0.260 |
 | 20261014-232257_sweep | sweep | complete | 882.7 | 0.245 | 0.258 |
-| **total** | | | | **2.713** | **2.847** |
+| 20261014-230851_quant | quant | complete | 1,864.8 | 0.518 | 0.537 |
+| 20261014-233928_sweep | sweep | complete | — | — | 0.290 |
+| **total** | | | | **3.231** | **3.674** |
 
