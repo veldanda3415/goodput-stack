@@ -50,3 +50,26 @@ inference:
   - {model: llama3-8b,   dtype_bytes: 2, prompt_tokens: 4096, requests_per_s: 20}
   - {model: llama3-70b,  dtype_bytes: 2, prompt_tokens: 4096, requests_per_s: 20}
   - {model: llama3-70b,  dtype_bytes: 2, prompt_tokens: 32768, requests_per_s: 5}
+
+# ---- fabric/design/sizing.py ------------------------------------------------------------------
+sizing:
+  gpu_counts: [256, 2048]
+  # S6: SN5600 = 64 x 800GbE, split to 128 x 400GbE. 400G matches the ConnectX-7 NIC (S1),
+  # so every backend link runs at one speed and the radix doubles: k = 128.
+  backend_switch: {name: "51.2T switch as 128 x 400G (SN5600, S6; Tomahawk 5, S7)", port_gbps: 400, radix: 128}
+  oversubscription: 1.0         # backend is non-blocking (S10 "full fat-tree")
+  nodes_per_rack: 4             # A7
+  ceiling_switches:             # 2-tier ceiling per switch configuration
+    - {name: "51.2T as 128 x 400G (S6, S7)", port_gbps: 400, radix: 128}
+    - {name: "51.2T as 64 x 800G (S6, S7)",  port_gbps: 800, radix: 64}
+    - {name: "Quantum-2 QM9700 64 x 400G (S8)", port_gbps: 400, radix: 64}
+  frontend:                     # S10: in-band SN4600C 64 x 100G, two bonded 100G links per node
+    port_gbps: 100
+    ports_per_node: 2
+    radix: 64
+    oversubscription: 3.0       # A10
+    min_spines: 2               # A11: no single spine failure isolates the front-end
+  storage_gbytes_per_node: 40   # S10: >= 40 GBps single-node storage bandwidth
+  oob:                          # S1: BMC 1 GbE per node; S10: SN2201 48 x 1G
+    ports_per_node: 1
+    switch_ports: 48

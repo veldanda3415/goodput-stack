@@ -42,3 +42,5 @@ measured.
 | A8 | Rack-to-rack and leaf-to-spine runs exceed 3 m | yes | Spines sit in a separate network row; S19 caps passive copper at 3 m | Transceiver count |
 | A9 | Mixtral-8x7B shape: 32 layers, d 4,096 | — | Mistral-7B shape; not on the abstract page (S18) | Size of the MoE example only |
 | A10 | Front-end oversubscription | 3:1 | Front-end carries north-south and storage-access traffic, not collectives; not stated in S10 | Front-end spine count |
+| A11 | Front-end minimum spine count | 2 | One spine failure must not isolate the front-end | Front-end spine count at small scale |
+| A12 | One 1G management port per fabric switch on the OOB network | 1 | Typical for managed switches; not stated in S6/S8/S10 | OOB switch count (small) |
