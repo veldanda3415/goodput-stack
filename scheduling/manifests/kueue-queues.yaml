@@ -1,0 +1,73 @@
+# Kueue v1beta2 objects (fields checked with `kubectl explain` against the installed 0.20.1 CRDs). SIMULATED GPUs.
+# 4 simulated GPUs in total (2 t4 nodes x 2); nominal 2 + 2 in one cohort.
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ResourceFlavor
+metadata: {name: gpu-t4}
+spec:
+  nodeLabels: {gpu-pool: t4}
+  tolerations:
+    - {key: nvidia.com/gpu, operator: Equal, value: present, effect: NoSchedule}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata: {name: team-a}
+spec:
+  cohortName: gpu-cohort
+  namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: team-a}}
+  preemption: {reclaimWithinCohort: Any, withinClusterQueue: LowerPriority}
+  resourceGroups:
+    # cpu/memory must be declared: Kueue 0.20.1 blocks pods that request a resource the ClusterQueue
+    # doesn't cover (first run: "resource memory unavailable in ClusterQueue"). Sized so GPUs bind.
+    - coveredResources: ["nvidia.com/gpu", "cpu", "memory"]
+      flavors:
+        - name: gpu-t4
+          resources:
+            - {name: nvidia.com/gpu, nominalQuota: 2}
+            - {name: cpu, nominalQuota: 4}
+            - {name: memory, nominalQuota: 4Gi}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata: {name: team-b}
+spec:
+  cohortName: gpu-cohort
+  namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: team-b}}
+  preemption: {reclaimWithinCohort: Any, withinClusterQueue: LowerPriority}
+  resourceGroups:
+    # cpu/memory must be declared: Kueue 0.20.1 blocks pods that request a resource the ClusterQueue
+    # doesn't cover (first run: "resource memory unavailable in ClusterQueue"). Sized so GPUs bind.
+    - coveredResources: ["nvidia.com/gpu", "cpu", "memory"]
+      flavors:
+        - name: gpu-t4
+          resources:
+            - {name: nvidia.com/gpu, nominalQuota: 2}
+            - {name: cpu, nominalQuota: 4}
+            - {name: memory, nominalQuota: 4Gi}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: team-a}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: team-b}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: LocalQueue
+metadata: {name: lq, namespace: team-a}
+spec: {clusterQueue: team-a}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: LocalQueue
+metadata: {name: lq, namespace: team-b}
+spec: {clusterQueue: team-b}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: WorkloadPriorityClass
+metadata: {name: low}
+value: 100
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: WorkloadPriorityClass
+metadata: {name: high}
+value: 1000

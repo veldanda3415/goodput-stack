@@ -4,7 +4,7 @@
 Podman: rootless user socket (the rootful socket was not reachable from this account,
 see scenarios/README note). Never touches the default kubeconfig or the k3s cluster.
 
-  gpusim.py up | down | status | guard | operator [deviceplugin|dra]
+  gpusim.py up | down | status | guard | operator [deviceplugin|dra] | kueue [waitforpods]
 """
 import os, subprocess, sys
 
@@ -76,11 +76,22 @@ def operator(mode=None):
         "--wait", "--timeout", "5m")
 
 
+def kueue():
+    """Kueue chart 0.20.1 + the queues in manifests/kueue-queues.yaml. `kueue waitforpods` adds waitForPodsReady."""
+    guard()
+    here = os.path.dirname(os.path.abspath(__file__))
+    vals = "kueue.waitforpods.values.yaml" if "waitforpods" in sys.argv[2:] else "kueue.values.yaml"
+    run("helm", "--kubeconfig", KUBECONFIG, "--kube-context", CONTEXT, "upgrade", "-i", "kueue",
+        "oci://registry.k8s.io/kueue/charts/kueue", "--version", "0.20.1", "-n", "kueue-system",
+        "--create-namespace", "-f", os.path.join(here, vals), "--wait", "--timeout", "5m")
+    kubectl("apply", "-f", os.path.join(here, "manifests", "kueue-queues.yaml"))
+
+
 def down():
     run("k3d", "cluster", "delete", CLUSTER)
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"up": up, "down": down, "guard": guard, "operator": operator,
+    {"up": up, "down": down, "guard": guard, "operator": operator, "kueue": kueue,
      "status": lambda: (guard(), kubectl("get", "nodes", "-o", "wide"))}.get(cmd, lambda: sys.exit(__doc__))()

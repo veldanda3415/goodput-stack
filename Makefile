@@ -187,7 +187,7 @@ probe-zero: ## 0->1 through zero-pool (KEDA does the scale): make probe-zero ARG
 > $(PY) autoscaling/scale-from-zero/probe_zero.py $(ARGS)
 
 # ---- scheduling (SIMULATED GPUs on k3d `gpusim`; kubeconfig ~/.kube/gpusim.yaml, never the k3s one) ----
-.PHONY: gpusim-up gpusim-down gpusim-status gpusim-operator
+.PHONY: gpusim-up gpusim-down gpusim-status gpusim-operator gpusim-kueue
 gpusim-up: ## Create k3d cluster gpusim (1 server + 3 agents, k3s v1.36.2+k3s1; 2 agents = GPU pool t4)
 > python3 scheduling/gpusim.py up
 gpusim-down: ## Delete the gpusim cluster
@@ -196,3 +196,5 @@ gpusim-status: ## Nodes of gpusim (refuses if context is not k3d-gpusim)
 > python3 scheduling/gpusim.py status
 gpusim-operator: ## Install fake-gpu-operator 0.2.1 (SIMULATED 2 x Tesla-T4 per t4 node): MODE=deviceplugin|dra
 > python3 scheduling/gpusim.py operator $(MODE)
+gpusim-kueue: ## Install Kueue 0.20.1 + team-a/team-b queues on gpusim; add ARGS=waitforpods for waitForPodsReady
+> python3 scheduling/gpusim.py kueue $(ARGS)
