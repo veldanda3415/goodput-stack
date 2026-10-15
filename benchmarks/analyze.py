@@ -277,9 +277,10 @@ def section_sweep(rows: dict, out: list[str], base: Path) -> None:
             else:
                 out.append(f"| {c} | vllm bench serve | failed: rc {b.get('bench_rc')} {b.get('bench_flags_missing') or ''} | | | | | | | {link(b, base)} |")
         out.append("")
-    diags = [rows[k] for k in ("benchdiag-A", "benchdiag-B") if k in rows]
+    diags = [rows[k] for k in ("benchdiag-A", "benchdiag-B", "benchdiag-C", "benchdiag-D") if k in rows]
     if diags:
-        out += ["### c=16 TTFT-tail diagnosis (`vllm bench serve`, one fresh session)", "",
+        out += ["### c=16 TTFT-tail diagnosis (`vllm bench serve`)", "",
+                "A then B on one server (A on a cold server, B warm); C and D each on a fresh server.", "",
                 "| run | extra flags | TTFT p50 / p95 ms | first 16 requests TTFT s (min–max) | later requests TTFT s (max) | TPOT p50 ms | output tok/s | row |",
                 "|---|---|---:|---:|---:|---:|---:|---|"]
         for d in diags:

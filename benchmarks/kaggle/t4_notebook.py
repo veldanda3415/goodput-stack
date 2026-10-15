@@ -703,19 +703,26 @@ def stage_sweep(a) -> None:
         prov = {"model": model, "model_revision": rev, "serving_flags": flags, "vllm_version": a.vllm_version,
                 "torch": inst["torch_after_install"]} | choice
         from benchmarks.gpu_sampler import GpuSampler, summarize as gpu_summary
-        with VllmServer(model, flags, st.logs / "server-benchdiag.log") as srv:
-            res = srv.start()
-            if not res["started"]:
-                st.write("benchdiag-server", {"kind": "server_fail", **res, "error_lines": error_lines(srv.log_text())}, **prov)
-                return
-            for tag, extra in (("-A", ["--save-detailed"]),
-                               ("-B", ["--save-detailed", "--num-warmups", "2", "--temperature", "0"])):
-                t0 = throttle_counters()
-                with GpuSampler(st.dir / f"benchdiag{tag}-gpu.csv"):
-                    row = bench_serve(st, model, 16, 64, 256, 128, extra, tag)
-                t1 = throttle_counters()
-                row |= gpu_summary(st.dir / f"benchdiag{tag}-gpu.csv") | {"throttle_us_delta": {k: t1[k] - t0.get(k, 0) for k in t1}}
-                st.write(f"benchdiag{tag}", {"kind": "bench_diag", "concurrency": 16, "extra": extra, **row}, **prov)
+        variants = {"A": ["--save-detailed"], "B": ["--save-detailed", "--num-warmups", "2", "--temperature", "0"],
+                    # one flag each, each on a FRESH server (the stall is on a cold server's first wave)
+                    "C": ["--save-detailed", "--num-warmups", "2"], "D": ["--save-detailed", "--temperature", "0"]}
+        names = a.bench_diag_variants.split(",")
+        fresh = a.bench_diag_fresh
+        groups = [[n] for n in names] if fresh else [names]
+        for group in groups:
+            with VllmServer(model, flags, st.logs / f"server-benchdiag-{''.join(group)}.log") as srv:
+                res = srv.start()
+                if not res["started"]:
+                    st.write("benchdiag-server", {"kind": "server_fail", **res, "error_lines": error_lines(srv.log_text())}, **prov)
+                    return
+                for tag, extra in ((f"-{n}", variants[n]) for n in group):
+                    t0 = throttle_counters()
+                    with GpuSampler(st.dir / f"benchdiag{tag}-gpu.csv"):
+                        row = bench_serve(st, model, 16, 64, 256, 128, extra, tag)
+                    t1 = throttle_counters()
+                    row |= gpu_summary(st.dir / f"benchdiag{tag}-gpu.csv") | {"throttle_us_delta": {k: t1[k] - t0.get(k, 0) for k in t1}}
+                    st.write(f"benchdiag{tag}", {"kind": "bench_diag", "concurrency": 16, "extra": extra,
+                                                 "fresh_server": fresh, **row}, **prov)
         return
     for mns in a.max_num_seqs.split(","):
         flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching"]
@@ -789,6 +796,8 @@ STAGE_ARGS["sweep"] = [
     lambda p: p.add_argument("--no-bench", dest="bench", action="store_false"),
     lambda p: p.add_argument("--redo-bench", action="store_true", help="re-run the matched harness + bench pairs"),
     lambda p: p.add_argument("--bench-diag", action="store_true", help="only the c=16 bench TTFT-tail diagnosis runs"),
+    lambda p: p.add_argument("--bench-diag-variants", default="A,B"),
+    lambda p: p.add_argument("--bench-diag-fresh", action="store_true", help="a fresh vLLM server per variant"),
 ]
 
 
