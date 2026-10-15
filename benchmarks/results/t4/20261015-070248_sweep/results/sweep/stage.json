@@ -1,0 +1,20 @@
+{
+  "stage": "sweep",
+  "run_id": "20261015-070248_sweep",
+  "git_sha": "8b25f14-dirty",
+  "runtime_s": 3408.2,
+  "args": {
+    "stage": "sweep",
+    "vllm_version": "0.31.0",
+    "model": "meta-llama/Llama-3.2-3B-Instruct",
+    "fallback_model": "Qwen/Qwen2.5-3B-Instruct",
+    "concurrency": "1,2,4,8,16,32,64",
+    "max_num_seqs": "default,8",
+    "open_loop": true,
+    "bench": true,
+    "redo_bench": false,
+    "bench_diag": false,
+    "bench_diag_variants": "A,B",
+    "bench_diag_fresh": false
+  }
+}
