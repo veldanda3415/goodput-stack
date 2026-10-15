@@ -4,7 +4,7 @@
 Podman: rootless user socket (the rootful socket was not reachable from this account,
 see scenarios/README note). Never touches the default kubeconfig or the k3s cluster.
 
-  gpusim.py up | down | status | guard | operator
+  gpusim.py up | down | status | guard | operator [deviceplugin|dra]
 """
 import os, subprocess, sys
 
@@ -62,15 +62,18 @@ def up():
     kubectl("get", "nodes", "-L", "gpu-pool,topology.goodput/block,topology.goodput/rack")
 
 
-def operator():
+def operator(mode=None):
     guard()
+    mode = mode or (sys.argv[2] if len(sys.argv) > 2 else "deviceplugin")
     for n in ("k3d-gpusim-agent-0", "k3d-gpusim-agent-1"):
         kubectl("label", "node", n, "run.ai/simulated-gpu-node-pool=t4", "--overwrite")
     here = os.path.dirname(os.path.abspath(__file__))
     kubectl_helm = ["helm", "--kubeconfig", KUBECONFIG, "--kube-context", CONTEXT]
     run(*kubectl_helm, "upgrade", "-i", "gpu-operator", "oci://ghcr.io/run-ai/fake-gpu-operator/fake-gpu-operator",
         "-n", "gpu-operator", "--create-namespace", "--version", "0.2.1",
-        "-f", os.path.join(here, "fake-gpu-operator.values.yaml"), "--wait", "--timeout", "5m")
+        "-f", os.path.join(here, "fake-gpu-operator.values.yaml"),
+        *(["-f", os.path.join(here, "fake-gpu-operator.dra.values.yaml")] if mode == "dra" else []),
+        "--wait", "--timeout", "5m")
 
 
 def down():

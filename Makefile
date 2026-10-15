@@ -194,5 +194,5 @@ gpusim-down: ## Delete the gpusim cluster
 > python3 scheduling/gpusim.py down
 gpusim-status: ## Nodes of gpusim (refuses if context is not k3d-gpusim)
 > python3 scheduling/gpusim.py status
-gpusim-operator: ## Install fake-gpu-operator 0.2.1 on gpusim (SIMULATED GPUs: 2 x Tesla-T4 per t4 node)
-> python3 scheduling/gpusim.py operator
+gpusim-operator: ## Install fake-gpu-operator 0.2.1 (SIMULATED 2 x Tesla-T4 per t4 node): MODE=deviceplugin|dra
+> python3 scheduling/gpusim.py operator $(MODE)
