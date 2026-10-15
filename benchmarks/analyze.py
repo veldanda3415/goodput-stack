@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from pathlib import Path
 
@@ -28,15 +27,31 @@ PRED = {"decode_tok_s_max": 50, "decode_tok_s_expect": "30-35", "kv_tokens": 55_
         "kv_bytes_per_token_llama32_3b": 114_688, "gpu_mem_util": 0.90}
 
 
-def load(stage: str) -> dict[str, dict]:
+def load(stage: str, model: str | None = None) -> dict[str, dict]:
+    """Rows of a stage merged by key (a later run overrides an earlier one), optionally for one model:
+    baseline and sweep keys repeat per model (Qwen substitute first, then Llama), so they are grouped."""
     rows: dict[str, dict] = {}
     for f in sorted(T4.glob(f"*_{stage}/results/{stage}/{stage}.jsonl")):
         for line in f.read_text().splitlines():
             if line.strip():
                 r = json.loads(line)
+                if model is not None and r.get("model") != model:
+                    continue
                 r["_src"] = str(f.relative_to(REPO))
                 rows[r["key"]] = r
     return rows
+
+
+def models(stage: str) -> list[str]:
+    """Models a stage measured, the prediction target (Llama) first."""
+    seen = {r["model"] for r in load(stage).values() if r.get("model")}
+    seen |= {json.loads(l).get("model") for f in T4.glob(f"*_{stage}/results/{stage}/{stage}.jsonl")
+             for l in f.read_text().splitlines() if l.strip()} - {None}
+    return sorted(seen, key=lambda m: (not m.startswith("meta-llama/"), m))
+
+
+def slug(model: str) -> str:
+    return model.split("/")[-1].lower()
 
 
 def link(r: dict, base: Path) -> str:
@@ -121,7 +136,8 @@ def section_baseline(rows: dict, out: list[str], base: Path) -> dict:
     if not rows:
         out += ["## Task 1 — baseline", "", "No baseline rows yet.", ""]
         return {}
-    out += ["## Task 1 — baseline serve", ""]
+    model = next((r["model"] for r in rows.values() if r.get("model")), "?")
+    out += [f"## Task 1 — baseline serve: `{model}`", ""]
     attempts = [r for k, r in rows.items() if k.startswith("attempt-")]
     out += ["### vLLM version attempts (latest first)", "", "| vLLM | result | torch after install | startup s | detail | source |", "|---|---|---|---:|---|---|"]
     for r in attempts:
@@ -180,15 +196,19 @@ def section_predictions(f: dict, out: list[str]) -> None:
     llama = "Llama-3.2-3B" in (f.get("model") or "")
     b = f.get("kv_bytes_per_token")
     carried = int(PRED["kv_tokens"] * PRED["kv_bytes_per_token_llama32_3b"] / b) if b and not llama else None
-    out += ["## Predictions vs measured", "",
+    out += [f"## Predictions vs measured: `{f.get('model')}`" + ("" if llama else " (substitute)"), "",
             f"Measured model: `{f.get('model')}`." + ("" if llama else " The predictions were made for Llama-3.2-3B; the KV rows are restated for this model from its config.json (formula above)."), "",
             "| quantity | predicted | measured | why different |", "|---|---|---|---|",
             f"| batch-1 decode tok/s | ≤ {PRED['decode_tok_s_max']} (expect {PRED['decode_tok_s_expect']}) | {fmt(f.get('decode_median'), 2)} baseline session (spread {fmt(f.get('decode_spread'), 1)} %)"
             + (f"; {fmt(f['decode_quant'], 2)} quant session (spread {fmt(f.get('decode_quant_spread'), 1)} %)" if f.get("decode_quant") else "")
-            + " | sessions differ in GPU clock (SW power capping), README |",
+            + (f" | within the ≤ {PRED['decode_tok_s_max']} ceiling; {(f['decode_median'] / 35 - 1) * 100:+.1f} % vs the top of the expected 30–35 |"
+               if llama and f.get("decode_median") else " | sessions differ in GPU clock (SW power capping), README |"),
             f"| KV bytes/token | {PRED['kv_bytes_per_token_llama32_3b']:,} (Llama-3.2-3B) | {fmt(b)} (config.json) | {'same model' if llama else 'different model (Qwen2.5-3B: 2 KV heads, GQA, per its config.json)'} |",
             f"| KV pool tokens @ 0.90 | ≈ {PRED['kv_tokens']:,}" + (f" → {carried:,} restated (same KV bytes, this model's B/token)" if carried else "") +
-            f" | {fmt(f.get('gpu_kv_cache_tokens'))} (log) | see notes |",
+            f" | {fmt(f.get('gpu_kv_cache_tokens'))} (log) | "
+            + (f"{(f['gpu_kv_cache_tokens'] / (PRED['kv_tokens'] if llama else carried) - 1) * 100:+.1f} % vs prediction"
+               if f.get("gpu_kv_cache_tokens") and (llama or carried) else "—")
+            + (f"; available KV {fmt(f.get('available_kv_gib'), 2)} GiB ÷ {fmt(b)} B = {fmt(f.get('kv_tokens_from_mem'))} tokens" if f.get("kv_tokens_from_mem") else "") + " |",
             f"| GPU blocks × block size ≈ KV pool | ≈ KV pool | {fmt(f.get('num_gpu_blocks'))} × {fmt(f.get('block_size'))} = {fmt(f.get('blocks_x_block_size'))} | — |", ""]
 
 
@@ -226,7 +246,8 @@ def section_sweep(rows: dict, out: list[str], base: Path) -> None:
         out += ["## Task 4 — concurrency sweep", "", "No sweep rows yet.", ""]
         return
     r0 = closed[0]
-    out += ["## Task 4 — concurrency sweep", "",
+    tag = slug(r0["model"])
+    out += [f"## Task 4 — concurrency sweep: `{r0['model']}`", "",
             f"Model `{r0['model']}` @ `{r0.get('model_revision')}` ({r0.get('model_choice')}) · vLLM {r0.get('vllm_version')} · prefix caching: {r0.get('prefix_caching')}.",
             f"Client: benchmarks/harness, `/v1/completions` streamed, {r0['client']['prompt_tokens']} prompt tokens (unique random words, uuid prefix), "
             f"max_tokens {r0['client']['max_tokens']} ± {int(r0['client']['max_tokens_jitter'] * 100)} %, ignore_eos, start jitter {r0['client']['start_jitter_s']} s, "
@@ -292,17 +313,17 @@ def section_sweep(rows: dict, out: list[str], base: Path) -> None:
         out.append("")
     # charts
     names = sorted(by_mns)
-    for metric, title, ylabel, fname in (("steady_output_tok_s", "Output throughput vs concurrency", "output tok/s (steady window)", "sweep_throughput.png"),):
+    for metric, title, ylabel, fname in (("steady_output_tok_s", f"Output throughput vs concurrency — {tag}", "output tok/s (steady window)", f"sweep_throughput-{tag}.png"),):
         line_chart(CHARTS / fname, title, ylabel, [(f"max-num-seqs {m}", [r["concurrency"] for r in by_mns[m]],
                                                     [r.get(metric) or 0 for r in by_mns[m]], SERIES[i], "-") for i, m in enumerate(names)])
-    for metric, title, fname in (("ttft_ms", "TTFT vs concurrency (p50 solid, p95 dashed)", "sweep_ttft.png"),
-                                 ("itl_ms", "ITL vs concurrency (p50 solid, p95 dashed)", "sweep_itl.png")):
+    for metric, title, fname in (("ttft_ms", f"TTFT vs concurrency, p50 solid / p95 dashed — {tag}", f"sweep_ttft-{tag}.png"),
+                                 ("itl_ms", f"ITL vs concurrency, p50 solid / p95 dashed — {tag}", f"sweep_itl-{tag}.png")):
         s = []
         for i, m in enumerate(names):
             s.append((f"mns {m} p50", [r["concurrency"] for r in by_mns[m]], [r.get(f"{metric}_p50") or 0 for r in by_mns[m]], SERIES[i], "-"))
             s.append((f"mns {m} p95", [r["concurrency"] for r in by_mns[m]], [r.get(f"{metric}_p95") or 0 for r in by_mns[m]], SERIES[i], "--"))
         line_chart(CHARTS / fname, title, "ms (log scale)", s, logy=True)
-    out += ["![throughput](charts/sweep_throughput.png)", "![ttft](charts/sweep_ttft.png)", "![itl](charts/sweep_itl.png)", ""]
+    out += [f"![throughput](charts/sweep_throughput-{tag}.png)", f"![ttft](charts/sweep_ttft-{tag}.png)", f"![itl](charts/sweep_itl-{tag}.png)", ""]
 
 
 def section_quant(rows: dict, out: list[str], base: Path, price: tuple[float, str] | None) -> None:
@@ -368,16 +389,17 @@ def section_runs(out: list[str]) -> None:
 def headlines(price: tuple[float, str] | None) -> list[str]:
     """One row per headline number for RESULTS.md, each linked to the JSONL row it came from."""
     rows: list[tuple[str, str, str, dict]] = []
-    b = load("baseline")
-    if (r := b.get("decode-batch1")) and r.get("decode_tok_s_median"):
-        rows.append(("batch-1 decode", f"{r['decode_tok_s_median']:.2f} tok/s (spread {r['decode_spread_pct']} %, n={r['decode_n']})", r["model"], r))
-    if (r := b.get("startup")):
-        if r.get("gpu_kv_cache_tokens"):
-            rows.append(("KV pool @ --gpu-memory-utilization 0.90, max-model-len 4096", f"{r['gpu_kv_cache_tokens']:,} tokens (log)", r["model"], r))
-        if r.get("blocks_x_block_size"):
-            rows.append(("GPU blocks × block size", f"{r['num_gpu_blocks']:,} × {r['block_size']} = {r['blocks_x_block_size']:,} tokens", r["model"], r))
-        if r.get("model_weights_gib"):
-            rows.append(("model weight memory", f"{r['model_weights_gib']} GiB (log)", r["model"], r))
+    for bm in models("baseline"):
+        b = load("baseline", bm)
+        if (r := b.get("decode-batch1")) and r.get("decode_tok_s_median"):
+            rows.append(("batch-1 decode", f"{r['decode_tok_s_median']:.2f} tok/s (spread {r['decode_spread_pct']} %, n={r['decode_n']})", r["model"], r))
+        if (r := b.get("startup")):
+            if r.get("gpu_kv_cache_tokens"):
+                rows.append(("KV pool @ --gpu-memory-utilization 0.90, max-model-len 4096", f"{r['gpu_kv_cache_tokens']:,} tokens (log)", r["model"], r))
+            if r.get("blocks_x_block_size"):
+                rows.append(("GPU blocks × block size", f"{r['num_gpu_blocks']:,} × {r['block_size']} = {r['blocks_x_block_size']:,} tokens", r["model"], r))
+            if r.get("model_weights_gib"):
+                rows.append(("model weight memory", f"{r['model_weights_gib']} GiB (log)", r["model"], r))
     kv = [r for r in load("kvgrid").values() if r.get("kind") == "kv_cell"]
     if kv:
         ok = [r for r in kv if r.get("started")]
@@ -385,13 +407,14 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
         if ok:
             best = max(ok, key=lambda r: r.get("kv_tokens") or 0)
             rows.append(("8B AWQ largest KV pool", f"{best.get('kv_tokens'):,} tokens @ util {best['gpu_memory_utilization']}, len {best['max_model_len']}", best["model"], best))
-    sw = load("sweep")
-    closed = [r for r in sw.values() if r.get("kind") == "closed_loop" and r.get("steady_output_tok_s")]
-    for m in sorted({str(r["max_num_seqs"]) for r in closed}):
-        top = max((r for r in closed if str(r["max_num_seqs"]) == m), key=lambda r: r["steady_output_tok_s"])
-        rows.append((f"peak steady output tok/s, max-num-seqs {m}", f"{top['steady_output_tok_s']:,.1f} tok/s at c={top['concurrency']} (TTFT p95 {top.get('ttft_ms_p95'):,.0f} ms)", top["model"], top))
-    if (r := sw.get("knee")):
-        rows.append(("throughput knee (closed loop)", f"c={r['knee_concurrency']}, {r['knee_req_s']} req/s", r["model"], r))
+    for sm in models("sweep"):
+        sw = load("sweep", sm)
+        closed = [r for r in sw.values() if r.get("kind") == "closed_loop" and r.get("steady_output_tok_s")]
+        for m in sorted({str(r["max_num_seqs"]) for r in closed}):
+            top = max((r for r in closed if str(r["max_num_seqs"]) == m), key=lambda r: r["steady_output_tok_s"])
+            rows.append((f"peak steady output tok/s, max-num-seqs {m}", f"{top['steady_output_tok_s']:,.1f} tok/s at c={top['concurrency']} (TTFT p95 {top.get('ttft_ms_p95'):,.0f} ms)", top["model"], top))
+        if (r := sw.get("knee")):
+            rows.append(("throughput knee rule (closed loop)", f"c={r['knee_concurrency']}, {r['knee_req_s']} req/s", r["model"], r))
     q = load("quant")
     for v in ("fp16", "awq-int4", "gguf-q8_0", "gguf-q4_k_m"):
         if (r := q.get(f"{v}-decode")) and r.get("decode_tok_s_median"):
@@ -431,14 +454,19 @@ def main() -> None:
         price = azure_price(a.price_json)
     out = ["# T4 engine results — summary", "", "Generated by `benchmarks/analyze.py` from the stage JSONL files; do not edit by hand. "
            "Every row links its JSONL. Narrative and caveats: [README.md](README.md).", ""]
-    facts = section_baseline(load("baseline"), out, T4)
-    if (q := load("quant").get("fp16-decode")) and facts:
-        facts |= {"decode_quant": q.get("decode_tok_s_median"), "decode_quant_spread": q.get("decode_spread_pct")}
-    section_predictions(facts, out)
+    all_facts = []
+    for m in models("baseline"):
+        facts = section_baseline(load("baseline", m), out, T4)
+        if (q := load("quant", m).get("fp16-decode")) and facts:
+            facts |= {"decode_quant": q.get("decode_tok_s_median"), "decode_quant_spread": q.get("decode_spread_pct")}
+        all_facts.append(facts)
+    for facts in all_facts:
+        section_predictions(facts, out)
     kv = load("kvgrid")
     out += ["## Task 2 — KV capacity (8B AWQ INT4)", "", "Full table: [benchmarks/kv_capacity_table.md](../../kv_capacity_table.md).", ""]
     (REPO / "benchmarks" / "kv_capacity_table.md").write_text("\n".join(section_kv(kv, REPO / "benchmarks")) + "\n")
-    section_sweep(load("sweep"), out, T4)
+    for m in models("sweep"):
+        section_sweep(load("sweep", m), out, T4)
     section_quant(load("quant"), out, T4, price)
     section_runs(out)
     (T4 / "summary.md").write_text("\n".join(out) + "\n")
