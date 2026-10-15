@@ -135,10 +135,10 @@ A then B on one server (A on a cold server, B warm); C and D each on a fresh ser
 
 | variant | engine | model | batch-1 decode tok/s (median, spread) | c=16 steady tok/s | c=16 TTFT p50 ms | PPL (wikitext-2, 40×512, 2nd half) | gsm8k | hellaswag | $/1M out tok @ c=16 | rows |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| fp16 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct` | 37.16 (1.0 %) | 341.7 | 196 | 8.018 | flexible-extract 0.656 ± 0.030<br>strict-match 0.116 ± 0.020 | acc 0.536 ± 0.032<br>acc_norm 0.656 ± 0.030 | 0.428 | [20261014-230851_quant](../../../benchmarks/results/t4/20261014-230851_quant/results/quant/quant.jsonl) |
-| awq-int4 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct-AWQ` | 84.06 (1.9 %) | 536.6 | 144 | 8.659 | flexible-extract 0.624 ± 0.031<br>strict-match 0.120 ± 0.021 | acc 0.512 ± 0.032<br>acc_norm 0.628 ± 0.031 | 0.272 | [20261014-230851_quant](../../../benchmarks/results/t4/20261014-230851_quant/results/quant/quant.jsonl) |
-| gguf-q8_0 | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q8_0.gguf` | 60.04 (2.2 %) | 284.7 | 245 | 8.137 | failed (rc 1) | failed (rc 1) | 0.513 | [20261014-230851_quant](../../../benchmarks/results/t4/20261014-230851_quant/results/quant/quant.jsonl) |
-| gguf-q4_k_m | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf` | 76.61 (2.0 %) | 304.5 | 241 | 8.410 | failed (rc 1) | failed (rc 1) | 0.480 | [20261014-230851_quant](../../../benchmarks/results/t4/20261014-230851_quant/results/quant/quant.jsonl) |
+| fp16 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct` | 37.16 (1.0 %) | 341.7 | 196 | 8.018 | flexible-extract 0.656 ± 0.030<br>strict-match 0.116 ± 0.020 | acc 0.536 ± 0.032<br>acc_norm 0.656 ± 0.030 | 0.428 | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
+| awq-int4 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct-AWQ` | 84.06 (1.9 %) | 536.6 | 144 | 8.659 | flexible-extract 0.624 ± 0.031<br>strict-match 0.120 ± 0.021 | acc 0.512 ± 0.032<br>acc_norm 0.628 ± 0.031 | 0.272 | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
+| gguf-q8_0 | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q8_0.gguf` | 60.04 (2.2 %) | 284.7 | 245 | 8.137 | flexible-extract 0.692 ± 0.029<br>strict-match 0.248 ± 0.027 | failed (rc 0) | 0.513 | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
+| gguf-q4_k_m | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf` | 76.61 (2.0 %) | 304.5 | 241 | 8.410 | flexible-extract 0.676 ± 0.030<br>strict-match 0.332 ± 0.030 | failed (rc 0) | 0.480 | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
 
 lm-eval 0.4.12 `local-completions`, --limit 250 (first N docs), command in the row (`lmeval_cmd`).
 
@@ -163,6 +163,7 @@ Cost: Azure Standard_NC4as_T4_v3 US East Linux on-demand 0.526 USD/1 Hour; fetch
 | 20261014-230457_sweep | sweep | complete | 895.7 | 0.249 | 0.260 |
 | 20261014-232257_sweep | sweep | complete | 882.7 | 0.245 | 0.258 |
 | 20261014-230851_quant | quant | complete | 1,864.8 | 0.518 | 0.537 |
-| 20261014-233928_sweep | sweep | complete | — | — | 0.290 |
-| **total** | | | | **3.231** | **3.674** |
+| 20261014-234235_quant | quant | complete | 1,485.0 | 0.412 | 0.577 |
+| 20261014-233928_sweep | sweep | complete | 881.6 | 0.245 | 0.290 |
+| **total** | | | | **3.888** | **4.251** |
 

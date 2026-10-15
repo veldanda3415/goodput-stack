@@ -25,10 +25,12 @@ One Kaggle kernel version per stage (`make t4-run STAGE=<stage>`). Results are i
 | smoke | GPU, driver, packages, DCGM, HF access | 20261014-213711, -214014, -214129 |
 | baseline | which vLLM serves on sm_75; startup facts; chat API; batch-1 decode; /metrics | 20261014-214232 (failed, see below), **20261014-215653** |
 | kvgrid | 8B AWQ INT4: KV pool vs `--gpu-memory-utilization` × `--max-model-len` | **20261014-220938** |
-| sweep | closed loop c=1..64 × two `--max-num-seqs`, open loop, `vllm bench serve` cross-check | **20261014-220946**, bench reruns 20261014-225021, 20261014-230457 |
-| quant | FP16 vs AWQ (vLLM) vs GGUF Q8_0/Q4_K_M (llama.cpp CUDA): speed, PPL, lm-eval, cost | see Task 5 |
+| sweep | closed loop c=1..64 × two `--max-num-seqs`, open loop, `vllm bench serve` cross-check | **20261014-220946**; cross-check 20261014-225021 (other session, invalid pair), **20261014-230457** (same session); TTFT-tail diagnosis 20261014-232257, 20261014-233928 |
+| quant | FP16 vs AWQ (vLLM) vs GGUF Q8_0/Q4_K_M (llama.cpp CUDA): speed, PPL, lm-eval, cost | **20261014-224513** (speed, PPL), 20261014-230851 (lm-eval vLLM), 20261014-234235 (lm-eval GGUF) |
 
-GPU time: per-run script session time and the push→done upper bound are in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md).
+GPU time: **3.89 GPU-hours** of script session time over 15 Kaggle runs (4.25 h push→done upper bound); per run in
+[runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Kaggle's output download sometimes saves a 502
+HTML page in place of a file; `run_kaggle.py` retries and never overwrites a good file with one.
 
 ## Versions
 
@@ -225,9 +227,29 @@ source build) with `-ngl 99 -c 8192 -np 16 --metrics`. Full table: [summary.md](
   East US, Linux, on-demand. Source: Azure Retail Prices API, fetched 2026-10-15T01:46Z, raw response in
   [pricing/](pricing/). This is a cloud VM price for this hardware class, not what Kaggle charges (free).
   `benchmarks/cost.py` refuses to run without a cited price.
-- **lm-eval (gsm8k, hellaswag; --limit 250):** the first attempt failed for all variants. The lm-eval venv lacked
-  `transformers` (`ModuleNotFoundError`; `lm-eval[api]` 0.4.12 doesn't install it), which the HF tokenizer backend
-  needs. Results of the rerun: [summary.md](summary.md#task-5--quantization-speed-quality-cost).
+- **Quality, lm-eval 0.4.12** `local-completions` against each server's `/v1/completions`, `--limit 250` (first
+  250 docs; lm-eval itself warns that limit is for testing), default few-shot, **no chat template** (the same for
+  all four variants), `tokenized_requests=True`, `num_concurrent=8`. ± is lm-eval's stderr.
+
+  | Variant | gsm8k flexible-extract | gsm8k strict-match | hellaswag acc_norm | hellaswag acc |
+  |---|---:|---:|---:|---:|
+  | FP16 (vLLM) | 0.656 ± 0.030 | 0.116 ± 0.020 | 0.656 ± 0.030 | 0.536 ± 0.032 |
+  | AWQ INT4 (vLLM) | 0.624 ± 0.031 | 0.120 ± 0.021 | 0.628 ± 0.031 | 0.512 ± 0.032 |
+  | GGUF Q8_0 (llama.cpp) | 0.692 ± 0.029 | 0.248 ± 0.027 | not supported | not supported |
+  | GGUF Q4_K_M (llama.cpp) | 0.676 ± 0.030 | 0.332 ± 0.030 | not supported | not supported |
+
+  - At n=250 every flexible-extract gsm8k score lies within ~1–2 stderr of the others, so this sample size doesn't
+    separate the quantizations. Perplexity (above) does, consistently: FP16 < Q8_0 < Q4_K_M < AWQ.
+  - strict-match differs by **engine** (vLLM ≈ 0.12, llama.cpp 0.25–0.33) at the same model and similar
+    flexible scores. That looks like an output-format/stop-sequence difference between the servers, not a
+    quality difference. Unverified; compare `--log_samples` outputs next.
+  - **hellaswag on llama.cpp is not possible through this API:** llama-server b11146 `/v1/completions` ignores
+    `echo` and returns logprobs only for the generated token (`logprobs.content[]`, no `token_logprobs`), so lm-eval's
+    loglikelihood path raises `KeyError('token_logprobs')` (5-doc probe, run 20261014-234235).
+  - Runs it took: (1) every variant failed, because the lm-eval venv had no `transformers`; (2) vLLM variants OK,
+    llama.cpp variants got HTTP 400 *"request (1434 tokens) exceeds the available context size (512 tokens)"*
+    because `-c 8192 -np 16` leaves 512 tokens per slot and gsm8k 5-shot prompts are 1.2–1.6K tokens; (3) llama-server
+    restarted for lm-eval with `-c 16384 -np 8` (2,048 per slot). The speed rows above used the `-np 16` server.
 
 ## Limits — what is emulated or missing
 
@@ -240,6 +262,11 @@ source build) with `-ngl 99 -c 8192 -np 16 --metrics`. Full table: [summary.md](
 - **Closed loop is not real traffic**; the open-loop runs are short (≤ 533 requests) and their rates were
   anchored to the edge of the sweep, not to a measured saturation knee.
 - **Single repeat per point** for the sweep. Spread is only measured for batch-1 decode (5 runs).
+- **lm-eval at --limit 250, no chat template**: good enough to catch a broken quantization, too small to rank close ones.
+- **Issues #1, #3, #12** are private and `gh` isn't installed here, so they were read only by title: #1 handled
+  (unique prompts and prefix caching off), #3 answered (cross-check above), #12 (harness load factor) did not
+  block anything. The harness only gained open-loop arrivals (`arrival_rate`, `arrival_seed`; closed-loop
+  behaviour unchanged), so nothing about #12 was changed.
 - Nothing here is simulated. The k3s vLLM simulator is not involved in any T4 number.
 
 ## Reproduce
