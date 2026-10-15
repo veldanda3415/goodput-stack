@@ -152,11 +152,16 @@ def hf_access(repo: str) -> dict:
 
 def pip_install_vllm(version: str, logs: Path) -> dict:
     t0 = time.time()
+    # Kaggle preinstalls torchaudio/torchcodec/torchvision built for its torch (cu128). vLLM brings its own
+    # torch (cu130 in baseline run 1), and `import vllm` then dies on the CUDA mismatch with torchaudio.
+    # Remove them first; vLLM reinstalls the torchvision it pins.
+    sh([sys.executable, "-m", "pip", "uninstall", "-y", "torchaudio", "torchcodec", "torchvision"], timeout=300,
+       out=logs / f"pip-uninstall-before-vllm-{version}.txt")
     rc, out = sh([sys.executable, "-m", "pip", "install", "-q", f"vllm=={version}"], timeout=1500,
                  out=logs / f"pip-install-vllm-{version}.txt")
     rc2, ver = sh(["vllm", "--version"], timeout=180)
     rc3, torch_v = sh([sys.executable, "-c", "import torch;print(torch.__version__, torch.version.cuda)"], timeout=120)
-    return {"vllm_version_requested": version, "pip_rc": rc, "pip_s": round(time.time() - t0, 1),
+    return {"vllm_version_requested": version, "pip_rc": rc, "pip_s": round(time.time() - t0, 1), "vllm_import_rc": rc2,
             "pip_tail": out.strip()[-800:] if rc else "", "vllm_version_reported": ver.strip().splitlines()[-1] if rc2 == 0 else ver[-300:],
             "torch_after_install": torch_v.strip() if rc3 == 0 else torch_v[-300:]}
 
@@ -470,6 +475,9 @@ def install_working_vllm(st: Stage, versions: list[str], model: str, flags: list
         if inst["pip_rc"] != 0:
             st.write(f"attempt-{v}", row | {"result": "pip install failed"})
             continue
+        if inst["vllm_import_rc"] != 0:
+            st.write(f"attempt-{v}", row | {"result": "`vllm --version` failed (import error)"})
+            continue
         missing = require_flags(serve_help(st.logs, v), BASE_FLAGS)
         if missing:
             st.write(f"attempt-{v}", row | {"result": f"flags missing from serve --help: {missing}"})
@@ -556,8 +564,8 @@ STAGE_ARGS["baseline"] = [
 
 def install_pinned(st: Stage, version: str) -> dict:
     inst = pip_install_vllm(version, st.logs)
-    if inst["pip_rc"] != 0:
-        raise RuntimeError(f"pip install vllm=={version} failed: {inst['pip_tail']}")
+    if inst["pip_rc"] != 0 or inst["vllm_import_rc"] != 0:
+        raise RuntimeError(f"vllm=={version} not usable: {inst['pip_tail'] or inst['vllm_version_reported']}")
     return inst
 
 
