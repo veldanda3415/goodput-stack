@@ -833,7 +833,7 @@ def lm_eval(st: Stage, served: str, tokenizer_repo: str, tasks: str, limit: int,
             return {"lmeval_install_rc": rc, "lmeval_error": out[-800:]}
     out_dir = st.dir / f"lmeval-{name}"
     args = (f"model={served},base_url=http://127.0.0.1:{PORT}/v1/completions,num_concurrent=8,max_retries=3,"
-            f"tokenized_requests=False,tokenizer_backend=huggingface,tokenizer={tokenizer_repo}")
+            f"tokenized_requests=True,tokenizer_backend=huggingface,tokenizer={tokenizer_repo}")
     cmd = [f"{venv}/bin/lm_eval", "--model", "local-completions", "--model_args", args, "--tasks", tasks,
            "--limit", str(limit), "--output_path", str(out_dir)]
     t0 = time.time()
@@ -914,7 +914,13 @@ def stage_quant(a) -> None:
                     p = {"ppl_error": f"{type(exc).__name__}: {exc}"}
                 st.write(f"{name}-ppl", {"kind": "perplexity", "variant": name, "text": "wikitext-2-raw-v1 test (Salesforce/wikitext)", **p}, **prov)
             if "lmeval" in parts and srv.proc and srv.proc.poll() is None:
-                row = lm_eval(st, name, a.fp16_model, a.lmeval_tasks, a.lmeval_limit, name, a.lmeval_version)
+                if engine == "vllm":
+                    row = lm_eval(st, name, a.fp16_model, a.lmeval_tasks, a.lmeval_limit, name, a.lmeval_version)
+                else:
+                    # loglikelihood tasks need prompt logprobs (echo); probe that on 5 docs, run gsm8k in full
+                    row = lm_eval(st, name, a.fp16_model, "gsm8k", a.lmeval_limit, name, a.lmeval_version)
+                    probe = lm_eval(st, name, a.fp16_model, "hellaswag", 5, f"{name}-hellaswag-probe", a.lmeval_version)
+                    row["hellaswag_probe"] = {k: v for k, v in probe.items() if k != "lmeval_cmd"}
                 st.write(f"{name}-lmeval", {"kind": "lmeval", "variant": name, **row}, **prov)
 
 
