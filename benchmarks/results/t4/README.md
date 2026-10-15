@@ -164,11 +164,17 @@ tokens, 128 output, ignore_eos, no jitter, 20 / 64 requests.
   for the harness runs is 106.7 ms (c=1) and 1,156 ms (c=16), within 5–60 ms of the client numbers. At c=16 that
   server TTFT already includes the time the 16 simultaneous prefills wait for each other.
 - **c=1:** the tools agree within ~10 %. The bench run is a little slower and also ran at a lower SM clock (461 vs 500 MHz).
-- **c=16:** per-token timing agrees (ITL 38.2 vs 38.4 ms, TPOT 41.4 vs 39.6 ms), but bench's TTFT tail (p95 10.5 s)
-  and lower throughput do not. bench's own result file reports `max_concurrent_requests: 32` for
-  `--max-concurrency 16` (and 2 for 1), so at some point it counted more requests in flight than the limit. That is
-  the first thing to check; the root cause is **not established** here. bench's GPU-util mean (34 %) is diluted by
-  its sampler window also covering the tool's start-up (dataset + tokenizer), not by an idle GPU during the run.
+- **c=16:** per-token timing agrees (ITL 38.2 vs 38.4 ms, TPOT 41.4 vs 39.6 ms), but bench's TTFT tail and
+  throughput do not. The tail is a cluster: p95 10,510.6 ms ≈ p99 10,512.1 ms, i.e. a few requests waited ~10.5 s
+  for their first token. **Root cause not established.** Excluded from the v0.31.0 source: (a) bench's
+  `max_concurrent_requests: 32` for `--max-concurrency 16` is a counting artefact, since it buckets requests per
+  whole second, so an ending and a starting request both count (`vllm/benchmarks/serve.py:710–723`); the semaphore
+  does cap in-flight requests at 16 (`serve.py:980–990`), and `start_time` is taken after the semaphore, so bench
+  TTFT excludes client-side waiting. (b) The probe loop is off by default (`probe_request_rate = 0.0`, `serve.py:815`).
+  Also seen: bench 0.31.0 no longer sends `temperature=0` (it prints a warning), and it ran no warmup requests,
+  while the harness sends 2. Next step: rerun with `--num-warmups 2 --save-detailed` and look at which requests
+  carry the 10.5 s TTFT. bench's GPU-util mean (34 %) is diluted because its sampler window also covers the tool's
+  start-up.
 - **Power capping.** In this session NVML's "SW Power Capping" throttle counter grew by 86.4 s during the 107 s
   harness c=1 run and 117.4 s during bench c=1, with the SM clock near 500 MHz. In the quant session the same
   counters stayed at 0 for all 20 decode runs, with clocks at 964–1,231 MHz. **Session-to-session speed differences
