@@ -652,7 +652,8 @@ def help_default(help_text: str, flag: str) -> str | None:
 
 def bench_serve(st: Stage, model: str, concurrency: int, num_prompts: int, input_len: int, output_len: int) -> dict:
     """Cross-check with the benchmark tool shipped in the pinned vLLM (`vllm bench serve`)."""
-    rc, help_text = sh(["vllm", "bench", "serve", "--help"], timeout=300, out=st.logs / "vllm-bench-serve-help.txt")
+    # plain --help lists only the config groups (sweep run 1); flags are under --help=all
+    rc, help_text = sh(["vllm", "bench", "serve", "--help=all"], timeout=300, out=st.logs / "vllm-bench-serve-help.txt")
     want = ["--backend", "--base-url", "--model", "--endpoint", "--dataset-name", "--random-input-len",
             "--random-output-len", "--num-prompts", "--max-concurrency", "--ignore-eos", "--save-result",
             "--result-dir", "--result-filename", "--percentile-metrics", "--metric-percentiles"]
@@ -688,7 +689,8 @@ def stage_sweep(a) -> None:
     st.write("max-num-seqs-default", {"kind": "note", "max_num_seqs_default_from_help": default_mns,
                                       "source": "vllm serve --help=all"}, vllm_version=a.vllm_version)
     concs = [int(x) for x in a.concurrency.split(",")]
-    done = st.done()
+    # a bench row without results (flags/help failure) is not "done": it is retried on --resume
+    done = {r["key"] for r in st.rows() if not (r.get("kind") == "bench_serve" and not r.get("bench"))}
     for mns in a.max_num_seqs.split(","):
         flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching"]
         if mns != "default":

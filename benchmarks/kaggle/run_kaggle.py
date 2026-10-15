@@ -83,7 +83,8 @@ def payload(stage: str, resume: Path | None) -> str:
             prev = resume / "results" / stage
             if not prev.is_dir():
                 raise SystemExit(f"--resume: {prev} does not exist")
-            tar.add(prev, arcname=f"resume/{stage}")
+            # only the result rows: they are what "skip work already done" reads; raw files stay local
+            tar.add(prev / f"{stage}.jsonl", arcname=f"resume/{stage}/{stage}.jsonl")
     return base64.b64encode(buf.getvalue()).decode()
 
 

@@ -77,19 +77,21 @@ def style(ax, title: str, xlabel: str, ylabel: str) -> None:
     ax.tick_params(colors=MUTED)
 
 
-def line_chart(path: Path, title: str, ylabel: str, series: list[tuple[str, list, list, str, str]], logx=True) -> None:
+def line_chart(path: Path, title: str, ylabel: str, series: list[tuple[str, list, list, str, str]], logx=True, logy=False) -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(7, 4), facecolor=SURFACE)
     for name, xs, ys, color, ls in series:
         ax.plot(xs, ys, color=color, linestyle=ls, linewidth=2, marker="o", markersize=5, label=name)
-        if xs:
+        if xs and len(series) <= 2:   # p50/p95 pairs end on top of each other: legend only
             ax.annotate(name, (xs[-1], ys[-1]), textcoords="offset points", xytext=(6, 0), color=INK, fontsize=8, va="center")
     if logx:
         ax.set_xscale("log", base=2)
         xs_all = sorted({x for s in series for x in s[1]})
         ax.set_xticks(xs_all, [str(x) for x in xs_all])
+    if logy:
+        ax.set_yscale("log")
     style(ax, title, "concurrent clients (closed loop)", ylabel)
     if len(series) >= 2:
         ax.legend(frameon=False, fontsize=8, labelcolor=INK)
@@ -223,7 +225,7 @@ def section_sweep(rows: dict, out: list[str], base: Path) -> None:
             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|"]
     by_mns: dict[str, list[dict]] = {}
     for r in sorted(closed, key=lambda r: (str(r["max_num_seqs"]), r["concurrency"])):
-        by_mns.setdefault(str(r["max_num_seqs"]), []).append(r)
+        by_mns.setdefault(str(r["max_num_seqs"]).replace(" (None)", ""), []).append(r)
         out.append(f"| {r['max_num_seqs']} | {r['concurrency']} | {r.get('requests_ok')} | {r.get('errors')} | {fmt(r.get('ttft_ms_p50'), 0)} / {fmt(r.get('ttft_ms_p95'), 0)} | "
                    f"{fmt(r.get('itl_ms_p50'))} / {fmt(r.get('itl_ms_p95'))} | {fmt(r.get('steady_output_tok_s'))} | {fmt(r.get('req_s'), 2)} | "
                    f"{fmt(r.get('srv_running_max'), 0)} | {fmt(r.get('srv_waiting_max'), 0)} | {fmt(r.get('srv_kv_usage_max'), 3)} | {fmt(r.get('srv_preemptions'), 0)} | "
@@ -268,7 +270,7 @@ def section_sweep(rows: dict, out: list[str], base: Path) -> None:
         for i, m in enumerate(names):
             s.append((f"mns {m} p50", [r["concurrency"] for r in by_mns[m]], [r.get(f"{metric}_p50") or 0 for r in by_mns[m]], SERIES[i], "-"))
             s.append((f"mns {m} p95", [r["concurrency"] for r in by_mns[m]], [r.get(f"{metric}_p95") or 0 for r in by_mns[m]], SERIES[i], "--"))
-        line_chart(CHARTS / fname, title, "ms", s)
+        line_chart(CHARTS / fname, title, "ms (log scale)", s, logy=True)
     out += ["![throughput](charts/sweep_throughput.png)", "![ttft](charts/sweep_ttft.png)", "![itl](charts/sweep_itl.png)", ""]
 
 

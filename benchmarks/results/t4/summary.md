@@ -75,7 +75,50 @@ Full table: [benchmarks/kv_capacity_table.md](../../kv_capacity_table.md).
 
 ## Task 4 — concurrency sweep
 
-No sweep rows yet.
+Model `Qwen/Qwen2.5-3B-Instruct` @ `aa8e72537993ba99e69dfaafa59ed015b17504d1` (SUBSTITUTE for meta-llama/Llama-3.2-3B-Instruct (no download access)) · vLLM 0.31.0 · prefix caching: disabled (--no-enable-prefix-caching) + unique random prompts.
+Client: benchmarks/harness, `/v1/completions` streamed, 256 prompt tokens (unique random words, uuid prefix), max_tokens 128 ± 25 %, ignore_eos, start jitter 0 s, requests max(20, 4×c), 2 warmup. TTFT/ITL client-side (first token chunk / chunk gaps); srv_* = vLLM /metrics sampled at 1 Hz; gpu_* = NVML at 1 Hz.
+
+| max-num-seqs | c | ok | err | TTFT p50 / p95 ms | ITL p50 / p95 ms | steady out tok/s | req/s | running max | waiting max | KV usage max | preempt | GPU util mean % | power mean W | row |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 8 | 1 | 20 | 0 | 100 / 107 | 29.1 / 35.9 | 32.5 | 0.25 | 1 | 0 | 0.002 | 0 | 96.3 | 67.1 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 8 | 2 | 20 | 0 | 171 / 176 | 29.6 / 30.7 | 63.9 | 0.46 | 2 | 0 | 0.004 | 0 | 94.2 | 66.4 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 8 | 4 | 20 | 0 | 173 / 238 | 30.6 / 32.1 | 119.2 | 0.82 | 4 | 0 | 0.008 | 0 | 94.1 | 65.8 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 8 | 8 | 32 | 0 | 180 / 290 | 32.9 / 39.9 | 209.1 | 1.48 | 8 | 0 | 0.015 | 0 | 92.7 | 65.9 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 8 | 16 | 64 | 0 | 5,070 / 5,951 | 33.0 / 50.6 | 210.8 | 1.52 | 8 | 8 | 0.015 | 0 | 96.2 | 66.5 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 8 | 32 | 128 | 0 | 14,867 / 16,067 | 33.1 / 54.9 | 210.4 | 1.57 | 8 | 24 | 0.015 | 0 | 96.7 | 66.6 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 8 | 64 | 256 | 0 | 34,381 / 36,049 | 33.0 / 105.1 | 209.2 | 1.61 | 8 | 56 | 0.015 | 0 | 97.8 | 66.7 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| default (None) | 1 | 20 | 0 | 95 / 102 | 27.4 / 29.9 | 35.4 | 0.27 | 1 | 0 | 0.002 | 0 | 96.1 | 67.0 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| default (None) | 2 | 20 | 0 | 171 / 176 | 29.5 / 30.4 | 63.9 | 0.46 | 2 | 0 | 0.005 | 0 | 95.5 | 66.0 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| default (None) | 4 | 20 | 0 | 175 / 232 | 30.7 / 32.1 | 118.7 | 0.81 | 4 | 0 | 0.009 | 0 | 94.1 | 65.4 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| default (None) | 8 | 32 | 0 | 180 / 299 | 32.9 / 36.1 | 208.8 | 1.48 | 8 | 0 | 0.016 | 0 | 93.5 | 65.7 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| default (None) | 16 | 64 | 0 | 196 / 650 | 37.1 / 120.0 | 337.5 | 2.33 | 16 | 0 | 0.031 | 0 | 94.6 | 66.4 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| default (None) | 32 | 128 | 0 | 303 / 1,685 | 49.5 / 128.9 | 461.2 | 3.39 | 32 | 1 | 0.064 | 0 | 93.7 | 65.7 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| default (None) | 64 | 256 | 0 | 469 / 3,681 | 64.6 / 208.4 | 615.5 | 4.75 | 64 | 36 | 0.129 | 0 | 94.0 | 65.2 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+
+Knee (smallest concurrency with steady_output_tok_s >= 90% of max): c = 64, 4.745 req/s, max steady 615.46 tok/s → open-loop rates [3.559, 4.745, 5.931] req/s.
+
+### Open loop (Poisson arrivals)
+
+| rate req/s | × knee | ok | err | TTFT p50 / p95 ms | ITL p50 / p95 ms | output tok/s (wall) | achieved req/s | running max | waiting max | KV max | preempt | row |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 3.559 | 0.75 | 320 | 0 | 260 / 454 | 52.0 / 133.3 | 439.5 | 3.44 | 52 | 0 | 0.094 | 0 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 4.745 | 1.0 | 427 | 0 | 337 / 695 | 65.2 / 205.1 | 583.9 | 4.58 | 83 | 0 | 0.157 | 0 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 5.931 | 1.25 | 533 | 0 | 493 / 1,035 | 115.2 / 308.5 | 709.2 | 5.54 | 162 | 0 | 0.297 | 0 | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+
+### Cross-check: harness vs `vllm bench serve` (same server, default max-num-seqs)
+
+| c | tool | TTFT p50 ms | TTFT p95 ms | ITL p50 ms | TPOT p50 ms | output tok/s | source |
+|---:|---|---:|---:|---:|---:|---:|---|
+| 1 | harness | 94.6 | 101.9 | 27.4 | 27.3 | 35.4 (steady) / 35.4 (wall) | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 1 | vllm bench serve | — | — | — | — | — | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 1 | vllm bench serve | failed: rc 0 ['--backend', '--base-url', '--model', '--endpoint', '--dataset-name', '--random-input-len', '--random-output-len', '--num-prompts', '--max-concurrency', '--ignore-eos', '--save-result', '--result-dir', '--result-filename', '--percentile-metrics', '--metric-percentiles']  | | | | | |
+| 16 | harness | 196.4 | 650.4 | 37.1 | 46.2 | 337.5 (steady) / 304.5 (wall) | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 16 | vllm bench serve | — | — | — | — | — | [20261014-220946_sweep](../../../benchmarks/results/t4/20261014-220946_sweep/results/sweep/sweep.jsonl) |
+| 16 | vllm bench serve | failed: rc 0 ['--backend', '--base-url', '--model', '--endpoint', '--dataset-name', '--random-input-len', '--random-output-len', '--num-prompts', '--max-concurrency', '--ignore-eos', '--save-result', '--result-dir', '--result-filename', '--percentile-metrics', '--metric-percentiles']  | | | | | |
+
+![throughput](charts/sweep_throughput.png)
+![ttft](charts/sweep_ttft.png)
+![itl](charts/sweep_itl.png)
 
 ## Task 5 — quantization
 
@@ -90,5 +133,6 @@ No quant rows yet.
 | 20261014-214129_smoke | smoke | complete | 20.7 | 0.006 | 0.013 |
 | 20261014-214232_baseline | baseline | complete | 760.0 | 0.211 | 0.225 |
 | 20261014-215653_baseline | baseline | complete | 636.8 | 0.177 | 0.190 |
-| **total** | | | | **0.408** | **0.460** |
+| 20261014-220946_sweep | sweep | complete | 2,064.3 | 0.573 | 0.587 |
+| **total** | | | | **0.981** | **1.047** |
 
