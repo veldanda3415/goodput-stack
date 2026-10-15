@@ -14,7 +14,8 @@ EPP routes size-blind, and enabling and tuning llm-d's own `token-load-scorer` f
 > **Status:** backends, Helm chart, Gateway API inference routing (with probes P1–P9), Prometheus/Grafana observability
 > and KEDA queue-depth autoscaling run on a single-node k3s lab. vLLM runs on a free Kaggle T4 (engine benchmarks,
 > quantization, cost). GPU scheduling (device plugin, DRA, Kueue, node health) runs on a separate k3d cluster with
-> **simulated** GPUs. The AI fabric is being built. Nothing is claimed as done until it is in the repo with evidence:
+> **simulated** GPUs. An isolated FRR/containerlab fabric lab is in use as **EMULATED**; lossless RoCE and
+> PFC/DCQCN behavior are not built. Nothing is claimed as done until it is in the repo with evidence:
 > headline numbers with provenance are in [RESULTS.md](RESULTS.md).
 
 ## What runs today
@@ -68,6 +69,7 @@ flowchart LR
   free Kaggle T4, driven from the lab with `make t4-run STAGE=...`. Headline numbers with provenance: [RESULTS.md](RESULTS.md).
 - **Probes** ([scripts/](scripts/)): small, single-question tests (queueing, bring-up, EPP routing, fail-open, disconnect, gateway kill,
   size-blind routing, burst vs metrics refresh, EPP overhead, gateway capacity).
+- **AI fabric** ([fabric/](fabric/)): vendor-neutral intent, FRR/containerlab renderer, live validation, and E1/E2 experiments. The lab is **EMULATED**; RoCE, PFC and DCQCN behavior is not implemented or measured.
 
 ## Evidence at a glance
 
@@ -97,7 +99,7 @@ Selected; every row links its source. Full tables: [RESULTS.md](RESULTS.md).
 | [observability/](observability/) | kube-prometheus-stack, monitors for gateway/EPPs/engines, inference dashboard, EPP alerts | in use (lab) |
 | [autoscaling/](autoscaling/) | KEDA on queue depth (both pools), step load generator, scale-from-zero experiment (#10) | in use (lab) |
 | [scheduling/](scheduling/) | fake GPUs, device plugin vs DRA, Kueue quotas, GPU node health (k3d multi-node, SIMULATED GPUs) | in use (simulated) |
-| [fabric/](fabric/) | leaf-spine intent model, eBGP unnumbered, RoCE v2 design (PFC/DCQCN intent only) | in progress |
+| [fabric/](fabric/) | intent-rendered FRR/containerlab leaf-spine lab, eBGP unnumbered, BFD, validation and E1/E2; RoCE/PFC/DCQCN design only | EMULATED lab in use |
 
 ## Quick start (k3s lab)
 
