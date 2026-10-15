@@ -1,0 +1,83 @@
+# kube-prometheus-stack values for the single-node k3s lab (laptop, 47 GB RAM shared with other work).
+# Chart: prometheus-community/kube-prometheus-stack, version pinned in the Makefile (KPS_VERSION).
+# Keys checked against `helm show values prometheus-community/kube-prometheus-stack --version 92.6.0`.
+#
+# Goal: small and short-lived. 2 d retention, 2 GiB size cap, no PVCs (emptyDir: data is lost
+# on pod restart, acceptable for a lab), requests/limits on every component.
+
+# k3s runs etcd, scheduler, controller-manager and kube-proxy inside the one k3s process; there are
+# no separate pods/endpoints for these jobs, so their targets would sit DOWN forever. Off, with their rules.
+kubeEtcd: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeControllerManager: { enabled: false }
+kubeProxy: { enabled: false }
+defaultRules:
+  rules:
+    etcd: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeControllerManager: false
+    kubeProxy: false
+windowsMonitoring: { enabled: false }
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    retentionSize: 2GB
+    scrapeInterval: 15s
+    evaluationInterval: 15s
+    # Pick up ServiceMonitors / PodMonitors / PrometheusRules from any namespace without the
+    # release label (ours live in ns inference and are applied with kubectl, not by this release).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits: { memory: 1536Mi }
+
+alertmanager:
+  alertmanagerSpec:
+    retention: 24h
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+  prometheusConfigReloader:
+    resources:
+      requests: { cpu: 10m, memory: 16Mi }
+      limits: { memory: 64Mi }
+
+grafana:
+  adminPassword: lab-only-admin      # lab only; Grafana is ClusterIP, reach it with port-forward
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
+  sidecar:
+    resources:
+      requests: { cpu: 10m, memory: 48Mi }
+      limits: { memory: 128Mi }
+    dashboards:
+      enabled: true
+      label: grafana_dashboard       # ConfigMaps with this label are loaded (observability/dashboards/)
+      labelValue: "1"
+      searchNamespace: ALL
+
+kube-state-metrics:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }
+
+prometheus-node-exporter:
+  # WSL2: `findmnt -o PROPAGATION /` = private, so the default HostToContainer mount of / fails with
+  # CreateContainerError 'path "/" is mounted on "/" but it is not a shared or slave mount'.
+  # Without it the filesystem collector reports the container's view, not the host's.
+  hostRootFsMount:
+    enabled: false
+  resources:
+    requests: { cpu: 10m, memory: 16Mi }
+    limits: { memory: 64Mi }

@@ -191,3 +191,10 @@ networkPolicy:
     - gateway.networking.k8s.io/gateway-name: inference-gateway   # agentgateway proxy pods: inference data path
     - llm-d.ai/igw-mode: llm-d-router-gateway                      # every EPP from the llm-d chart: /metrics scrape
     - app.kubernetes.io/component: sanity-test                     # `helm test` pod (templates/tests/)
+  # Pods in OTHER namespaces: {namespace, podLabels}. The backends serve /metrics on the inference
+  # port, so a scraper gets the whole API port (NetworkPolicy is L4; it can't allow /metrics only).
+  allowFromNamespaces:
+    # kube-prometheus-stack Prometheus (observability/). Without it the backend targets are DOWN with
+    # "dial tcp <pod>:<port>: connect: connection refused" (kube-router rejects the SYN).
+    - namespace: monitoring
+      podLabels: { app.kubernetes.io/name: prometheus }

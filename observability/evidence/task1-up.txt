@@ -1,0 +1,28 @@
+# 2026-10-14T22:13 EDT  $ python3 observability/promq.py query 'up' | sort
+{"__name__": "up", "container": "agentgateway", "endpoint": "metrics", "instance": "10.42.0.2:15020", "job": "inference/agentgateway", "namespace": "inference", "pod": "inference-gateway-d686b577f-4c8t8"} 1
+{"__name__": "up", "container": "alertmanager", "endpoint": "http-web", "instance": "10.42.0.19:9093", "job": "kps-kube-prometheus-stack-alertmanager", "namespace": "monitoring", "pod": "alertmanager-kps-kube-prometheus-stack-alertmanager-0", "service": "kps-kube-prometheus-stack-alertmanager"} 1
+{"__name__": "up", "container": "config-reloader", "endpoint": "reloader-web", "instance": "10.42.0.19:8080", "job": "kps-kube-prometheus-stack-alertmanager", "namespace": "monitoring", "pod": "alertmanager-kps-kube-prometheus-stack-alertmanager-0", "service": "kps-kube-prometheus-stack-alertmanager"} 1
+{"__name__": "up", "container": "config-reloader", "endpoint": "reloader-web", "instance": "10.42.0.20:8080", "job": "kps-kube-prometheus-stack-prometheus", "namespace": "monitoring", "pod": "prometheus-kps-kube-prometheus-stack-prometheus-0", "service": "kps-kube-prometheus-stack-prometheus"} 1
+{"__name__": "up", "container": "coredns", "endpoint": "http-metrics", "instance": "10.42.0.12:9153", "job": "coredns", "namespace": "kube-system", "pod": "coredns-5f5694d56b-gz59m", "service": "kps-kube-prometheus-stack-coredns"} 1
+{"__name__": "up", "container": "epp", "endpoint": "http-metrics", "instance": "10.42.0.4:9090", "job": "sim-pool-epp", "namespace": "inference", "pod": "sim-pool-epp-86695c46ff-qj6sq", "pool": "sim-pool", "service": "sim-pool-epp"} 1
+{"__name__": "up", "container": "epp", "endpoint": "http-metrics", "instance": "10.42.0.6:9090", "job": "llamacpp-pool-epp", "namespace": "inference", "pod": "llamacpp-pool-epp-678785b7c9-wmlm2", "pool": "llamacpp-pool", "service": "llamacpp-pool-epp"} 1
+{"__name__": "up", "container": "grafana", "endpoint": "http-web", "instance": "10.42.0.17:3000", "job": "kps-grafana", "namespace": "monitoring", "pod": "kps-grafana-6447cfc797-g2klf", "service": "kps-grafana"} 1
+{"__name__": "up", "container": "kube-prometheus-stack", "endpoint": "https", "instance": "10.42.0.16:10250", "job": "kps-kube-prometheus-stack-operator", "namespace": "monitoring", "pod": "kps-kube-prometheus-stack-operator-6f8c9b68b6-7fcvt", "service": "kps-kube-prometheus-stack-operator"} 1
+{"__name__": "up", "container": "kube-state-metrics", "endpoint": "http", "instance": "10.42.0.18:8080", "job": "kube-state-metrics", "namespace": "monitoring", "pod": "kps-kube-state-metrics-575c5996c6-g4ph5", "service": "kps-kube-state-metrics"} 1
+{"__name__": "up", "container": "llama-server", "endpoint": "http", "instance": "10.42.0.14:8080", "job": "inf-llamacpp", "namespace": "inference", "pod": "inf-llamacpp-5d577dcf66-xtvmn", "pool": "llamacpp-pool", "service": "inf-llamacpp"} 1
+{"__name__": "up", "container": "node-exporter", "endpoint": "http-metrics", "instance": "192.168.117.204:9100", "job": "node-exporter", "namespace": "monitoring", "pod": "kps-prometheus-node-exporter-smmx9", "service": "kps-prometheus-node-exporter"} 1
+{"__name__": "up", "container": "prometheus", "endpoint": "http-web", "instance": "10.42.0.20:9090", "job": "kps-kube-prometheus-stack-prometheus", "namespace": "monitoring", "pod": "prometheus-kps-kube-prometheus-stack-prometheus-0", "service": "kps-kube-prometheus-stack-prometheus"} 1
+{"__name__": "up", "container": "vllm-sim", "endpoint": "http", "instance": "10.42.0.10:8000", "job": "inf-vllm-sim", "namespace": "inference", "pod": "inf-vllm-sim-7565c9d79d-dqc2w", "pool": "sim-pool", "service": "inf-vllm-sim", "simulated": "true"} 1
+{"__name__": "up", "container": "vllm-sim", "endpoint": "http", "instance": "10.42.0.8:8000", "job": "inf-vllm-sim", "namespace": "inference", "pod": "inf-vllm-sim-7565c9d79d-xjzbw", "pool": "sim-pool", "service": "inf-vllm-sim", "simulated": "true"} 1
+{"__name__": "up", "endpoint": "https", "instance": "192.168.117.204:6443", "job": "apiserver", "namespace": "default", "service": "kubernetes"} 1
+{"__name__": "up", "endpoint": "https-metrics", "instance": "192.168.117.204:10250", "job": "kubelet", "metrics_path": "/metrics", "namespace": "kube-system", "node": "ravi-home", "service": "kps-kube-prometheus-stack-kubelet"} 1
+{"__name__": "up", "endpoint": "https-metrics", "instance": "192.168.117.204:10250", "job": "kubelet", "metrics_path": "/metrics/cadvisor", "namespace": "kube-system", "node": "ravi-home", "service": "kps-kube-prometheus-stack-kubelet"} 1
+{"__name__": "up", "endpoint": "https-metrics", "instance": "192.168.117.204:10250", "job": "kubelet", "metrics_path": "/metrics/probes", "namespace": "kube-system", "node": "ravi-home", "service": "kps-kube-prometheus-stack-kubelet"} 1
+
+# $ python3 observability/promq.py targets --ns inference
+up      inference/agentgateway               http://10.42.0.2:15020/metrics            
+up      llamacpp-pool-epp   llamacpp-pool  http://10.42.0.6:9090/metrics             
+up      sim-pool-epp        sim-pool       http://10.42.0.4:9090/metrics             
+up      inf-llamacpp        llamacpp-pool  http://10.42.0.14:8080/metrics            
+up      inf-vllm-sim        sim-pool       http://10.42.0.10:8000/metrics            
+up      inf-vllm-sim        sim-pool       http://10.42.0.8:8000/metrics             

@@ -1,0 +1,22 @@
+# agentgateway proxy pods (created by the agentgateway controller from Gateway inference-gateway).
+# The metrics port is only on the pod (`containerPort 15020, name: metrics`), not on the LB Service,
+# so this is a PodMonitor. Pod labels from `kubectl -n inference get pods --show-labels`.
+# metricRelabelings: route="inference/sim-pool" -> pool="sim-pool" so gateway series group like the engines'.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: agentgateway
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: inference-gateway
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 5s
+      metricRelabelings:
+        - sourceLabels: [route]
+          regex: inference/(.*)
+          targetLabel: pool

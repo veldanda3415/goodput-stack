@@ -1,0 +1,23 @@
+# Both llm-d-router-gateway EPPs. Service port name `http-metrics` (9090) from the live Services;
+# metrics auth is off in deploy/gateway/epp-*.values.yaml (monitoring.prometheus.auth.enabled: false).
+# The two Services share no label except managed-by, so select them by name.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: epp
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [sim-pool-epp, llamacpp-pool-epp]
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 5s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_service_name]   # sim-pool-epp -> sim-pool
+          regex: (.*)-epp
+          targetLabel: pool

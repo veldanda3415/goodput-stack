@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst
+.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst obs-up obs-down obs-apply keda-up keda-down
 
 help: ## List targets
 > @grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
@@ -135,3 +135,24 @@ probe-p7: ## P7: delete the agentgateway pod mid-stream (llamacpp-pool), 3 runs 
 
 probe-burst: ## P9: N concurrent sim-pool requests inside one EPP refresh vs spaced control (SIMULATED) [ARGS="--n 8"]
 > $(PY) scripts/probe_burst.py $(ARGS)
+
+# ---- observability + autoscaling (observability/README.md, autoscaling/README.md) -------------
+# Versions: one release behind latest on 2026-10-14 (`helm search repo <chart> --versions`).
+KPS_CHART   = prometheus-community/kube-prometheus-stack
+KPS_VERSION = 92.6.0
+KEDA_CHART   = kedacore/keda
+KEDA_VERSION = 2.20.2
+
+obs-up: ## Install kube-prometheus-stack (ns monitoring) + our monitors, rules, dashboards
+> helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update >/dev/null
+> helm upgrade --install kps $(KPS_CHART) --version $(KPS_VERSION) -n monitoring --create-namespace -f observability/values-kps.yaml --wait --timeout 10m
+> $(MAKE) obs-apply
+
+obs-apply: ## Apply ServiceMonitors/PodMonitors, PrometheusRules and the dashboard ConfigMap
+> kubectl apply -f observability/servicemonitors/ -f observability/alerts/
+> python3 observability/dashboards/render_configmap.py | kubectl apply -f -
+
+obs-down: ## Remove our monitors and the kube-prometheus-stack release (CRDs stay)
+> -kubectl delete -f observability/servicemonitors/ -f observability/alerts/ --ignore-not-found
+> -kubectl -n monitoring delete configmap inference-dashboard --ignore-not-found
+> helm uninstall kps -n monitoring
