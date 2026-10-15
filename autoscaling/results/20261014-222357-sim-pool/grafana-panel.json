@@ -1,0 +1,104 @@
+{
+ "exported_at": "2026-10-14T22:34:54-04:00",
+ "window": [
+  "2026-10-14T22:23:40-04:00",
+  "2026-10-14T22:29:10-04:00"
+ ],
+ "prometheus": "http://10.43.105.58:9090",
+ "panels": [
+  {
+   "title": "sim-pool: replicas vs queue vs latency",
+   "queries": [
+    {
+     "legend": "desired replicas",
+     "expr": "kube_deployment_spec_replicas{namespace=\"inference\",deployment=\"inf-vllm-sim\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_spec_replicas",
+        "container": "kube-state-metrics",
+        "deployment": "inf-vllm-sim",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 34,
+       "min": 1.0,
+       "max": 4.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "available replicas",
+     "expr": "kube_deployment_status_replicas_available{namespace=\"inference\",deployment=\"inf-vllm-sim\"}",
+     "series": [
+      {
+       "metric": {
+        "__name__": "kube_deployment_status_replicas_available",
+        "container": "kube-state-metrics",
+        "deployment": "inf-vllm-sim",
+        "endpoint": "http",
+        "instance": "10.42.0.18:8080",
+        "job": "kube-state-metrics",
+        "namespace": "inference",
+        "pod": "kps-kube-state-metrics-575c5996c6-g4ph5",
+        "service": "kps-kube-state-metrics"
+       },
+       "points": 34,
+       "min": 1.0,
+       "max": 4.0,
+       "last": 1.0
+      }
+     ]
+    },
+    {
+     "legend": "queue (running + waiting), the KEDA metric",
+     "expr": "sum(vllm:num_requests_waiting{namespace=\"inference\"}) + sum(vllm:num_requests_running{namespace=\"inference\"})",
+     "series": [
+      {
+       "metric": {},
+       "points": 34,
+       "min": 0.0,
+       "max": 10.0,
+       "last": 0.0
+      }
+     ]
+    },
+    {
+     "legend": "engine TTFT p95 (s)",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 34,
+       "min": 0.09166666666666665,
+       "max": 0.09525,
+       "last": 0.09166666666666665
+      }
+     ]
+    },
+    {
+     "legend": "engine queue time p95 (s)",
+     "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+     "series": [
+      {
+       "metric": {
+        "pool": "sim-pool"
+       },
+       "points": 34,
+       "min": 0.7855172413793101,
+       "max": 4.7375,
+       "last": 1.2249999999999999
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

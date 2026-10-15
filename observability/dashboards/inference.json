@@ -774,6 +774,15 @@
             "type": "prometheus",
             "uid": "prometheus"
           }
+        },
+        {
+          "refId": "E",
+          "expr": "histogram_quantile(0.95, sum by (le, pool) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"inference\",pool=\"sim-pool\"}[1m])))",
+          "legendFormat": "engine queue time p95 (s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },

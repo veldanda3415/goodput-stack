@@ -1,0 +1,13 @@
+# KEDA (kedacore/keda, version pinned in the Makefile: KEDA_VERSION). Keys from
+# `helm show values kedacore/keda --version 2.20.2`. Lab sizing: the chart default is 1 CPU / 1000Mi
+# limit per component, far more than a 3-ScaledObject lab needs.
+resources:
+  operator:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+  metricServer:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+  webhooks:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }

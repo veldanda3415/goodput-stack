@@ -9,7 +9,9 @@ metadata:
     {{- include "inference.llamacpp.selector" . | nindent 4 }}
     goodput-stack/pool: cpu
 spec:
+  {{- if not $c.autoscaled }}
   replicas: {{ $c.replicas }}
+  {{- end }}   {{- /* autoscaled: KEDA/HPA owns replicas; Helm must not reset them */}}
   selector:
     matchLabels:
       {{- include "inference.llamacpp.selector" . | nindent 6 }}

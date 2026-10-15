@@ -146,7 +146,8 @@ def panels():
             (f'kube_deployment_spec_replicas{{{NS},deployment="{dep}"}}', "desired replicas"),
             (f'kube_deployment_status_replicas_available{{{NS},deployment="{dep}"}}', "available replicas"),
             (queue, "queue (running + waiting), the KEDA metric"),
-            extra],
+            extra] + ([(q(0.95, "vllm:request_queue_time_seconds", sel=f'{NS},pool="sim-pool"', by="pool"),
+                        "engine queue time p95 (s)")] if pool == "sim-pool" else []),
             "The KEDA trigger metric (autoscaling/scaledobject-*.yaml) against replica count and latency. "
             "Client TTFT per step is in autoscaling/results/ (loadgen.py). " + (SIM if pool == "sim-pool" else NO_LLAMA_HIST),
             x=12 * i, y=y, w=12, h=9,

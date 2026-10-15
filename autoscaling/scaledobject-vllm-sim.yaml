@@ -1,0 +1,43 @@
+# KEDA ScaledObject for sim-pool (llm-d-inference-sim v0.10.2, max-num-seqs 2 per pod). SIMULATED backend:
+# what scales here is real (pods, HPA, KEDA), the latencies are not.
+# Signal: vllm:num_requests_running + vllm:num_requests_waiting (live /metrics of a sim pod).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: inf-vllm-sim
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack }
+spec:
+  scaleTargetRef:
+    name: inf-vllm-sim            # chart value sim.autoscaled=true
+  minReplicaCount: 1
+  maxReplicaCount: 4              # sim pods are tiny (100m / 64Mi requests)
+  pollingInterval: 5              # s; = scrape interval. Kept for 0<->1 (Task 4 / min 0). At min 1 KEDA itself warns on apply:
+                                  # "PollingInterval is configured but is not relevant. PollingInterval is only relevant when
+                                  # minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled": the HPA then
+                                  # reads the metric through KEDA's metrics adapter on its own 15 s sync loop.
+  cooldownPeriod: 60              # s; scale-to-0 only, inert at min 1
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          selectPolicy: Max
+          policies:
+            - { type: Pods, value: 2, periodSeconds: 15 }
+            - { type: Percent, value: 100, periodSeconds: 15 }
+        scaleDown:
+          stabilizationWindowSeconds: 60    # lab value; prod 300 s+
+          selectPolicy: Min
+          policies:
+            - { type: Pods, value: 1, periodSeconds: 30 }
+  triggers:
+    - type: prometheus
+      metricType: AverageValue
+      metadata:
+        serverAddress: http://kps-kube-prometheus-stack-prometheus.monitoring.svc:9090
+        query: >-
+          sum(vllm:num_requests_running{namespace="inference",pool="sim-pool"})
+          + sum(vllm:num_requests_waiting{namespace="inference",pool="sim-pool"})
+        threshold: "2"            # = max-num-seqs per pod
+        activationThreshold: "0"

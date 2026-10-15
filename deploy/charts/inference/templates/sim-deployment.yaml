@@ -11,7 +11,9 @@ metadata:
     {{- include "inference.sim.selector" . | nindent 4 }}
     goodput-stack/pool: sim
 spec:
+  {{- if not $c.autoscaled }}
   replicas: {{ $c.replicas }}
+  {{- end }}   {{- /* autoscaled: KEDA/HPA owns replicas; Helm must not reset them */}}
   selector:
     matchLabels:
       {{- include "inference.sim.selector" . | nindent 6 }}

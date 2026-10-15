@@ -9,6 +9,7 @@
 llamacpp:
   enabled: true
   replicas: 1             # per environment
+  autoscaled: false       # true: don't render replicas (a KEDA ScaledObject owns them, autoscaling/)
   spreadAcrossNodes: false   # per environment: prefer one replica per node (topologySpreadConstraints)
 
   image:
@@ -86,6 +87,7 @@ llamacpp:
 sim:
   enabled: true
   replicas: 1             # per environment
+  autoscaled: false       # true: don't render replicas (a KEDA ScaledObject owns them, autoscaling/)
   spreadAcrossNodes: false   # per environment
 
   image:
