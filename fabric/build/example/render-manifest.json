@@ -1,0 +1,20 @@
+{
+  "intent": "fabric/intent/fabric.yaml",
+  "images": {
+    "frr": "quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb",
+    "host": "docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8"
+  },
+  "rendered_nodes": [
+    "host1",
+    "host2",
+    "host3",
+    "host4",
+    "leaf1",
+    "leaf2",
+    "leaf3",
+    "leaf4",
+    "spine1",
+    "spine2"
+  ],
+  "links": 16
+}

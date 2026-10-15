@@ -2,6 +2,9 @@
 .venv/
 __pycache__/
 *.pyc
+/fabric/build/*
+!/fabric/build/example/
+!/fabric/build/example/**
 
 # Benchmark raw outputs (summaries, manifests and per-point summary.json are committed)
 benchmarks/results/**/requests.jsonl

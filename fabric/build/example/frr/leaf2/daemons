@@ -1,0 +1,17 @@
+zebra=yes
+bgpd=yes
+bfdd=yes
+staticd=no
+ospfd=no
+ospf6d=no
+isisd=no
+pimd=no
+ldpd=no
+eigrpd=no
+ripd=no
+ripngd=no
+babeld=no
+sharpd=no
+pbrd=no
+bfdd_options="   -A 127.0.0.1"
+vtysh_enable=yes

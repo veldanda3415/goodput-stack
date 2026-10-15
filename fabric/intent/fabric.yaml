@@ -1,0 +1,66 @@
+name: goodput-fabric
+address_plan:
+  loopbacks: 10.200.0.0/24
+  hosts: 10.210.0.0/16
+  management: 10.253.0.0/24
+  excluded:
+    - 10.42.0.0/16
+    - 10.43.0.0/16
+    - 10.89.0.0/24
+rails: [A, B]
+nodes:
+  - {name: spine1, role: spine, asn: 65000, loopback: 10.200.0.1/32}
+  - {name: spine2, role: spine, asn: 65000, loopback: 10.200.0.2/32}
+  - {name: leaf1, role: leaf, asn: 65101, loopback: 10.200.0.11/32}
+  - {name: leaf2, role: leaf, asn: 65102, loopback: 10.200.0.12/32}
+  - {name: leaf3, role: leaf, asn: 65103, loopback: 10.200.0.13/32}
+  - {name: leaf4, role: leaf, asn: 65104, loopback: 10.200.0.14/32}
+hosts:
+  - name: host1
+    nics:
+      - {rail: A, leaf: leaf1, interface: eth1, address: 10.210.0.2/30, gateway: 10.210.0.1, subnet: 10.210.0.0/30}
+      - {rail: B, leaf: leaf3, interface: eth2, address: 10.210.1.2/30, gateway: 10.210.1.1, subnet: 10.210.1.0/30}
+  - name: host2
+    nics:
+      - {rail: A, leaf: leaf1, interface: eth1, address: 10.210.0.6/30, gateway: 10.210.0.5, subnet: 10.210.0.4/30}
+      - {rail: B, leaf: leaf3, interface: eth2, address: 10.210.1.6/30, gateway: 10.210.1.5, subnet: 10.210.1.4/30}
+  - name: host3
+    nics:
+      - {rail: A, leaf: leaf2, interface: eth1, address: 10.210.0.10/30, gateway: 10.210.0.9, subnet: 10.210.0.8/30}
+      - {rail: B, leaf: leaf4, interface: eth2, address: 10.210.1.10/30, gateway: 10.210.1.9, subnet: 10.210.1.8/30}
+  - name: host4
+    nics:
+      - {rail: A, leaf: leaf2, interface: eth1, address: 10.210.0.14/30, gateway: 10.210.0.13, subnet: 10.210.0.12/30}
+      - {rail: B, leaf: leaf4, interface: eth2, address: 10.210.1.14/30, gateway: 10.210.1.13, subnet: 10.210.1.12/30}
+links:
+  - {name: spine1-leaf1, kind: fabric, a: {node: spine1, interface: eth1}, b: {node: leaf1, interface: eth1}}
+  - {name: spine1-leaf2, kind: fabric, a: {node: spine1, interface: eth2}, b: {node: leaf2, interface: eth1}}
+  - {name: spine1-leaf3, kind: fabric, a: {node: spine1, interface: eth3}, b: {node: leaf3, interface: eth1}}
+  - {name: spine1-leaf4, kind: fabric, a: {node: spine1, interface: eth4}, b: {node: leaf4, interface: eth1}}
+  - {name: spine2-leaf1, kind: fabric, a: {node: spine2, interface: eth1}, b: {node: leaf1, interface: eth2}}
+  - {name: spine2-leaf2, kind: fabric, a: {node: spine2, interface: eth2}, b: {node: leaf2, interface: eth2}}
+  - {name: spine2-leaf3, kind: fabric, a: {node: spine2, interface: eth3}, b: {node: leaf3, interface: eth2}}
+  - {name: spine2-leaf4, kind: fabric, a: {node: spine2, interface: eth4}, b: {node: leaf4, interface: eth2}}
+  - {name: host1-leaf1, kind: host, a: {node: host1, interface: eth1}, b: {node: leaf1, interface: eth3}}
+  - {name: host2-leaf1, kind: host, a: {node: host2, interface: eth1}, b: {node: leaf1, interface: eth4}}
+  - {name: host1-leaf3, kind: host, a: {node: host1, interface: eth2}, b: {node: leaf3, interface: eth3}}
+  - {name: host2-leaf3, kind: host, a: {node: host2, interface: eth2}, b: {node: leaf3, interface: eth4}}
+  - {name: host3-leaf2, kind: host, a: {node: host3, interface: eth1}, b: {node: leaf2, interface: eth3}}
+  - {name: host4-leaf2, kind: host, a: {node: host4, interface: eth1}, b: {node: leaf2, interface: eth4}}
+  - {name: host3-leaf4, kind: host, a: {node: host3, interface: eth2}, b: {node: leaf4, interface: eth3}}
+  - {name: host4-leaf4, kind: host, a: {node: host4, interface: eth2}, b: {node: leaf4, interface: eth4}}
+bgp:
+  spine_asn: 65000
+  leaf_asn_base: 65101
+  hold_seconds: 9
+  keepalive_seconds: 3
+  extended_nexthop: true
+bfd:
+  enabled: true
+  transmit_ms: 100
+  receive_ms: 100
+  detect_multiplier: 3
+ecmp_width: 2
+images:
+  frr: quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb
+  host: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8

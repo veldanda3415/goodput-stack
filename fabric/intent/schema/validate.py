@@ -1,0 +1,149 @@
+from __future__ import annotations
+
+import ipaddress
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+import jsonschema
+import yaml
+
+
+INTENT_PATH = Path(__file__).resolve().parents[1] / "fabric.yaml"
+SCHEMA_PATH = Path(__file__).with_name("fabric.schema.json")
+
+
+def load_intent(path: Path = INTENT_PATH) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as stream:
+        intent = yaml.safe_load(stream)
+    with SCHEMA_PATH.open(encoding="utf-8") as stream:
+        schema = json.load(stream)
+    jsonschema.Draft202012Validator(schema, format_checker=jsonschema.FormatChecker()).validate(intent)
+    validate_semantics(intent)
+    return intent
+
+
+def validate_semantics(intent: dict[str, Any]) -> None:
+    nodes = {node["name"]: node for node in intent["nodes"]}
+    hosts = {host["name"]: host for host in intent["hosts"]}
+    if len(nodes) != len(intent["nodes"]):
+        raise ValueError("node names must be unique")
+    if len(hosts) != len(intent["hosts"]):
+        raise ValueError("host names must be unique")
+    all_names = set(nodes) | set(hosts)
+    if len(all_names) != len(nodes) + len(hosts):
+        raise ValueError("node and host names must not overlap")
+
+    spines = [node for node in nodes.values() if node["role"] == "spine"]
+    leaves = [node for node in nodes.values() if node["role"] == "leaf"]
+    if len(spines) != 2 or len(leaves) != 4:
+        raise ValueError(f"expected 2 spines and 4 leaves; found {len(spines)} and {len(leaves)}")
+    leaf_asns = [node["asn"] for node in leaves]
+    if len(set(leaf_asns)) != len(leaf_asns):
+        raise ValueError("leaf ASNs must be unique")
+    if intent["bgp"]["spine_asn"] in leaf_asns:
+        raise ValueError("spine and leaf ASNs must be distinct")
+    if any(node["asn"] != intent["bgp"]["spine_asn"] for node in spines):
+        raise ValueError("all spines must use bgp.spine_asn")
+    if any(node["asn"] != intent["bgp"]["leaf_asn_base"] + int(node["name"][4:]) - 1 for node in leaves):
+        raise ValueError("leaf ASN must match bgp.leaf_asn_base and leaf index")
+    if len({str(ipaddress.ip_interface(node["loopback"]).ip) for node in nodes.values()}) != len(nodes):
+        raise ValueError("router loopback addresses must be unique")
+
+    all_networks: list[tuple[str, ipaddress.IPv4Network]] = []
+    plan = intent["address_plan"]
+    for label in ("loopbacks", "hosts", "management", "excluded"):
+        values = plan[label] if isinstance(plan[label], list) else [plan[label]]
+        all_networks.extend((f"address_plan.{label}", ipaddress.ip_network(value, strict=False)) for value in values)
+    for index, (left_name, left) in enumerate(all_networks):
+        for right_name, right in all_networks[index + 1:]:
+            if left.overlaps(right) and not (left_name.startswith("address_plan.excluded") or right_name.startswith("address_plan.excluded")):
+                raise ValueError(f"address ranges overlap: {left_name} {left} and {right_name} {right}")
+    excluded = [ipaddress.ip_network(value) for value in plan["excluded"]]
+    loopback_range = ipaddress.ip_network(plan["loopbacks"])
+    host_range = ipaddress.ip_network(plan["hosts"])
+    for node in nodes.values():
+        address = ipaddress.ip_interface(node["loopback"])
+        if address.version != 4 or address.ip not in loopback_range or address.network.prefixlen != 32:
+            raise ValueError(f"{node['name']} loopback {address} is outside address_plan.loopbacks {loopback_range}")
+    for name, image in intent["images"].items():
+        if not re.fullmatch(r".+:[^/@]+@sha256:[0-9a-f]{64}", image):
+            raise ValueError(f"images.{name} must have a version tag and sha256 digest")
+    for name, subnet in all_networks:
+        if name.startswith("address_plan.excluded"):
+            continue
+        if any(subnet.overlaps(blocked) for blocked in excluded):
+            raise ValueError(f"{name} {subnet} overlaps excluded network {next(n for n in excluded if subnet.overlaps(n))}")
+
+    endpoint_owners: dict[tuple[str, str], str] = {}
+    link_names: set[str] = set()
+    for link in intent["links"]:
+        if link["name"] in link_names:
+            raise ValueError(f"duplicate link name: {link['name']}")
+        link_names.add(link["name"])
+        for endpoint in (link["a"], link["b"]):
+            node_name, interface = endpoint["node"], endpoint["interface"]
+            if node_name not in all_names:
+                raise ValueError(f"link {link['name']} refers to missing endpoint {node_name}")
+            key = (node_name, interface)
+            if key in endpoint_owners:
+                raise ValueError(f"interface {node_name}:{interface} appears in links {endpoint_owners[key]} and {link['name']}")
+            endpoint_owners[key] = link["name"]
+        if link["kind"] == "fabric" and any(endpoint["node"] not in nodes for endpoint in (link["a"], link["b"])):
+            raise ValueError(f"fabric link {link['name']} must connect router nodes")
+        if link["kind"] == "host" and not any(endpoint["node"] in hosts for endpoint in (link["a"], link["b"])):
+            raise ValueError(f"host link {link['name']} must include a host")
+
+    subnet_networks: list[tuple[str, ipaddress.IPv4Network]] = []
+    for host in hosts.values():
+        if len(host["nics"]) != len(intent["rails"]):
+            raise ValueError(f"{host['name']} must have exactly one NIC per rail")
+        rails = [nic["rail"] for nic in host["nics"]]
+        if set(rails) != set(intent["rails"]) or len(set(rails)) != len(rails):
+            raise ValueError(f"{host['name']} must have exactly one NIC for each rail {intent['rails']}")
+        for nic in host["nics"]:
+            if nic["leaf"] not in nodes or nodes[nic["leaf"]]["role"] != "leaf":
+                raise ValueError(f"{host['name']} {nic['rail']} NIC references non-leaf {nic['leaf']}")
+            net = ipaddress.ip_network(nic["subnet"], strict=True)
+            addr = ipaddress.ip_interface(nic["address"])
+            if addr.version != 4 or addr.ip not in net or ipaddress.ip_address(nic["gateway"]) not in net:
+                raise ValueError(f"{host['name']} {nic['rail']} address and gateway must belong to {net}")
+            if addr.ip == ipaddress.ip_address(nic["gateway"]):
+                raise ValueError(f"{host['name']} {nic['rail']} address duplicates its gateway")
+            if ipaddress.ip_address(nic["gateway"]) != net.network_address + 1:
+                raise ValueError(f"{host['name']} {nic['rail']} gateway must be the first usable address in {net}")
+            if addr.ip == net.network_address + 1:
+                raise ValueError(f"{host['name']} {nic['rail']} address is reserved for the leaf gateway")
+            if not net.subnet_of(host_range):
+                raise ValueError(f"{host['name']} {nic['rail']} subnet {net} is outside address_plan.hosts {host_range}")
+            subnet_networks.append((f"{host['name']} {nic['rail']}", net))
+            matches = []
+            for link in intent["links"]:
+                endpoints = (link["a"], link["b"])
+                host_endpoint = next((ep for ep in endpoints if ep["node"] == host["name"]), None)
+                leaf_endpoint = next((ep for ep in endpoints if ep["node"] == nic["leaf"]), None)
+                if (
+                    link["kind"] == "host"
+                    and host_endpoint is not None
+                    and leaf_endpoint is not None
+                    and host_endpoint["interface"] == nic["interface"]
+                ):
+                    matches.append(link)
+            if len(matches) != 1:
+                raise ValueError(f"{host['name']} {nic['rail']} NIC needs exactly one matching host link")
+
+    for index, (left_name, left) in enumerate(subnet_networks):
+        for right_name, right in subnet_networks[index + 1:]:
+            if left.overlaps(right):
+                raise ValueError(f"host subnets overlap: {left_name} {left} and {right_name} {right}")
+            if any(left.overlaps(network) for network in excluded):
+                raise ValueError(f"host subnet {left} overlaps an excluded network")
+    for subnet_name, subnet in subnet_networks:
+        for reserved_name in ("loopbacks", "management"):
+            reserved = ipaddress.ip_network(plan[reserved_name], strict=False)
+            if subnet.overlaps(reserved):
+                raise ValueError(f"host subnet {subnet_name} {subnet} overlaps {reserved_name} {reserved}")
+
+    if intent["ecmp_width"] != len(spines):
+        raise ValueError(f"ecmp_width must equal spine count ({len(spines)})")
