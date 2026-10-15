@@ -118,9 +118,20 @@ Both in the **same Kaggle session, back to back**, same server (default max-num-
 ![ttft](charts/sweep_ttft.png)
 ![itl](charts/sweep_itl.png)
 
-## Task 5 — quantization
+## Task 5 — quantization: speed, quality, cost
 
-No quant rows yet.
+| variant | engine | model | batch-1 decode tok/s (median, spread) | c=16 steady tok/s | c=16 TTFT p50 ms | PPL (wikitext-2, 40×512, 2nd half) | gsm8k | hellaswag | $/1M out tok @ c=16 | rows |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| fp16 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct` | 37.16 (1.0 %) | 341.7 | 196 | 8.018 | failed (rc 1) | failed (rc 1) | 0.428 | [20261014-224513_quant](../../../benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl) |
+| awq-int4 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct-AWQ` | 84.06 (1.9 %) | 536.6 | 144 | 8.659 | failed (rc 1) | failed (rc 1) | 0.272 | [20261014-224513_quant](../../../benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl) |
+| gguf-q8_0 | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q8_0.gguf` | 60.04 (2.2 %) | 284.7 | 245 | 8.137 | failed (rc 1) | failed (rc 1) | 0.513 | [20261014-224513_quant](../../../benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl) |
+| gguf-q4_k_m | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf` | 76.61 (2.0 %) | 304.5 | 241 | 8.410 | failed (rc 1) | failed (rc 1) | 0.480 | [20261014-224513_quant](../../../benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl) |
+
+lm-eval 0.4.12 `local-completions`, --limit 250 (first N docs), command in the row (`lmeval_cmd`).
+
+Cost: Azure Standard_NC4as_T4_v3 US East Linux on-demand 0.526 USD/1 Hour; fetched 2026-10-15T01:46:38Z from: https://prices.azure.com/api/retail/prices?$filter=armSkuName eq 'Standard_NC4as_T4_v3' and armRegionName eq 'eastus' and priceType eq 'Consumption'. Formula `$ / 1M = $/h ÷ (tok/s × 3600) × 1e6` (benchmarks/cost.py).
+
+![decode](charts/quant_decode.png)
 
 ## Kaggle runs (GPU time)
 
@@ -134,5 +145,7 @@ No quant rows yet.
 | 20261014-220946_sweep | sweep | complete | 2,064.3 | 0.573 | 0.587 |
 | 20261014-220938_kvgrid | kvgrid | complete | 2,372.8 | 0.659 | 0.667 |
 | 20261014-225021_sweep | sweep | complete | 800.1 | 0.222 | 0.232 |
-| **total** | | | | **1.862** | **1.946** |
+| 20261014-224513_quant | quant | complete | 1,263.9 | 0.351 | 0.370 |
+| 20261014-230757_smoke | smoke | complete | 20.3 | 0.006 | 0.013 |
+| **total** | | | | **2.219** | **2.329** |
 

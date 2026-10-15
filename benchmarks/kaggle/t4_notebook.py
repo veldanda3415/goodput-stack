@@ -844,7 +844,7 @@ def lm_eval(st: Stage, served: str, tokenizer_repo: str, tasks: str, limit: int,
     venv = "/tmp/lmeval"
     if not Path(venv, "bin", "lm_eval").exists():
         rc, out = sh(f"{sys.executable} -m pip install -q uv && uv venv -q {venv} && uv pip install -q --python {venv}/bin/python "
-                     f"'lm-eval[api]=={version}' --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match",
+                     f"'lm-eval[api]=={version}' 'transformers==5.16.1' --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match",
                      timeout=1500, out=st.logs / "lmeval-install.txt")
         if rc:
             return {"lmeval_install_rc": rc, "lmeval_error": out[-800:]}
@@ -873,6 +873,8 @@ def stage_quant(a) -> None:
     text = wikitext_file(st)
     done = st.done()
     from huggingface_hub import hf_hub_download, list_repo_files
+    # an lm-eval row without results (install/run failure) is retried on --resume (quant run 1: no transformers)
+    done -= {r["key"] for r in st.rows() if r.get("kind") == "lmeval" and not r.get("lmeval")}
     variants = [("fp16", "vllm", a.fp16_model), ("awq-int4", "vllm", a.awq_model),
                 ("gguf-q8_0", "llamacpp", "q8_0"), ("gguf-q4_k_m", "llamacpp", "q4_k_m")]
     lcpp: dict | None = None

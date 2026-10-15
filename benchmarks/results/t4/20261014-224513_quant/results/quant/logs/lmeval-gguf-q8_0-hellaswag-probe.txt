@@ -1,0 +1,51 @@
+$ /tmp/lmeval/bin/lm_eval --model local-completions --model_args model=gguf-q8_0,base_url=http://127.0.0.1:8000/v1/completions,num_concurrent=8,max_retries=3,tokenized_requests=True,tokenizer_backend=huggingface,tokenizer=Qwen/Qwen2.5-3B-Instruct --tasks hellaswag --limit 5 --output_path /kaggle/working/results/quant/lmeval-gguf-q8_0-hellaswag-probe
+# rc=1
+Error in sitecustomize; set PYTHONVERBOSE for traceback:
+ModuleNotFoundError: No module named 'wrapt'
+2026-10-15:03:02:59 WARNING  [config.evaluate_config:287] --limit SHOULD ONLY BE USED FOR TESTING. REAL METRICS SHOULD NOT BE COMPUTED USING LIMIT.
+2026-10-15:03:03:09 INFO     [_cli.run:388] Selected Tasks: ['hellaswag']
+2026-10-15:03:03:09 WARNING  [evaluator:184] pretrained=None appears to be an instruct or chat variant but chat template is not applied. Recommend setting `apply_chat_template`
+        (optionally `fewshot_as_multiturn`).
+2026-10-15:03:03:09 INFO     [evaluator:214] Setting random seed to 0 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234
+2026-10-15:03:03:09 INFO     [evaluator:239] Initializing local-completions model, with arguments: {'model': 'gguf-q8_0', 'base_url': 'http://127.0.0.1:8000/v1/completions', 'num_concurrent': 8, 'max_retries': 3, 'tokenized_requests': True, 'tokenizer_backend': 'huggingface', 'tokenizer': 'Qwen/Qwen2.5-3B-Instruct'}
+2026-10-15:03:03:10 INFO     [models.api_models:179] Using max length 2048 - 1
+2026-10-15:03:03:10 INFO     [models.api_models:200] Using tokenizer huggingface
+Traceback (most recent call last):
+  File "/tmp/lmeval/bin/lm_eval", line 10, in <module>
+    sys.exit(cli_evaluate())
+             ~~~~~~~~~~~~^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/__main__.py", line 10, in cli_evaluate
+    parser.execute(args)
+    ~~~~~~~~~~~~~~^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/_cli/harness.py", line 60, in execute
+    args.func(args)
+    ~~~~~~~~~^^^^^^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/_cli/run.py", line 391, in _execute
+    results = simple_evaluate(
+        model=cfg.model,
+    ...<32 lines>...
+        metadata=cfg.metadata,
+    )
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/utils.py", line 575, in _wrapper
+    return fn(*args, **kwargs)
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/evaluator.py", line 242, in simple_evaluate
+    lm = lm_eval.api.registry.get_model(model).create_from_arg_obj(
+        model_args,
+    ...<4 lines>...
+        },
+    )
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/api/model.py", line 169, in create_from_arg_obj
+    return cls(**arg_dict, **additional_config)
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/openai_completions.py", line 52, in __init__
+    super().__init__(
+    ~~~~~~~~~~~~~~~~^
+        base_url=base_url,
+        ^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/tmp/lmeval/lib/python3.13/site-packages/lm_eval/models/api_models.py", line 248, in __init__
+    import transformers
+ModuleNotFoundError: No module named 'transformers'
