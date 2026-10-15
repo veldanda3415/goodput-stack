@@ -185,3 +185,12 @@ zero-down: ## Remove the zero-pool scratch pool
 
 probe-zero: ## 0->1 through zero-pool (KEDA does the scale): make probe-zero ARGS="--n 5"
 > $(PY) autoscaling/scale-from-zero/probe_zero.py $(ARGS)
+
+# ---- scheduling (SIMULATED GPUs on k3d `gpusim`; kubeconfig ~/.kube/gpusim.yaml, never the k3s one) ----
+.PHONY: gpusim-up gpusim-down gpusim-status
+gpusim-up: ## Create k3d cluster gpusim (1 server + 3 agents, k3s v1.36.2+k3s1; 2 agents = GPU pool t4)
+> python3 scheduling/gpusim.py up
+gpusim-down: ## Delete the gpusim cluster
+> python3 scheduling/gpusim.py down
+gpusim-status: ## Nodes of gpusim (refuses if context is not k3d-gpusim)
+> python3 scheduling/gpusim.py status
