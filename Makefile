@@ -211,6 +211,7 @@ fabric-render: ## Validate fabric intent and render FRR + containerlab configs
 > python3 -m venv .venv
 > $(FABRIC_PY) -m pip install -q -r fabric/requirements.txt
 > $(FABRIC_PY) -m fabric.render.render
+> $(FABRIC_PY) -m fabric.render.render --example
 
 fabric-up: fabric-render ## Deploy the EMULATED containerlab fabric
 > containerlab deploy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
@@ -218,7 +219,9 @@ fabric-up: fabric-render ## Deploy the EMULATED containerlab fabric
 fabric-down: ## Destroy the EMULATED containerlab fabric
 > containerlab destroy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
 
-fabric-test: fabric-render ## Validate fabric intent and running-lab state with pytest
+fabric-test: ## Validate fabric intent and running-lab state with pytest (run after fabric-up)
+> python3 -m venv .venv
+> $(FABRIC_PY) -m pip install -q -r fabric/requirements.txt
 > $(FABRIC_PY) -m pytest -q fabric/tests
 
 fabric-e1: fabric-render ## Run E1 ECMP hash-policy experiment (EMULATED)

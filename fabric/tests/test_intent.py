@@ -93,9 +93,14 @@ def test_renderer_is_byte_deterministic(tmp_path: Path) -> None:
 def test_renderer_configures_bgp_and_host_source_routing(tmp_path: Path) -> None:
     render(load_intent(), tmp_path)
     leaf_config = (tmp_path / "frr/leaf1/frr.conf").read_text(encoding="utf-8")
+    spine_config = (tmp_path / "frr/spine1/frr.conf").read_text(encoding="utf-8")
     host_setup = (tmp_path / "hosts/host1-setup.sh").read_text(encoding="utf-8")
+    assert "neighbor FABRIC remote-as 65000" in leaf_config
     assert "neighbor eth1 interface peer-group FABRIC" in leaf_config
     assert "neighbor eth2 interface peer-group FABRIC" in leaf_config
+    assert "neighbor PEER_LEAF1 remote-as 65101" in spine_config
+    assert "neighbor PEER_LEAF2 remote-as 65102" in spine_config
+    assert "neighbor eth1 interface peer-group PEER_LEAF1" in spine_config
     assert "neighbor FABRIC route-map FABRIC-IN in" in leaf_config
     assert "maximum-paths 2" in leaf_config
     assert "ip address 10.210.0.1/30" in leaf_config

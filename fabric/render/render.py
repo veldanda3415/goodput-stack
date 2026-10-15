@@ -16,14 +16,38 @@ ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "frr"
 
 
-def router_neighbors(intent: dict[str, Any], name: str) -> list[str]:
-    return sorted({
-        endpoint["interface"]
-        for link in intent["links"]
-        if link["kind"] == "fabric"
-        for endpoint in (link["a"], link["b"])
-        if endpoint["node"] == name
-    })
+def router_peer_groups(intent: dict[str, Any], name: str) -> list[dict[str, Any]]:
+    nodes = {node["name"]: node for node in intent["nodes"]}
+    local = nodes[name]
+    peer_links: list[tuple[str, str, int]] = []
+    for link in intent["links"]:
+        if link["kind"] != "fabric":
+            continue
+        endpoints = (link["a"], link["b"])
+        local_endpoint = next((endpoint for endpoint in endpoints if endpoint["node"] == name), None)
+        if local_endpoint is None:
+            continue
+        peer_endpoint = next(endpoint for endpoint in endpoints if endpoint["node"] != name)
+        peer_links.append((
+            local_endpoint["interface"],
+            peer_endpoint["node"],
+            nodes[peer_endpoint["node"]]["asn"],
+        ))
+    peer_links.sort()
+    if local["role"] == "leaf":
+        return [{
+            "name": "FABRIC",
+            "asn": intent["bgp"]["spine_asn"],
+            "interfaces": [interface for interface, _, _ in peer_links],
+        }]
+    return [
+        {
+            "name": f"PEER_{peer_name.upper()}",
+            "asn": remote_asn,
+            "interfaces": [interface],
+        }
+        for interface, peer_name, remote_asn in peer_links
+    ]
 
 
 def leaf_host_addresses(intent: dict[str, Any], name: str) -> dict[str, str]:
@@ -75,7 +99,7 @@ def render(intent: dict[str, Any], output: Path) -> None:
             frr_template.render(
                 intent=intent,
                 node=node,
-                neighbors=router_neighbors(intent, node["name"]),
+                peer_groups=router_peer_groups(intent, node["name"]),
                 host_addresses=host_addresses,
                 advertised_prefixes=advertised_prefixes(intent, node["name"]),
             ),

@@ -30,25 +30,29 @@ router bgp {{ node.asn }}
  bgp router-id {{ node.loopback.split('/')[0] }}
  no bgp default ipv4-unicast
  bgp log-neighbor-changes
- neighbor FABRIC peer-group
- neighbor FABRIC remote-as external
- neighbor FABRIC timers {{ intent.bgp.keepalive_seconds }} {{ intent.bgp.hold_seconds }}
- neighbor FABRIC route-map FABRIC-IN in
- neighbor FABRIC route-map FABRIC-OUT out
+{% for group in peer_groups %}
+ neighbor {{ group.name }} peer-group
+ neighbor {{ group.name }} remote-as {{ group.asn }}
+ neighbor {{ group.name }} timers {{ intent.bgp.keepalive_seconds }} {{ intent.bgp.hold_seconds }}
+ neighbor {{ group.name }} route-map FABRIC-IN in
+ neighbor {{ group.name }} route-map FABRIC-OUT out
 {% if intent.bgp.extended_nexthop %}
- neighbor FABRIC capability extended-nexthop
+ neighbor {{ group.name }} capability extended-nexthop
 {% endif %}
 {% if intent.bfd.enabled %}
- neighbor FABRIC bfd profile FABRIC
+ neighbor {{ group.name }} bfd profile FABRIC
 {% endif %}
-{% for interface in neighbors %}
- neighbor {{ interface }} interface peer-group FABRIC
+{% for interface in group.interfaces %}
+ neighbor {{ interface }} interface peer-group {{ group.name }}
+{% endfor %}
 {% endfor %}
  address-family ipv4 unicast
 {% for prefix in advertised_prefixes %}
   network {{ prefix }}
 {% endfor %}
-  neighbor FABRIC activate
+{% for group in peer_groups %}
+  neighbor {{ group.name }} activate
+{% endfor %}
   maximum-paths {{ intent.ecmp_width }}
  exit-address-family
 !
