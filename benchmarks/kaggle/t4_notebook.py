@@ -376,11 +376,32 @@ def chat(base_url: str, model: str, prompt: str, max_tokens: int, stream: bool, 
 DECODE_PROMPT = "Write a long, detailed essay about the history of computing, from mechanical calculators to GPUs."
 
 
-def batch1_decode(base_url: str, model: str, runs: int, max_tokens: int) -> dict:
-    """`runs` sequential streamed chat requests, same prompt, ignore_eos, temperature 0 -> median and spread."""
+def throttle_counters() -> dict:
+    """Clock-event (throttle) reason counters in us from `nvidia-smi -q -d PERFORMANCE`, GPU 0."""
+    rc, out = sh(["nvidia-smi", "-i", "0", "-q", "-d", "PERFORMANCE"], timeout=60)
+    sec = out.split("Clocks Event Reasons Counters")[-1] if "Counters" in out else ""
+    return {k.strip(): int(v) for k, v in re.findall(r"^\s*([A-Za-z ]+?)\s*:\s*(\d+) us", sec, re.M)}
+
+
+def batch1_decode(base_url: str, model: str, runs: int, max_tokens: int, gpu_dir: Path | None = None) -> dict:
+    """`runs` sequential streamed chat requests, same prompt, ignore_eos, temperature 0 -> median and spread.
+    With gpu_dir: NVML 1 Hz CSV per run + throttle-reason counter deltas (baseline run 2 spread was 64 %)."""
     import statistics
+    from benchmarks.gpu_sampler import GpuSampler, summarize as gpu_summary
     chat(base_url, model, DECODE_PROMPT, 16, stream=True)   # warmup, discarded
-    recs = [chat(base_url, model, DECODE_PROMPT, max_tokens, stream=True, ignore_eos=True) for _ in range(runs)]
+    recs = []
+    for i in range(runs):
+        if gpu_dir is None:
+            recs.append(chat(base_url, model, DECODE_PROMPT, max_tokens, stream=True, ignore_eos=True))
+            continue
+        gpu_dir.mkdir(parents=True, exist_ok=True)
+        before = throttle_counters()
+        with GpuSampler(gpu_dir / f"decode-run{i}.csv", 1.0, 0):
+            r = chat(base_url, model, DECODE_PROMPT, max_tokens, stream=True, ignore_eos=True)
+        after = throttle_counters()
+        r |= gpu_summary(gpu_dir / f"decode-run{i}.csv")
+        r["throttle_us_delta"] = {k: after[k] - before.get(k, 0) for k in after}
+        recs.append(r)
     vals = [r["decode_tok_s_usage"] for r in recs if r.get("decode_tok_s_usage")]
     out = {"decode_runs": recs, "decode_prompt": DECODE_PROMPT, "decode_max_tokens": max_tokens, "decode_n": len(vals)}
     if vals:
@@ -531,7 +552,7 @@ def stage_baseline(a) -> None:
         for stream in (False, True):
             r = chat(srv.base_url, model, "Say hello in five words.", 32, stream=stream)
             st.write(f"chat-{'stream' if stream else 'nonstream'}", {"kind": "api_check", **r}, **prov)
-        dec = batch1_decode(srv.base_url, model, a.decode_runs, a.decode_max_tokens)
+        dec = batch1_decode(srv.base_url, model, a.decode_runs, a.decode_max_tokens, st.dir / "decode-gpu")
         st.write("decode-batch1", {"kind": "decode_batch1", **dec}, **prov,
                  client={"endpoint": "/v1/chat/completions", "stream": True, "temperature": 0, "ignore_eos": True,
                          "max_tokens": a.decode_max_tokens, "runs": a.decode_runs, "warmup": 1})
@@ -871,7 +892,7 @@ def stage_quant(a) -> None:
                 continue
             startup = {k: v for k, v in parse_startup(srv.log_text()).items() if k != "startup_lines"} if engine == "vllm" else {}
             if "decode" in parts:
-                dec = batch1_decode(srv.base_url, name, a.decode_runs, a.decode_max_tokens)
+                dec = batch1_decode(srv.base_url, name, a.decode_runs, a.decode_max_tokens, st.dir / f"{name}-decode-gpu")
                 st.write(f"{name}-decode", {"kind": "decode_batch1", "variant": name, **dec, **startup}, **prov,
                          client={"endpoint": "/v1/chat/completions", "stream": True, "ignore_eos": True,
                                  "max_tokens": a.decode_max_tokens, "runs": a.decode_runs})

@@ -108,12 +108,11 @@ print("stage {stage} exit code", rc, "session %.1f s" % (time.time() - T0))
 '''
 
 
-def push(stage: str, args: list[str], resume: Path | None) -> Path:
+def push(stage: str, args: list[str], resume: Path | None, slug: str = "goodput-t4") -> Path:
     user, sha = kaggle_user(), git_sha()
     run_id = f"{datetime.now():%Y%m%d-%H%M%S}_{stage}"
     run_dir = RESULTS / run_id
     run_dir.mkdir(parents=True)
-    slug = "goodput-t4"   # one kernel for every stage: a Kaggle secret (HF_TOKEN) is attached per kernel, once
     build = Path(tempfile.mkdtemp(prefix="kaggle-push-"))
     (build / f"{slug}.py").write_text(SCRIPT.format(stage=stage, run_id=run_id, sha=sha, args=args,
                                                     payload=payload(stage, resume)))
@@ -188,6 +187,9 @@ def main() -> None:
     ap.add_argument("--resume", type=Path, help="earlier run dir of the same stage; its results are re-uploaded and skipped")
     ap.add_argument("--fetch", type=Path, help="poll + download an already pushed run dir")
     ap.add_argument("--no-wait", action="store_true", help="push only")
+    ap.add_argument("--kernel", default="goodput-t4",
+                    help="kernel slug (default goodput-t4: the one with the HF_TOKEN secret attached; a second slug "
+                         "lets an ungated stage run at the same time)")
     ap.add_argument("--poll-s", type=int, default=30)
     ap.add_argument("--timeout-min", type=float, default=240)
     a = ap.parse_args()
@@ -197,7 +199,7 @@ def main() -> None:
         if not a.stage:
             ap.error("--stage or --fetch is required")
         import shlex
-        run_dir = push(a.stage, shlex.split(a.args), a.resume.resolve() if a.resume else None)
+        run_dir = push(a.stage, shlex.split(a.args), a.resume.resolve() if a.resume else None, a.kernel)
         if a.no_wait:
             return
         rec = fetch(run_dir, a.poll_s, a.timeout_min)
