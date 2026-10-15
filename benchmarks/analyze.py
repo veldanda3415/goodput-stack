@@ -253,19 +253,27 @@ def section_sweep(rows: dict, out: list[str], base: Path) -> None:
         out.append("")
     benches = [rows[k] for k in ("bench-c1", "bench-c16") if k in rows]
     if benches:
-        out += ["### Cross-check: harness vs `vllm bench serve` (same server, default max-num-seqs)", "",
-                "| c | tool | TTFT p50 ms | TTFT p95 ms | ITL p50 ms | TPOT p50 ms | output tok/s | source |", "|---:|---|---:|---:|---:|---:|---:|---|"]
+        out += ["### Cross-check: harness vs `vllm bench serve`", "",
+                "Both in the **same Kaggle session, back to back**, same server (default max-num-seqs), same workload: "
+                "256 random prompt tokens, 128 output tokens, ignore_eos, no jitter, max(20, 4×c) requests. "
+                "Both clocks start just before the HTTP POST and stop at the first SSE chunk carrying `choices` "
+                "(harness: benchmarks/harness/client.py `one_request`; bench: vLLM 0.31.0 `vllm/benchmarks/lib/endpoint_request_func.py` "
+                "`async_request_openai_completions`, lines 202–240). Server-side `vllm:time_to_first_token_seconds` mean shown for the harness run.", "",
+                "| c | tool | TTFT p50 ms | TTFT p95 ms | ITL p50 ms | TPOT p50 ms | output tok/s | SM clock mean MHz | srv TTFT mean ms | row |",
+                "|---:|---|---:|---:|---:|---:|---:|---:|---:|---|"]
         for b in benches:
             c = b["concurrency"]
-            h = next((r for r in by_mns.get(next((m for m in by_mns if m.startswith("default")), ""), []) if r["concurrency"] == c), None)
+            h = rows.get(f"harness-matched-c{c}")
+            same = h is not None and h.get("run_id") == b.get("run_id")
             if h:
-                out.append(f"| {c} | harness | {fmt(h.get('ttft_ms_p50'))} | {fmt(h.get('ttft_ms_p95'))} | {fmt(h.get('itl_ms_p50'))} | {fmt(h.get('tpot_ms_p50'))} | "
-                           f"{fmt(h.get('steady_output_tok_s'))} (steady) / {fmt(h.get('agg_output_tok_s'))} (wall) | {link(h, base)} |")
+                out.append(f"| {c} | harness{'' if same else ' (DIFFERENT session)'} | {fmt(h.get('ttft_ms_p50'))} | {fmt(h.get('ttft_ms_p95'))} | {fmt(h.get('itl_ms_p50'))} | "
+                           f"{fmt(h.get('tpot_ms_p50'))} | {fmt(h.get('agg_output_tok_s'))} (wall) | {fmt(h.get('gpu_sm_clock_mhz_mean'), 0)} | {fmt(h.get('m_srv_ttft_ms_mean'))} | {link(h, base)} |")
             j = b.get("bench") or {}
-            out.append(f"| {c} | vllm bench serve | {fmt(j.get('median_ttft_ms'))} | {fmt(j.get('p95_ttft_ms'))} | {fmt(j.get('median_itl_ms'))} | {fmt(j.get('median_tpot_ms'))} | "
-                       f"{fmt(j.get('output_throughput'))} | {link(b, base)} |")
-            if not j:
-                out.append(f"| {c} | vllm bench serve | failed: rc {b.get('bench_rc')} {b.get('bench_flags_missing') or ''} {(b.get('bench_tail') or '')[-200:]} | | | | | |")
+            if j:
+                out.append(f"| {c} | vllm bench serve | {fmt(j.get('median_ttft_ms'))} | {fmt(j.get('p95_ttft_ms'))} | {fmt(j.get('median_itl_ms'))} | {fmt(j.get('median_tpot_ms'))} | "
+                           f"{fmt(j.get('output_throughput'))} | {fmt(b.get('gpu_sm_clock_mhz_mean'), 0)} | — | {link(b, base)} |")
+            else:
+                out.append(f"| {c} | vllm bench serve | failed: rc {b.get('bench_rc')} {b.get('bench_flags_missing') or ''} | | | | | | | {link(b, base)} |")
         out.append("")
     # charts
     names = sorted(by_mns)

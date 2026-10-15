@@ -691,6 +691,8 @@ def stage_sweep(a) -> None:
     concs = [int(x) for x in a.concurrency.split(",")]
     # a bench row without results (flags/help failure) is not "done": it is retried on --resume
     done = {r["key"] for r in st.rows() if not (r.get("kind") == "bench_serve" and not r.get("bench"))}
+    if a.redo_bench:
+        done -= {"bench-c1", "bench-c16"}
     for mns in a.max_num_seqs.split(","):
         flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching"]
         if mns != "default":
@@ -731,12 +733,24 @@ def stage_sweep(a) -> None:
                         row = harness_point(srv.base_url, cc, st.dir / key, st.dir / key / "gpu.csv")
                         st.write(key, {"kind": "open_loop", "arrival_rate": rate, "knee_factor": f, **row}, **prov, client=cc)
             if bench_needed:
+                # Same session, back to back: the harness at the bench's exact workload (256 in / 128 out, no
+                # jitter, same request count), then `vllm bench serve`. Sweep run 1 vs bench run showed GPU clocks
+                # differ between Kaggle sessions (873 vs 398 MHz mean at c=1), so cross-session pairs are invalid.
+                from benchmarks.gpu_sampler import GpuSampler, summarize as gpu_summary
                 for c in (1, 16):
                     if f"bench-c{c}" in done:
                         continue
-                    from benchmarks.gpu_sampler import GpuSampler
+                    n = max(20, 4 * c)
+                    cc = client_cfg(model, c, n) | {"max_tokens_jitter": 0, "start_jitter_s": 0}
+                    t0 = throttle_counters()
+                    hrow = harness_point(srv.base_url, cc, st.dir / f"matched-c{c}", st.dir / f"matched-c{c}" / "gpu.csv")
+                    t1 = throttle_counters()
+                    st.write(f"harness-matched-c{c}", {"kind": "harness_matched", "concurrency": c, **hrow,
+                                                       "throttle_us_delta": {k: t1[k] - t0.get(k, 0) for k in t1}}, **prov, client=cc)
                     with GpuSampler(st.dir / f"bench-c{c}-gpu.csv"):
-                        row = bench_serve(st, model, c, max(20, 4 * c), 256, 128)
+                        row = bench_serve(st, model, c, n, 256, 128)
+                    t2 = throttle_counters()
+                    row |= gpu_summary(st.dir / f"bench-c{c}-gpu.csv") | {"throttle_us_delta": {k: t2[k] - t1.get(k, 0) for k in t2}}
                     st.write(f"bench-c{c}", {"kind": "bench_serve", "concurrency": c, **row}, **prov)
             (st.logs / f"metrics-end-mns{mns}.txt").write_text(metrics_text(srv.base_url))
 
@@ -749,6 +763,7 @@ STAGE_ARGS["sweep"] = [
     lambda p: p.add_argument("--max-num-seqs", default="default,8"),
     lambda p: p.add_argument("--no-open-loop", dest="open_loop", action="store_false"),
     lambda p: p.add_argument("--no-bench", dest="bench", action="store_false"),
+    lambda p: p.add_argument("--redo-bench", action="store_true", help="re-run the matched harness + bench pairs"),
 ]
 
 

@@ -1,0 +1,15 @@
+{
+  "run_id": "20261014-230457_sweep",
+  "stage": "sweep",
+  "args": [
+    "--vllm-version",
+    "0.31.0",
+    "--redo-bench"
+  ],
+  "kernel": "raviveldanda/goodput-t4-kv",
+  "git_sha": "1fb7fe0-dirty",
+  "resume_from": "benchmarks/results/t4/20261014-225021_sweep",
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-15T03:04:59+00:00",
+  "push_output": "Kernel version 3 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4-kv"
+}
