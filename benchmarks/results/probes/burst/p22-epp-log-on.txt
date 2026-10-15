@@ -1,0 +1,50 @@
+-- burst 0
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.977, 'p6wgf': 0.984} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'p6wgf': 1, 'xjzbw': 1} pick= p6wgf
+   split {'p6wgf': 5, 'xjzbw': 3}
+-- burst 1
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.992, 'p6wgf': 0.984} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.984, 'p6wgf': 0.984} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.977, 'p6wgf': 0.984} q= {'p6wgf': 1, 'xjzbw': 1} pick= p6wgf
+tok= {'xjzbw': 0.977, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.977, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.977, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'p6wgf': 0.977, 'xjzbw': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+   split {'p6wgf': 4, 'xjzbw': 4}
+-- burst 2
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.984, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.984, 'p6wgf': 0.984} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.977, 'p6wgf': 0.984} q= {'p6wgf': 1, 'xjzbw': 1} pick= p6wgf
+tok= {'xjzbw': 0.977, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.969, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'p6wgf': 0.969, 'xjzbw': 0.969} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.961, 'p6wgf': 0.969} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+   split {'xjzbw': 4, 'p6wgf': 4}
+-- burst 3
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'p6wgf': 1, 'xjzbw': 1} pick= xjzbw
+tok= {'xjzbw': 0.984, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.984, 'p6wgf': 0.984} q= {'p6wgf': 1, 'xjzbw': 1} pick= p6wgf
+tok= {'xjzbw': 0.984, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.977, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.977, 'p6wgf': 0.969} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'p6wgf': 0.969, 'xjzbw': 0.969} q= {'p6wgf': 1, 'xjzbw': 1} pick= p6wgf
+tok= {'xjzbw': 0.969, 'p6wgf': 0.961} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+   split {'xjzbw': 4, 'p6wgf': 4}
+-- burst 4
+tok= {'xjzbw': 0.992, 'p6wgf': 0.992} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.992, 'p6wgf': 0.984} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.984, 'p6wgf': 0.984} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.977, 'p6wgf': 0.984} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'xjzbw': 0.977, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.969, 'p6wgf': 0.977} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+tok= {'p6wgf': 0.969, 'xjzbw': 0.969} q= {'xjzbw': 1, 'p6wgf': 1} pick= xjzbw
+tok= {'xjzbw': 0.961, 'p6wgf': 0.969} q= {'xjzbw': 1, 'p6wgf': 1} pick= p6wgf
+   split {'p6wgf': 4, 'xjzbw': 4}
