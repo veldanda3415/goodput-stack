@@ -218,7 +218,9 @@ source build) with `-ngl 99 -c 8192 -np 16 --metrics`. Full table: [summary.md](
   305 tok/s despite similar batch-1 speed. vLLM FP16 (342) beats both GGUF variants at c=16 although it is the
   slowest at batch 1.
 - **Quality cost (perplexity):** AWQ +8.0 % over FP16 (8.659 vs 8.018); Q8_0 8.137, Q4_K_M 8.410.
-  Method: wikitext-2-raw-v1 test (Salesforce/wikitext), 40 non-overlapping 512-token windows, only the second half of
+  Method: wikitext-2-raw-v1 test (Salesforce/wikitext; the exact file is
+  [20261014-224513_quant/…/wikitext2_test.txt](20261014-224513_quant/results/quant/wikitext2_test.txt), sha256
+  `bbf94c53…964574a`, identical in every quant run), 40 non-overlapping 512-token windows, only the second half of
   each window scored (positions 257–511, 10,200 tokens). That is llama-perplexity's own scoring (`first = n_ctx/2`,
   `tools/perplexity/perplexity.cpp:542` at b11146). vLLM is scored through `/v1/completions` with
   `prompt_logprobs`, text tokenized with the HF tokenizer. llama-perplexity tokenizes with the GGUF vocab and prints a

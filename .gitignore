@@ -27,3 +27,4 @@ benchmarks/results/sim
 benchmarks/results/engine# T4 (Kaggle) runs: per-request raw files stay local (requests.jsonl/metrics.jsonl above); kernel.log is large
 benchmarks/results/t4/**/kernel.log
 benchmarks/results/t4/**/pip-list.txt
+benchmarks/results/t4/**/wikitext2_test.txt   # one copy is tracked (first quant run); same sha256 in every run
