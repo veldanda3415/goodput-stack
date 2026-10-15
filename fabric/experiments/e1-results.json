@@ -1,0 +1,519 @@
+{
+  "started_at": "2026-10-15T15:42:44.224202-04:00",
+  "label": "EMULATED",
+  "runtime": "containerlab with Podman",
+  "images": {
+    "frr": "quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb",
+    "host": "docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8"
+  },
+  "kernel_release": "6.18.33.2-microsoft-standard-WSL2",
+  "duration_seconds": 10,
+  "repeats": 3,
+  "iperf3_version": "iperf 3.16+ (cJSON 1.7.15)",
+  "source": {
+    "host": "host1",
+    "ip": "10.210.0.2",
+    "rail": "A"
+  },
+  "target": {
+    "host": "host3",
+    "ip": "10.210.0.10",
+    "rail": "A"
+  },
+  "source_leaf": "leaf1",
+  "counter_command": "ip -j -s link show dev <uplink> (tx.bytes before/after)",
+  "uplinks": [
+    "eth1",
+    "eth2"
+  ],
+  "runs": [
+    {
+      "policy": 0,
+      "flows": 1,
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2487806,
+        "eth2": 10295650407
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2499371,
+        "eth2": 20748028653
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11565,
+        "eth2": 10452378246
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 1 -t 10 --json",
+      "sent_bytes": 10379067392,
+      "sent_bits_per_second": 8302607970.69988,
+      "received_bytes": 10379198464,
+      "received_bits_per_second": 8302628970.113527
+    },
+    {
+      "policy": 0,
+      "flows": 1,
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2499906,
+        "eth2": 20748028911
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2511307,
+        "eth2": 30412656521
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11401,
+        "eth2": 9664627610
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 1 -t 10 --json",
+      "sent_bytes": 9596829696,
+      "sent_bits_per_second": 7676610885.33064,
+      "received_bytes": 9596960768,
+      "received_bits_per_second": 7676312769.63089
+    },
+    {
+      "policy": 0,
+      "flows": 1,
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2511651,
+        "eth2": 30412656951
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2523501,
+        "eth2": 40112395667
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11850,
+        "eth2": 9699738716
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 1 -t 10 --json",
+      "sent_bytes": 9631694848,
+      "sent_bits_per_second": 7704442901.916123,
+      "received_bytes": 9631825920,
+      "received_bits_per_second": 7704474563.255903
+    },
+    {
+      "policy": 0,
+      "flows": 4,
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2523931,
+        "eth2": 40112396097
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2535609,
+        "eth2": 75131571234
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11678,
+        "eth2": 35019175137
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 4 -t 10 --json",
+      "sent_bytes": 34769076224,
+      "sent_bits_per_second": 27811311772.928246,
+      "received_bytes": 34769469440,
+      "received_bits_per_second": 27811323200.682617
+    },
+    {
+      "policy": 0,
+      "flows": 4,
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2536039,
+        "eth2": 75131571578
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2547803,
+        "eth2": 108148397092
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11764,
+        "eth2": 33016825514
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 4 -t 10 --json",
+      "sent_bytes": 32780451840,
+      "sent_bits_per_second": 26219956519.304756,
+      "received_bytes": 32780976128,
+      "received_bits_per_second": 26220100614.440323
+    },
+    {
+      "policy": 0,
+      "flows": 4,
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2548233,
+        "eth2": 108148397522
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2559997,
+        "eth2": 141261702011
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11764,
+        "eth2": 33113304489
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 4 -t 10 --json",
+      "sent_bytes": 32872464384,
+      "sent_bits_per_second": 26293824971.002075,
+      "received_bytes": 32872857600,
+      "received_bits_per_second": 26293661025.0257
+    },
+    {
+      "policy": 0,
+      "flows": 32,
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2560341,
+        "eth2": 141261702355
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2572000,
+        "eth2": 228015915179
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11659,
+        "eth2": 86754212824
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 32 -t 10 --json",
+      "sent_bytes": 86127280128,
+      "sent_bits_per_second": 68866516239.524,
+      "received_bytes": 86127935488,
+      "received_bits_per_second": 68865959617.3382
+    },
+    {
+      "policy": 0,
+      "flows": 32,
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2572613,
+        "eth2": 228015915792
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2584014,
+        "eth2": 279811377189
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11401,
+        "eth2": 51795461397
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 32 -t 10 --json",
+      "sent_bytes": 51301187584,
+      "sent_bits_per_second": 40963610770.06612,
+      "received_bytes": 51286638592,
+      "received_bits_per_second": 40883271738.62247
+    },
+    {
+      "policy": 0,
+      "flows": 32,
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2584444,
+        "eth2": 279811377638
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 2596208,
+        "eth2": 338439272648
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 11764,
+        "eth2": 58627895010
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 32 -t 10 --json",
+      "sent_bytes": 58119421952,
+      "sent_bits_per_second": 46416416138.650055,
+      "received_bytes": 57971441664,
+      "received_bits_per_second": 46257563651.89077
+    },
+    {
+      "policy": 1,
+      "flows": 1,
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 2598119,
+        "eth2": 338439274559
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 10725437894,
+        "eth2": 338439285893
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 10722839775,
+        "eth2": 11334
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 100.0,
+        "eth2": 0.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 1 -t 10 --json",
+      "sent_bytes": 10647633920,
+      "sent_bits_per_second": 8517590118.27982,
+      "received_bytes": 10647764992,
+      "received_bits_per_second": 8517554438.397356
+    },
+    {
+      "policy": 1,
+      "flows": 1,
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 10725438429,
+        "eth2": 338439286323
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 10725451434,
+        "eth2": 348993335309
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 13005,
+        "eth2": 10554048986
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 1 -t 10 --json",
+      "sent_bytes": 10479468544,
+      "sent_bits_per_second": 8382594909.855038,
+      "received_bytes": 10479599616,
+      "received_bits_per_second": 8382563973.535122
+    },
+    {
+      "policy": 1,
+      "flows": 1,
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 10725451864,
+        "eth2": 348993335739
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 10725464888,
+        "eth2": 359709574308
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 13024,
+        "eth2": 10716238569
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 0.0,
+        "eth2": 100.0
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 1 -t 10 --json",
+      "sent_bytes": 10641080320,
+      "sent_bits_per_second": 8511957732.501488,
+      "received_bytes": 10641211392,
+      "received_bits_per_second": 8511721295.258115
+    },
+    {
+      "policy": 1,
+      "flows": 4,
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 10725465232,
+        "eth2": 359709574652
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 39186660935,
+        "eth2": 369029072395
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 28461195703,
+        "eth2": 9319497743
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 75.33,
+        "eth2": 24.67
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 4 -t 10 --json",
+      "sent_bytes": 37508218880,
+      "sent_bits_per_second": 30002389770.627,
+      "received_bytes": 37508612096,
+      "received_bits_per_second": 30001990351.775555
+    },
+    {
+      "policy": 1,
+      "flows": 4,
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 39186661443,
+        "eth2": 369029072825
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 57009883470,
+        "eth2": 386684049457
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 17823222027,
+        "eth2": 17654976632
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 50.24,
+        "eth2": 49.76
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 4 -t 10 --json",
+      "sent_bytes": 35222454272,
+      "sent_bits_per_second": 28173835950.633232,
+      "received_bytes": 35222847488,
+      "received_bits_per_second": 28173854695.212852
+    },
+    {
+      "policy": 1,
+      "flows": 4,
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 57009883900,
+        "eth2": 386684049801
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 83883356869,
+        "eth2": 395447046898
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 26873472969,
+        "eth2": 8762997097
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 75.41,
+        "eth2": 24.59
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 4 -t 10 --json",
+      "sent_bytes": 35379085312,
+      "sent_bits_per_second": 28298830992.90031,
+      "received_bytes": 35379478528,
+      "received_bits_per_second": 28298704125.808712
+    },
+    {
+      "policy": 1,
+      "flows": 32,
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 83883357299,
+        "eth2": 395447047328
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 128554939577,
+        "eth2": 441350190056
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 44671582278,
+        "eth2": 45903142728
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 49.32,
+        "eth2": 50.68
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 32 -t 10 --json",
+      "sent_bytes": 89869516800,
+      "sent_bits_per_second": 71843871483.7574,
+      "received_bytes": 89870172160,
+      "received_bits_per_second": 71843117507.27963
+    },
+    {
+      "policy": 1,
+      "flows": 32,
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 128554940112,
+        "eth2": 441350190591
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 162442186331,
+        "eth2": 499246757617
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 33887246219,
+        "eth2": 57896567026
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 36.92,
+        "eth2": 63.08
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 32 -t 10 --json",
+      "sent_bytes": 91099103232,
+      "sent_bits_per_second": 72847899710.40475,
+      "received_bytes": 91100020736,
+      "received_bits_per_second": 72847257177.2474
+    },
+    {
+      "policy": 1,
+      "flows": 32,
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "counter_before_tx_bytes": {
+        "eth1": 162442186761,
+        "eth2": 499246758047
+      },
+      "counter_after_tx_bytes": {
+        "eth1": 209874701135,
+        "eth2": 541591394277
+      },
+      "counter_delta_tx_bytes": {
+        "eth1": 47432514374,
+        "eth2": 42344636230
+      },
+      "counter_delta_tx_percent": {
+        "eth1": 52.83,
+        "eth2": 47.17
+      },
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -P 32 -t 10 --json",
+      "sent_bytes": 89100779520,
+      "sent_bits_per_second": 71253461796.3632,
+      "received_bytes": 89101959168,
+      "received_bits_per_second": 71253058985.4999
+    }
+  ],
+  "restored_hash_policy": 0,
+  "completed_at": "2026-10-15T15:46:14.607697-04:00"
+}
