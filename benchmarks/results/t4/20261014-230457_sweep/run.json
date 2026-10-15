@@ -11,5 +11,12 @@
   "resume_from": "benchmarks/results/t4/20261014-225021_sweep",
   "machine_shape": "NvidiaTeslaT4",
   "pushed_at_utc": "2026-10-15T03:04:59+00:00",
-  "push_output": "Kernel version 3 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4-kv"
+  "push_output": "Kernel version 3 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4-kv",
+  "output_cmd_output": "nchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/logs/vllm-bench-serve-c1.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/logs/vllm-bench-serve-c16.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/logs/vllm-bench-serve-help.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/logs/vllm-serve-help-0.31.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/matched-c1/gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/matched-c1/metrics.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/matched-c1/requests.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/matched-c16/gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/matched-c16/metrics.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/matched-c16/requests.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/stage.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/results/sweep/sweep.jsonl\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261014-230457_sweep/_download/goodput-t4-kv.log",
+  "status": "complete",
+  "finished_at_utc": "2026-10-15T03:20:36+00:00",
+  "wall_push_to_done_min": 15.6,
+  "script_session_s": 895.7,
+  "gpu_hours_script": 0.249,
+  "gpu_hours_upper_bound": 0.26
 }

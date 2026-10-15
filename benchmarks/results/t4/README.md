@@ -68,11 +68,11 @@ Chat API: non-stream `/v1/chat/completions` → 200 with `usage`. Stream with `s
 200, 8 content chunks plus a final usage chunk (`completion_tokens` 9: the EOS token produces no text).
 
 **Batch-1 decode** (5 streamed chat runs, same prompt, 256 tokens, ignore_eos, temperature 0): **median 16.30 tok/s**,
-runs 21.09 / 11.47 / 10.59 / 16.30 / 18.63, **spread 64 %**. TTFT was steady at 73–82 ms. Treat this as a range,
-not a number. The c=1 point of the sweep (other session, `/v1/completions`, 128 ± 25 % tokens) measured TPOT
-p50 27.3 ms, i.e. 36.6 tok/s per request. Hypothesis for the spread: GPU clock behaviour that differs between Kaggle
-sessions and over time (see the cross-check below, where one session ran at less than half the SM clock of
-another). Batch-1 decode runs now record NVML samples and throttle-reason counters; the quant stage repeats the FP16 decode with them.
+runs 21.09 / 11.47 / 10.59 / 16.30 / 18.63, **spread 64 %**, with TTFT steady at 73–82 ms. The identical
+measurement in the quant session (run 20261014-224513, same vLLM, same flags) gave **37.16 tok/s, spread 1.0 %**
+(37.40 → 37.03), with NVML clocks 964–1,046 MHz and zero throttle-counter time. The baseline session's numbers are
+real, but they describe that session's GPU state, not the engine. See *Power capping* under Task 4: a later session
+showed the same kind of slowdown together with SW power capping.
 
 **/metrics names** (from the `# TYPE` lines of the idle scrape, [metric-names.json](20261014-215653_baseline/results/baseline/logs/metric-names.json)):
 
@@ -102,7 +102,7 @@ KV bytes/token = 2 (K,V) × layers × KV heads × head_dim × 2 B = 2 × 36 × 2
 
 | Quantity | Predicted | Measured | Why different |
 |---|---|---|---|
-| batch-1 decode | ≤ 50 tok/s, expect 30–35 | 16.3 median (10.6–21.1) chat; 36.6 per-request at c=1 in the sweep session | Under the ceiling either way. Session-to-session GPU clock differences, not the engine, dominate the spread (see cross-check). Different model, with similar weight bytes (5.79 GiB measured). |
+| batch-1 decode | ≤ 50 tok/s, expect 30–35 | **37.16** (quant session, spread 1.0 %); 16.3 (baseline session, spread 64 %) | Inside the ceiling, a little above the expected range, for a different model with similar weight bytes (5.79 GiB). The baseline session's low, noisy value matches the power-capped sessions (Task 4 cross-check). |
 | KV pool @ 0.90 | ≈ 55K tokens for Llama → **171,111** restated (same KV bytes ÷ 36,864) | **175,008** (log and `cache_config_info`) | +2.3 %: the KV memory left over (6.01 GiB measured) is a bit more than the prediction assumed. The model's GQA (2 KV heads) makes each token 3.1× cheaper than Llama-3.2-3B. |
 | GPU blocks × block size ≈ KV pool | equal | 10,938 × 16 = 175,008 = KV pool | as predicted |
 
@@ -145,13 +145,35 @@ Full table and charts: [summary.md](summary.md#task-4--concurrency-sweep).
   SM clock mean 700–1,016 MHz (max 1,590), 77–81 °C.
 
 **Cross-check with `vllm bench serve`.** Its first attempt failed on flag discovery: `vllm bench serve --help`
-lists only config groups, and the flags are under `--help=all`. The second attempt (run 20261014-225021) worked
-but ran in a different Kaggle session. Its T4 averaged **398 MHz SM clock at c=1** against 873 MHz in the sweep
-session, and it measured 14.8 tok/s / TPOT p50 66 ms against the harness's 35.4 / 27.3 ms. That pair compares two
-GPUs' clocks, not two tools, so the cross-check was re-run with the harness and `vllm bench serve` back to back in
-**one** session at the identical workload (run 20261014-230457): results in [summary.md](summary.md#cross-check-harness-vs-vllm-bench-serve-same-server-default-max-num-seqs).
-Both tools measure TTFT the same way (clock started just before the POST, stopped at the first SSE chunk with
-`choices`; vLLM 0.31.0 `vllm/benchmarks/lib/endpoint_request_func.py:202–240`).
+lists only config groups, and the flags are under `--help=all`. The second attempt (run 20261014-225021) ran in a
+different Kaggle session whose T4 averaged **398 MHz SM clock at c=1**, against 873 MHz in the sweep session, so
+that pair compared two GPUs, not two tools. The valid cross-check (run **20261014-230457**) runs the harness and
+`vllm bench serve` **back to back in one session** on one server, with the identical workload: 256 random prompt
+tokens, 128 output, ignore_eos, no jitter, 20 / 64 requests.
+
+| c | tool | TTFT p50 / p95 ms | ITL p50 ms | TPOT p50 ms | output tok/s | SM clock mean |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | harness | 110.8 / 124.0 | 40.5 | 40.5 | 23.9 | 500 MHz |
+| 1 | vllm bench serve | 116.1 / 142.9 | 45.1 | 44.9 | 21.3 | 461 MHz |
+| 16 | harness | 1,215.7 / 1,570.5 | 38.2 | 41.4 | 316.1 | 754 MHz |
+| 16 | vllm bench serve | 1,574.6 / **10,510.6** | 38.4 | 39.6 | 234.1 | 762 MHz |
+
+- **Where TTFT is measured (#3).** Both tools time it the same way: clock started just before the HTTP POST,
+  stopped at the first SSE chunk carrying `choices` (harness `one_request`; vLLM 0.31.0
+  `vllm/benchmarks/lib/endpoint_request_func.py:202–240`). The server's own `vllm:time_to_first_token_seconds` mean
+  for the harness runs is 106.7 ms (c=1) and 1,156 ms (c=16), within 5–60 ms of the client numbers. At c=16 that
+  server TTFT already includes the time the 16 simultaneous prefills wait for each other.
+- **c=1:** the tools agree within ~10 %. The bench run is a little slower and also ran at a lower SM clock (461 vs 500 MHz).
+- **c=16:** per-token timing agrees (ITL 38.2 vs 38.4 ms, TPOT 41.4 vs 39.6 ms), but bench's TTFT tail (p95 10.5 s)
+  and lower throughput do not. bench's own result file reports `max_concurrent_requests: 32` for
+  `--max-concurrency 16` (and 2 for 1), so at some point it counted more requests in flight than the limit. That is
+  the first thing to check; the root cause is **not established** here. bench's GPU-util mean (34 %) is diluted by
+  its sampler window also covering the tool's start-up (dataset + tokenizer), not by an idle GPU during the run.
+- **Power capping.** In this session NVML's "SW Power Capping" throttle counter grew by 86.4 s during the 107 s
+  harness c=1 run and 117.4 s during bench c=1, with the SM clock near 500 MHz. In the quant session the same
+  counters stayed at 0 for all 20 decode runs, with clocks at 964–1,231 MHz. **Session-to-session speed differences
+  on Kaggle T4s line up with software power capping.** Baseline run 2 (decode spread 64 %) predates the counters,
+  so for that run this is consistent but unproven.
 
 ## Task 5 — quantization
 
