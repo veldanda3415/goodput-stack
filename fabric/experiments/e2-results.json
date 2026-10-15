@@ -1,0 +1,1204 @@
+{
+  "started_at": "2026-10-15T16:21:31.122900-04:00",
+  "label": "EMULATED",
+  "measurement": "high-rate ICMP ping; no iperf3 used",
+  "runtime": "containerlab with Podman",
+  "images": {
+    "frr": "quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb",
+    "host": "docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8"
+  },
+  "kernel_release": "6.18.33.2-microsoft-standard-WSL2",
+  "frr_timers": {
+    "bgp_hold_seconds": 9,
+    "bgp_keepalive_seconds": 3,
+    "bfd_transmit_ms": 100,
+    "bfd_receive_ms": 100,
+    "bfd_detect_multiplier": 3
+  },
+  "ping_duration_seconds": 15,
+  "ping_interval_seconds": 0.01,
+  "repeats_per_case": 3,
+  "source": {
+    "host": "host1",
+    "ip": "10.210.0.2",
+    "rail": "A"
+  },
+  "target": {
+    "host": "host3",
+    "ip": "10.210.0.10",
+    "rail": "A"
+  },
+  "path_probe": {
+    "command": "ping -D -n -i 0.01 -w 2 -I 10.210.0.2 10.210.0.10",
+    "gateway_probe_wait_seconds": 0,
+    "transmitted": 122,
+    "received": 122,
+    "packet_loss_percent": 0.0,
+    "counter_before_tx_bytes": {
+      "eth1": 209878386052,
+      "eth2": 541593193187
+    },
+    "counter_after_tx_bytes": {
+      "eth1": 209878388479,
+      "eth2": 541593207742
+    },
+    "counter_delta_tx_bytes": {
+      "eth1": 2427,
+      "eth2": 14555
+    },
+    "selected_leaf_interface": "eth2",
+    "selected_spine": "spine2",
+    "selected_spine_interface": "eth1"
+  },
+  "fault_link": {
+    "name": "spine2-leaf1",
+    "leaf1_interface": "eth2",
+    "spine_node": "spine2",
+    "spine_interface": "eth1"
+  },
+  "bfd_off_scope": [
+    "leaf1 peer-group FABRIC",
+    "spine1 peer-group PEER_LEAF1",
+    "spine2 peer-group PEER_LEAF1"
+  ],
+  "runs": [
+    {
+      "bfd_enabled": true,
+      "fault": "carrier-down",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 1.65,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095694.017311,
+      "fault_restored_epoch": 1792095710.10747,
+      "fault_active_seconds": 16.09,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "DOWN",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "DOWN",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {
+            "eth2": "down",
+            "eth1": "up"
+          },
+          "spine1": {
+            "eth4": "up",
+            "eth1": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth1": "down",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "DOWN",
+            "flags": [
+              "NO-CARRIER",
+              "BROADCAST",
+              "MULTICAST",
+              "UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "DOWN",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST"
+            ]
+          }
+        }
+      },
+      "transmitted": 877,
+      "received": 877,
+      "packet_loss_percent": 0.0,
+      "successful_replies": 877,
+      "last_reply_before_fault": [
+        1792095694.010514,
+        54
+      ],
+      "first_reply_after_fault": [
+        1792095694.026477,
+        55
+      ],
+      "reply_gap_ms": 15.96,
+      "baseline_reply_interval_ms": 16.0,
+      "max_reply_gap_ms_during_fault": 20.21,
+      "estimated_loss_window_ms": 0,
+      "fault_to_recovery_ms": 0.0,
+      "lost_probe_count_between_replies": 0,
+      "lost_probe_count_during_fault": 0
+    },
+    {
+      "bfd_enabled": true,
+      "fault": "carrier-down",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 8.37,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095719.517467,
+      "fault_restored_epoch": 1792095735.487479,
+      "fault_active_seconds": 15.97,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "DOWN",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "DOWN",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {
+            "eth2": "down",
+            "eth1": "up"
+          },
+          "spine1": {
+            "eth4": "up",
+            "eth1": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth1": "down",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "DOWN",
+            "flags": [
+              "NO-CARRIER",
+              "BROADCAST",
+              "MULTICAST",
+              "UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "DOWN",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST"
+            ]
+          }
+        }
+      },
+      "transmitted": 889,
+      "received": 889,
+      "packet_loss_percent": 0.0,
+      "successful_replies": 889,
+      "last_reply_before_fault": [
+        1792095719.498447,
+        52
+      ],
+      "first_reply_after_fault": [
+        1792095719.518476,
+        53
+      ],
+      "reply_gap_ms": 20.03,
+      "baseline_reply_interval_ms": 16.03,
+      "max_reply_gap_ms_during_fault": 20.11,
+      "estimated_loss_window_ms": 0,
+      "fault_to_recovery_ms": 0.0,
+      "lost_probe_count_between_replies": 0,
+      "lost_probe_count_during_fault": 0
+    },
+    {
+      "bfd_enabled": true,
+      "fault": "carrier-down",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 8.27,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095744.801349,
+      "fault_restored_epoch": 1792095760.850273,
+      "fault_active_seconds": 16.049,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "DOWN",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "DOWN",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {
+            "eth2": "down",
+            "eth1": "up"
+          },
+          "spine1": {
+            "eth4": "up",
+            "eth1": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth1": "down",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "DOWN",
+            "flags": [
+              "NO-CARRIER",
+              "BROADCAST",
+              "MULTICAST",
+              "UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "DOWN",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST"
+            ]
+          }
+        }
+      },
+      "transmitted": 900,
+      "received": 900,
+      "packet_loss_percent": 0.0,
+      "successful_replies": 900,
+      "last_reply_before_fault": [
+        1792095744.790481,
+        53
+      ],
+      "first_reply_after_fault": [
+        1792095744.810501,
+        54
+      ],
+      "reply_gap_ms": 20.02,
+      "baseline_reply_interval_ms": 16.03,
+      "max_reply_gap_ms_during_fault": 20.15,
+      "estimated_loss_window_ms": 0,
+      "fault_to_recovery_ms": 0.0,
+      "lost_probe_count_between_replies": 0,
+      "lost_probe_count_during_fault": 0
+    },
+    {
+      "bfd_enabled": true,
+      "fault": "silent-loss",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 8.52,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095770.414981,
+      "fault_restored_epoch": 1792095786.973983,
+      "fault_active_seconds": 16.559,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {
+            "eth2": "down",
+            "eth1": "up"
+          },
+          "spine1": {
+            "eth4": "up",
+            "eth1": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth1": "down",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          }
+        }
+      },
+      "transmitted": 888,
+      "received": 859,
+      "packet_loss_percent": 3.26577,
+      "successful_replies": 859,
+      "last_reply_before_fault": [
+        1792095770.414571,
+        51
+      ],
+      "first_reply_after_fault": [
+        1792095770.434491,
+        52
+      ],
+      "reply_gap_ms": 19.92,
+      "baseline_reply_interval_ms": 16.05,
+      "max_reply_gap_ms_during_fault": 503.93,
+      "estimated_loss_window_ms": 487.88,
+      "fault_to_recovery_ms": 1011.51,
+      "lost_probe_count_between_replies": 29,
+      "lost_probe_count_during_fault": 29
+    },
+    {
+      "bfd_enabled": true,
+      "fault": "silent-loss",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 1.71,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095789.735206,
+      "fault_restored_epoch": 1792095806.23948,
+      "fault_active_seconds": 16.504,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {
+            "eth2": "down",
+            "eth1": "up"
+          },
+          "spine1": {
+            "eth4": "up",
+            "eth1": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth1": "down",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          }
+        }
+      },
+      "transmitted": 884,
+      "received": 854,
+      "packet_loss_percent": 3.39367,
+      "successful_replies": 854,
+      "last_reply_before_fault": [
+        1792095789.73058,
+        53
+      ],
+      "first_reply_after_fault": [
+        1792095789.746546,
+        54
+      ],
+      "reply_gap_ms": 15.97,
+      "baseline_reply_interval_ms": 16.01,
+      "max_reply_gap_ms_during_fault": 584.03,
+      "estimated_loss_window_ms": 568.02,
+      "fault_to_recovery_ms": 1075.31,
+      "lost_probe_count_between_replies": 30,
+      "lost_probe_count_during_fault": 30
+    },
+    {
+      "bfd_enabled": true,
+      "fault": "silent-loss",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 8.42,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095815.70515,
+      "fault_restored_epoch": 1792095832.316497,
+      "fault_active_seconds": 16.611,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {
+            "eth2": "down",
+            "eth1": "up"
+          },
+          "spine1": {
+            "eth4": "up",
+            "eth1": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth1": "down",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          }
+        }
+      },
+      "transmitted": 886,
+      "received": 856,
+      "packet_loss_percent": 3.386,
+      "successful_replies": 856,
+      "last_reply_before_fault": [
+        1792095815.690621,
+        50
+      ],
+      "first_reply_after_fault": [
+        1792095815.710465,
+        51
+      ],
+      "reply_gap_ms": 19.84,
+      "baseline_reply_interval_ms": 16.07,
+      "max_reply_gap_ms_during_fault": 531.92,
+      "estimated_loss_window_ms": 515.85,
+      "fault_to_recovery_ms": 1009.36,
+      "lost_probe_count_between_replies": 30,
+      "lost_probe_count_during_fault": 30
+    },
+    {
+      "bfd_enabled": false,
+      "fault": "carrier-down",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 1.59,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095852.504662,
+      "fault_restored_epoch": 1792095868.630181,
+      "fault_active_seconds": 16.126,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "DOWN",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "DOWN",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {},
+          "spine1": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "DOWN",
+            "flags": [
+              "NO-CARRIER",
+              "BROADCAST",
+              "MULTICAST",
+              "UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "DOWN",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST"
+            ]
+          }
+        }
+      },
+      "transmitted": 881,
+      "received": 881,
+      "packet_loss_percent": 0.0,
+      "successful_replies": 881,
+      "last_reply_before_fault": [
+        1792095852.490502,
+        52
+      ],
+      "first_reply_after_fault": [
+        1792095852.506473,
+        53
+      ],
+      "reply_gap_ms": 15.97,
+      "baseline_reply_interval_ms": 16.05,
+      "max_reply_gap_ms_during_fault": 20.18,
+      "estimated_loss_window_ms": 0,
+      "fault_to_recovery_ms": 0.0,
+      "lost_probe_count_between_replies": 0,
+      "lost_probe_count_during_fault": 0
+    },
+    {
+      "bfd_enabled": false,
+      "fault": "carrier-down",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 8.45,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095878.12499,
+      "fault_restored_epoch": 1792095894.184867,
+      "fault_active_seconds": 16.06,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "DOWN",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "DOWN",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {},
+          "spine1": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "DOWN",
+            "flags": [
+              "NO-CARRIER",
+              "BROADCAST",
+              "MULTICAST",
+              "UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "DOWN",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST"
+            ]
+          }
+        }
+      },
+      "transmitted": 897,
+      "received": 897,
+      "packet_loss_percent": 0.0,
+      "successful_replies": 897,
+      "last_reply_before_fault": [
+        1792095878.11051,
+        54
+      ],
+      "first_reply_after_fault": [
+        1792095878.12649,
+        55
+      ],
+      "reply_gap_ms": 15.98,
+      "baseline_reply_interval_ms": 16.01,
+      "max_reply_gap_ms_during_fault": 20.23,
+      "estimated_loss_window_ms": 0,
+      "fault_to_recovery_ms": 0.0,
+      "lost_probe_count_between_replies": 0,
+      "lost_probe_count_during_fault": 0
+    },
+    {
+      "bfd_enabled": false,
+      "fault": "carrier-down",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 8.33,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095903.56092,
+      "fault_restored_epoch": 1792095919.569859,
+      "fault_active_seconds": 16.009,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "DOWN",
+          "flags": [
+            "NO-CARRIER",
+            "BROADCAST",
+            "MULTICAST",
+            "UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "DOWN",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Idle",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Idle"
+        },
+        "bfd": {
+          "leaf1": {},
+          "spine1": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "DOWN",
+            "flags": [
+              "NO-CARRIER",
+              "BROADCAST",
+              "MULTICAST",
+              "UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "DOWN",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST"
+            ]
+          }
+        }
+      },
+      "transmitted": 893,
+      "received": 893,
+      "packet_loss_percent": 0.0,
+      "successful_replies": 893,
+      "last_reply_before_fault": [
+        1792095903.554608,
+        54
+      ],
+      "first_reply_after_fault": [
+        1792095903.570561,
+        55
+      ],
+      "reply_gap_ms": 15.95,
+      "baseline_reply_interval_ms": 16.0,
+      "max_reply_gap_ms_during_fault": 20.32,
+      "estimated_loss_window_ms": 0,
+      "fault_to_recovery_ms": 0.0,
+      "lost_probe_count_between_replies": 0,
+      "lost_probe_count_during_fault": 0
+    },
+    {
+      "bfd_enabled": false,
+      "fault": "silent-loss",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 1,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 8.4,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095929.022472,
+      "fault_restored_epoch": 1792095945.580711,
+      "fault_active_seconds": 16.558,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Connect",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Connect"
+        },
+        "bfd": {
+          "leaf1": {},
+          "spine1": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          }
+        }
+      },
+      "transmitted": 887,
+      "received": 453,
+      "packet_loss_percent": 48.929,
+      "successful_replies": 453,
+      "last_reply_before_fault": [
+        1792095929.018668,
+        55
+      ],
+      "first_reply_after_fault": [
+        1792095929.034533,
+        56
+      ],
+      "reply_gap_ms": 15.87,
+      "baseline_reply_interval_ms": 16.0,
+      "max_reply_gap_ms_during_fault": 7371.98,
+      "estimated_loss_window_ms": 7355.98,
+      "fault_to_recovery_ms": 7868.05,
+      "lost_probe_count_between_replies": 434,
+      "lost_probe_count_during_fault": 434
+    },
+    {
+      "bfd_enabled": false,
+      "fault": "silent-loss",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 2,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 8.5,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095955.138799,
+      "fault_restored_epoch": 1792095971.840062,
+      "fault_active_seconds": 16.701,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Connect",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Connect"
+        },
+        "bfd": {
+          "leaf1": {},
+          "spine1": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          }
+        }
+      },
+      "transmitted": 896,
+      "received": 396,
+      "packet_loss_percent": 55.8036,
+      "successful_replies": 396,
+      "last_reply_before_fault": [
+        1792095955.130524,
+        54
+      ],
+      "first_reply_after_fault": [
+        1792095955.146593,
+        55
+      ],
+      "reply_gap_ms": 16.07,
+      "baseline_reply_interval_ms": 16.01,
+      "max_reply_gap_ms_during_fault": 8427.94,
+      "estimated_loss_window_ms": 8411.93,
+      "fault_to_recovery_ms": 8967.7,
+      "lost_probe_count_between_replies": 500,
+      "lost_probe_count_during_fault": 500
+    },
+    {
+      "bfd_enabled": false,
+      "fault": "silent-loss",
+      "fault_link": "spine2-leaf1",
+      "fault_spine": "spine2",
+      "repeat": 3,
+      "gateway_probe_wait_seconds": 0,
+      "wait_before_trial_seconds": 1.68,
+      "ping_command": "ping -D -n -i 0.01 -w 15 -I 10.210.0.2 10.210.0.10",
+      "fault_epoch": 1792095974.574013,
+      "fault_restored_epoch": 1792095991.107802,
+      "fault_active_seconds": 16.534,
+      "ping_return_code": 0,
+      "link_during_fault": {
+        "leaf1": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        },
+        "spine2": {
+          "operstate": "UP",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ]
+        }
+      },
+      "adjacency_during_fault": {
+        "bgp": {
+          "leaf1:eth1": "Established",
+          "leaf1:eth2": "Connect",
+          "spine1:eth1": "Established",
+          "spine2:eth1": "Connect"
+        },
+        "bfd": {
+          "leaf1": {},
+          "spine1": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          },
+          "spine2": {
+            "eth4": "up",
+            "eth2": "up",
+            "eth3": "up"
+          }
+        },
+        "link": {
+          "leaf1": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          },
+          "spine2": {
+            "operstate": "UP",
+            "flags": [
+              "BROADCAST",
+              "MULTICAST",
+              "UP",
+              "LOWER_UP"
+            ]
+          }
+        }
+      },
+      "transmitted": 886,
+      "received": 346,
+      "packet_loss_percent": 60.9481,
+      "successful_replies": 346,
+      "last_reply_before_fault": [
+        1792095974.570477,
+        55
+      ],
+      "first_reply_after_fault": [
+        1792095974.586444,
+        56
+      ],
+      "reply_gap_ms": 15.97,
+      "baseline_reply_interval_ms": 16.01,
+      "max_reply_gap_ms_during_fault": 9160.27,
+      "estimated_loss_window_ms": 9144.26,
+      "fault_to_recovery_ms": 9684.77,
+      "lost_probe_count_between_replies": 540,
+      "lost_probe_count_during_fault": 540
+    }
+  ],
+  "bfd_restore_command_applied": true,
+  "final_recovery_wait_seconds": 8.51,
+  "bfd_restored": true,
+  "completed_at": "2026-10-15T16:26:48.677355-04:00"
+}
