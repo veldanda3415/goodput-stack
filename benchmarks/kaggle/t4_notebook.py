@@ -187,7 +187,7 @@ class VllmServer:
     def start(self, timeout_s: float = 1500) -> dict:
         import httpx
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        self._f = open(self.log_path, "w")
+        self._f = open(self.log_path, "a")   # a restart appends to the same log
         self._f.write("$ " + shlex.join(self.cmd) + "\n")
         self._f.flush()
         env = dict(os.environ, CUDA_VISIBLE_DEVICES="0")
@@ -554,7 +554,359 @@ STAGE_ARGS["baseline"] = [
     lambda p: p.add_argument("--decode-max-tokens", type=int, default=256),
 ]
 
-STAGES = {"smoke": stage_smoke, "baseline": stage_baseline}
+def install_pinned(st: Stage, version: str) -> dict:
+    inst = pip_install_vllm(version, st.logs)
+    if inst["pip_rc"] != 0:
+        raise RuntimeError(f"pip install vllm=={version} failed: {inst['pip_tail']}")
+    return inst
+
+
+def stage_kvgrid(a) -> None:
+    """Task 2: 8B AWQ INT4 - started?, GPU blocks, KV tokens, max concurrent full-length sequences per cell."""
+    st = Stage("kvgrid")
+    inst = install_pinned(st, a.vllm_version)
+    help_text = serve_help(st.logs, a.vllm_version)
+    model, rev = a.model, model_revision(a.model)
+    save_config_json(model, st.logs / "model-config.json")
+    done = st.done()
+    for util in [float(x) for x in a.utils.split(",")]:
+        for mlen in [int(x) for x in a.lens.split(",")]:
+            key = f"kv-{util}-{mlen}"
+            if key in done:
+                log(f"skip {key} (done)")
+                continue
+            flags = ["--dtype", "half", "--gpu-memory-utilization", str(util), "--max-model-len", str(mlen),
+                     "--no-enable-prefix-caching"]
+            missing = require_flags(help_text, ["--dtype", "--gpu-memory-utilization", "--max-model-len"])
+            prov = {"model": model, "model_revision": rev, "serving_flags": flags, "vllm_version": a.vllm_version,
+                    "torch": inst["torch_after_install"]}
+            srv = VllmServer(model, flags, st.logs / f"server-{key}.log")
+            with srv:
+                res = srv.start(timeout_s=1500)
+                row: dict = {"kind": "kv_cell", "gpu_memory_utilization": util, "max_model_len": mlen,
+                             "flags_missing": missing, **res}
+                text = srv.log_text()
+                startup = parse_startup(text)
+                row |= {k: v for k, v in startup.items() if k != "startup_lines"}
+                if res["started"]:
+                    cci = cache_config_info(metrics_text(srv.base_url))
+                    row["cache_config_info"] = cci
+                    blocks = int(cci["num_gpu_blocks"]) if cci.get("num_gpu_blocks", "").isdigit() else startup.get("num_gpu_blocks_log")
+                    bsz = int(cci["block_size"]) if cci.get("block_size", "").isdigit() else startup.get("block_size_config")
+                    row |= {"num_gpu_blocks": blocks, "block_size": bsz}
+                    kv_tokens = startup.get("gpu_kv_cache_tokens") or (blocks * bsz if blocks and bsz else None)
+                    row["kv_tokens"] = kv_tokens
+                    if "max_concurrency_log" in startup:
+                        row |= {"max_full_len_seqs": startup["max_concurrency_log"], "max_full_len_seqs_source": "vLLM startup log"}
+                    elif kv_tokens:
+                        row |= {"max_full_len_seqs": round(kv_tokens / mlen, 2), "max_full_len_seqs_source": "computed kv_tokens / max_model_len"}
+                    r = chat(srv.base_url, model, "Say hello in five words.", 16, stream=False)
+                    row["chat_check_status"] = r.get("status")
+                else:
+                    row["error_lines"] = error_lines(text)
+                st.write(key, row, **prov)
+
+
+STAGE_ARGS["kvgrid"] = [
+    lambda p: p.add_argument("--vllm-version", required=True),
+    lambda p: p.add_argument("--model", default="hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4"),
+    lambda p: p.add_argument("--utils", default="0.80,0.90,0.95"),
+    lambda p: p.add_argument("--lens", default="2048,4096,8192,16384"),
+]
+
+
+def help_default(help_text: str, flag: str) -> str | None:
+    """The 'Default: X' printed under a flag in `vllm serve --help=all`."""
+    m = re.search(re.escape(flag) + r"(?![\w-]).*?Default:\s*([^\s)]+)", help_text, re.S)
+    return m.group(1).rstrip(".") if m else None
+
+
+def bench_serve(st: Stage, model: str, concurrency: int, num_prompts: int, input_len: int, output_len: int) -> dict:
+    """Cross-check with the benchmark tool shipped in the pinned vLLM (`vllm bench serve`)."""
+    rc, help_text = sh(["vllm", "bench", "serve", "--help"], timeout=300, out=st.logs / "vllm-bench-serve-help.txt")
+    want = ["--backend", "--base-url", "--model", "--endpoint", "--dataset-name", "--random-input-len",
+            "--random-output-len", "--num-prompts", "--max-concurrency", "--ignore-eos", "--save-result",
+            "--result-dir", "--result-filename", "--percentile-metrics", "--metric-percentiles"]
+    missing = require_flags(help_text, want)
+    if rc != 0 or missing:
+        return {"bench_rc": rc, "bench_flags_missing": missing}
+    out_dir = st.dir / "bench_serve"
+    out_dir.mkdir(exist_ok=True)
+    fname = f"bench-c{concurrency}.json"
+    cmd = ["vllm", "bench", "serve", "--backend", "vllm", "--base-url", f"http://127.0.0.1:{PORT}", "--model", model,
+           "--endpoint", "/v1/completions", "--dataset-name", "random", "--random-input-len", str(input_len),
+           "--random-output-len", str(output_len), "--num-prompts", str(num_prompts), "--max-concurrency", str(concurrency),
+           "--ignore-eos", "--percentile-metrics", "ttft,tpot,itl,e2el", "--metric-percentiles", "50,95,99",
+           "--save-result", "--result-dir", str(out_dir), "--result-filename", fname]
+    rc, out = sh(cmd, timeout=1800, out=st.logs / f"vllm-bench-serve-c{concurrency}.txt")
+    row = {"bench_cmd": shlex.join(cmd), "bench_rc": rc}
+    if (out_dir / fname).exists():
+        j = json.loads((out_dir / fname).read_text())
+        row["bench"] = {k: v for k, v in j.items() if not isinstance(v, list)}
+    else:
+        row["bench_tail"] = out[-1500:]
+    return row
+
+
+def stage_sweep(a) -> None:
+    """Task 4: closed loop c=1..64 at two --max-num-seqs, open loop at 3 rates around the knee, bench cross-check."""
+    st = Stage("sweep")
+    inst = install_pinned(st, a.vllm_version)
+    help_text = serve_help(st.logs, a.vllm_version)
+    model, choice = choose_model(a.model, a.fallback_model, st)
+    rev = model_revision(model)
+    default_mns = help_default(help_text, "--max-num-seqs")
+    st.write("max-num-seqs-default", {"kind": "note", "max_num_seqs_default_from_help": default_mns,
+                                      "source": "vllm serve --help=all"}, vllm_version=a.vllm_version)
+    concs = [int(x) for x in a.concurrency.split(",")]
+    done = st.done()
+    for mns in a.max_num_seqs.split(","):
+        flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching"]
+        if mns != "default":
+            flags += ["--max-num-seqs", mns]
+        prov = {"model": model, "model_revision": rev, "serving_flags": flags, "vllm_version": a.vllm_version,
+                "torch": inst["torch_after_install"], "max_num_seqs": mns if mns != "default" else f"default ({default_mns})",
+                "prefix_caching": "disabled (--no-enable-prefix-caching) + unique random prompts"} | choice
+        todo = [c for c in concs if f"closed-mns{mns}-c{c}" not in done]
+        open_needed = mns == "default" and a.open_loop
+        bench_needed = mns == "default" and a.bench and any(f"bench-c{c}" not in done for c in (1, 16))
+        if not todo and not open_needed and not bench_needed:
+            continue
+        srv = VllmServer(model, flags, st.logs / f"server-mns{mns}.log")
+        with srv:
+            res = srv.start()
+            if not res["started"]:
+                st.write(f"server-mns{mns}", {"kind": "server_fail", **res, "error_lines": error_lines(srv.log_text())}, **prov)
+                continue
+            for c in todo:
+                cc = client_cfg(model, c, max(20, 4 * c))
+                row = harness_point(srv.base_url, cc, st.dir / f"mns{mns}-c{c}", st.dir / f"mns{mns}-c{c}" / "gpu.csv")
+                st.write(f"closed-mns{mns}-c{c}", {"kind": "closed_loop", "concurrency": c, **row}, **prov, client=cc)
+            if open_needed:
+                closed = [r for r in st.rows() if r["key"].startswith(f"closed-mns{mns}-c") and r.get("steady_output_tok_s")]
+                if closed:
+                    best = max(r["steady_output_tok_s"] for r in closed)
+                    knee = min((r for r in closed if r["steady_output_tok_s"] >= 0.9 * best), key=lambda r: r["concurrency"])
+                    knee_rps = knee["req_s"]
+                    st.write("knee", {"kind": "knee", "rule": "smallest concurrency with steady_output_tok_s >= 90% of max",
+                                      "knee_concurrency": knee["concurrency"], "knee_req_s": knee_rps,
+                                      "max_steady_output_tok_s": best, "rates": [round(knee_rps * f, 3) for f in (0.75, 1.0, 1.25)]}, **prov)
+                    for f in (0.75, 1.0, 1.25):
+                        rate = round(knee_rps * f, 3)
+                        key = f"open-x{f}"
+                        if key in done:
+                            continue
+                        cc = client_cfg(model, 512, max(40, int(rate * 90)), arrival_rate=rate)
+                        row = harness_point(srv.base_url, cc, st.dir / key, st.dir / key / "gpu.csv")
+                        st.write(key, {"kind": "open_loop", "arrival_rate": rate, "knee_factor": f, **row}, **prov, client=cc)
+            if bench_needed:
+                for c in (1, 16):
+                    if f"bench-c{c}" in done:
+                        continue
+                    from benchmarks.gpu_sampler import GpuSampler
+                    with GpuSampler(st.dir / f"bench-c{c}-gpu.csv"):
+                        row = bench_serve(st, model, c, max(20, 4 * c), 256, 128)
+                    st.write(f"bench-c{c}", {"kind": "bench_serve", "concurrency": c, **row}, **prov)
+            (st.logs / f"metrics-end-mns{mns}.txt").write_text(metrics_text(srv.base_url))
+
+
+STAGE_ARGS["sweep"] = [
+    lambda p: p.add_argument("--vllm-version", required=True),
+    lambda p: p.add_argument("--model", default="meta-llama/Llama-3.2-3B-Instruct"),
+    lambda p: p.add_argument("--fallback-model", default="Qwen/Qwen2.5-3B-Instruct"),
+    lambda p: p.add_argument("--concurrency", default="1,2,4,8,16,32,64"),
+    lambda p: p.add_argument("--max-num-seqs", default="default,8"),
+    lambda p: p.add_argument("--no-open-loop", dest="open_loop", action="store_false"),
+    lambda p: p.add_argument("--no-bench", dest="bench", action="store_false"),
+]
+
+
+# ---------------------------------------------------------------- Task 5: quantization
+
+class LlamaCppServer(VllmServer):
+    """llama-server (llama.cpp CUDA build) with the same start/stop/log contract as VllmServer."""
+
+    def __init__(self, binary: str, gguf: str, flags: list[str], log_path: Path, served_name: str):
+        super().__init__(gguf, flags, log_path, served_name)
+        self.cmd = [binary, "-m", gguf, "--port", str(PORT), "--alias", served_name, *flags]
+
+
+def install_llamacpp(st: Stage, tag: str) -> dict:
+    """Prebuilt llama.cpp CUDA 12.8 x64 release + its cudart bundle (GitHub release assets)."""
+    base = f"https://github.com/ggml-org/llama.cpp/releases/download/{tag}"
+    d = "/tmp/llamacpp"
+    t0 = time.time()
+    rc, out = sh(f"mkdir -p {d} && cd {d} && curl -sSfL -o a.tgz {base}/llama-{tag}-bin-ubuntu-cuda-12.8-x64.tar.gz && "
+                 f"curl -sSfL -o b.tgz {base}/cudart-llama-{tag}-bin-ubuntu-cuda-12.8-x64.tar.gz && "
+                 f"tar xzf a.tgz && tar xzf b.tgz && find {d} -name llama-server -o -name llama-perplexity -o -name 'libcudart*'",
+                 timeout=900, out=st.logs / "llamacpp-install.txt")
+    found = out.split()
+    server = next((p for p in found if p.endswith("/llama-server")), None)
+    ppl = next((p for p in found if p.endswith("/llama-perplexity")), None)
+    libdirs = sorted({str(Path(p).parent) for p in found if "libcudart" in p} | ({str(Path(server).parent)} if server else set()))
+    os.environ["LD_LIBRARY_PATH"] = ":".join(libdirs + [os.environ.get("LD_LIBRARY_PATH", "")])
+    rc2, ver = sh([server, "--version"], timeout=60) if server else (1, "no llama-server")
+    return {"llamacpp_tag": tag, "install_rc": rc, "install_s": round(time.time() - t0, 1), "llama_server": server,
+            "llama_perplexity": ppl, "llama_server_version": ver.strip()[-400:], "version_rc": rc2}
+
+
+def wikitext_file(st: Stage) -> Path:
+    p = st.dir / "wikitext2_test.txt"
+    if not p.exists():
+        from datasets import load_dataset
+        ds = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split="test")
+        p.write_text("".join(ds["text"]))
+    return p
+
+
+def ppl_vllm(base_url: str, served: str, tokenizer_repo: str, text_path: Path, ctx: int, chunks: int) -> dict:
+    """Perplexity over the OpenAI-compatible vLLM endpoint with prompt_logprobs: the text is tokenized
+    once, cut into `chunks` non-overlapping windows of `ctx` tokens, and only the second half of each
+    window is scored (each scored token sees >= ctx/2 tokens of context) - the same windowing as llama-perplexity."""
+    import math
+    import httpx
+    from transformers import AutoTokenizer
+    tok = AutoTokenizer.from_pretrained(tokenizer_repo)
+    ids = tok(text_path.read_text(), add_special_tokens=False)["input_ids"]
+    nll, n = 0.0, 0
+    with httpx.Client(timeout=600) as c:
+        for k in range(min(chunks, len(ids) // ctx)):
+            win = ids[k * ctx:(k + 1) * ctx]
+            r = c.post(base_url + "/v1/completions", json={"model": served, "prompt": win, "max_tokens": 1,
+                                                           "temperature": 0, "prompt_logprobs": 0})
+            r.raise_for_status()
+            plp = r.json()["choices"][0]["prompt_logprobs"]
+            for pos in range(ctx // 2 + 1, ctx):   # = llama-perplexity: first = n_ctx/2, predicts tokens first+1..n_ctx-1
+                entry = plp[pos] or {}
+                lp = entry.get(str(win[pos]))
+                nll -= lp["logprob"] if isinstance(lp, dict) else lp
+                n += 1
+    return {"ppl": round(math.exp(nll / n), 4), "ppl_tokens_scored": n, "ppl_ctx": ctx, "ppl_chunks": chunks,
+            "ppl_method": "vLLM prompt_logprobs, second half of each window", "ppl_tokens_total": len(ids)}
+
+
+def ppl_llamacpp(binary: str, gguf: str, text_path: Path, ctx: int, chunks: int, logs: Path, name: str) -> dict:
+    rc, out = sh([binary, "-m", gguf, "-f", str(text_path), "-c", str(ctx), "--chunks", str(chunks), "-ngl", "99"],
+                 timeout=1800, out=logs / f"llama-perplexity-{name}.txt", env=dict(os.environ, CUDA_VISIBLE_DEVICES="0"))
+    m = re.search(r"Final estimate: PPL = ([\d.]+) \+/- ([\d.]+)", out)
+    return {"ppl": float(m.group(1)), "ppl_stderr": float(m.group(2)), "ppl_ctx": ctx, "ppl_chunks": chunks,
+            "ppl_method": "llama-perplexity"} if m else {"ppl_rc": rc, "ppl_error": out[-800:]}
+
+
+def lm_eval(st: Stage, served: str, tokenizer_repo: str, tasks: str, limit: int, name: str, version: str) -> dict:
+    """lm-eval (own venv, so it can't change vLLM's packages) against the OpenAI-compatible /v1/completions."""
+    venv = "/tmp/lmeval"
+    if not Path(venv, "bin", "lm_eval").exists():
+        rc, out = sh(f"{sys.executable} -m pip install -q uv && uv venv -q {venv} && uv pip install -q --python {venv}/bin/python "
+                     f"'lm-eval[api]=={version}' --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match",
+                     timeout=1500, out=st.logs / "lmeval-install.txt")
+        if rc:
+            return {"lmeval_install_rc": rc, "lmeval_error": out[-800:]}
+    out_dir = st.dir / f"lmeval-{name}"
+    args = (f"model={served},base_url=http://127.0.0.1:{PORT}/v1/completions,num_concurrent=8,max_retries=3,"
+            f"tokenized_requests=False,tokenizer_backend=huggingface,tokenizer={tokenizer_repo}")
+    cmd = [f"{venv}/bin/lm_eval", "--model", "local-completions", "--model_args", args, "--tasks", tasks,
+           "--limit", str(limit), "--output_path", str(out_dir)]
+    t0 = time.time()
+    rc, out = sh(cmd, timeout=3600, out=st.logs / f"lmeval-{name}.txt")
+    row: dict = {"lmeval_cmd": shlex.join(cmd), "lmeval_rc": rc, "lmeval_s": round(time.time() - t0, 1),
+                 "lmeval_version": version, "lmeval_limit": limit}
+    res = sorted(out_dir.rglob("results_*.json"))
+    if res:
+        j = json.loads(res[-1].read_text())
+        row["lmeval"] = {t: {k: v for k, v in m.items() if k != "alias"} for t, m in j.get("results", {}).items()}
+    else:
+        row["lmeval_tail"] = out[-1500:]
+    return row
+
+
+def stage_quant(a) -> None:
+    """Task 5: FP16 vs AWQ (vLLM) vs GGUF Q8_0 / Q4_K_M (llama.cpp CUDA): decode, c=16, perplexity, lm-eval."""
+    st = Stage("quant")
+    inst = install_pinned(st, a.vllm_version)
+    text = wikitext_file(st)
+    done = st.done()
+    from huggingface_hub import hf_hub_download, list_repo_files
+    variants = [("fp16", "vllm", a.fp16_model), ("awq-int4", "vllm", a.awq_model),
+                ("gguf-q8_0", "llamacpp", "q8_0"), ("gguf-q4_k_m", "llamacpp", "q4_k_m")]
+    lcpp: dict | None = None
+    for name, engine, ref in variants:
+        if name not in a.variants.split(","):
+            continue
+        parts = [p for p in ("decode", "c16", "ppl", "lmeval") if f"{name}-{p}" not in done]
+        if not parts:
+            continue
+        if engine == "vllm":
+            flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching"]
+            srv = VllmServer(ref, flags, st.logs / f"server-{name}.log", served_name=name)
+            prov = {"model": ref, "model_revision": model_revision(ref), "engine": f"vLLM {a.vllm_version}",
+                    "serving_flags": flags, "vllm_version": a.vllm_version, "torch": inst["torch_after_install"]}
+            api = "openai"
+        else:
+            if lcpp is None:
+                lcpp = install_llamacpp(st, a.llamacpp_tag)
+                st.write("llamacpp-install", {"kind": "install", **lcpp})
+            if not lcpp.get("llama_server"):
+                st.write(f"{name}-skipped", {"kind": "skipped", "reason": "llama.cpp CUDA binary not available", **lcpp})
+                continue
+            fname = next(f for f in list_repo_files(a.gguf_repo) if f.lower().endswith(f"{ref}.gguf"))
+            gguf = hf_hub_download(a.gguf_repo, fname)
+            flags = ["-ngl", "99", "-c", "8192", "-np", "16", "--metrics", "--no-webui"]
+            srv = LlamaCppServer(lcpp["llama_server"], gguf, flags, st.logs / f"server-{name}.log", served_name=name)
+            prov = {"model": f"{a.gguf_repo}/{fname}", "model_revision": model_revision(a.gguf_repo),
+                    "engine": f"llama.cpp {a.llamacpp_tag} (CUDA 12.8 prebuilt)", "serving_flags": flags}
+            api = "llamacpp"
+        with srv:
+            res = srv.start()
+            if not res["started"]:
+                st.write(f"{name}-server", {"kind": "server_fail", **res, "error_lines": error_lines(srv.log_text())}, **prov)
+                continue
+            startup = {k: v for k, v in parse_startup(srv.log_text()).items() if k != "startup_lines"} if engine == "vllm" else {}
+            if "decode" in parts:
+                dec = batch1_decode(srv.base_url, name, a.decode_runs, a.decode_max_tokens)
+                st.write(f"{name}-decode", {"kind": "decode_batch1", "variant": name, **dec, **startup}, **prov,
+                         client={"endpoint": "/v1/chat/completions", "stream": True, "ignore_eos": True,
+                                 "max_tokens": a.decode_max_tokens, "runs": a.decode_runs})
+            if "c16" in parts:
+                cc = client_cfg(name, 16, 64)
+                if api == "llamacpp":
+                    cc |= {"api": "llamacpp", "endpoint": "/completion"}
+                row = harness_point(srv.base_url, cc, st.dir / f"{name}-c16", st.dir / f"{name}-c16" / "gpu.csv")
+                st.write(f"{name}-c16", {"kind": "closed_loop", "variant": name, "concurrency": 16, **row}, **prov, client=cc)
+            if "ppl" in parts:
+                try:
+                    if engine == "vllm":
+                        p = ppl_vllm(srv.base_url, name, a.fp16_model, text, a.ppl_ctx, a.ppl_chunks)
+                    else:   # llama-perplexity loads the model itself: free the GPU, then bring the server back
+                        srv.stop()
+                        p = ppl_llamacpp(lcpp["llama_perplexity"], gguf, text, a.ppl_ctx, a.ppl_chunks, st.logs, name)
+                        srv.start()
+                except Exception as exc:
+                    p = {"ppl_error": f"{type(exc).__name__}: {exc}"}
+                st.write(f"{name}-ppl", {"kind": "perplexity", "variant": name, "text": "wikitext-2-raw-v1 test (Salesforce/wikitext)", **p}, **prov)
+            if "lmeval" in parts and srv.proc and srv.proc.poll() is None:
+                row = lm_eval(st, name, a.fp16_model, a.lmeval_tasks, a.lmeval_limit, name, a.lmeval_version)
+                st.write(f"{name}-lmeval", {"kind": "lmeval", "variant": name, **row}, **prov)
+
+
+STAGE_ARGS["quant"] = [
+    lambda p: p.add_argument("--vllm-version", required=True),
+    lambda p: p.add_argument("--fp16-model", default="Qwen/Qwen2.5-3B-Instruct"),
+    lambda p: p.add_argument("--awq-model", default="Qwen/Qwen2.5-3B-Instruct-AWQ"),
+    lambda p: p.add_argument("--gguf-repo", default="Qwen/Qwen2.5-3B-Instruct-GGUF"),
+    lambda p: p.add_argument("--llamacpp-tag", default="b11146"),
+    lambda p: p.add_argument("--variants", default="fp16,awq-int4,gguf-q8_0,gguf-q4_k_m"),
+    lambda p: p.add_argument("--decode-runs", type=int, default=5),
+    lambda p: p.add_argument("--decode-max-tokens", type=int, default=256),
+    lambda p: p.add_argument("--ppl-ctx", type=int, default=512),
+    lambda p: p.add_argument("--ppl-chunks", type=int, default=40),
+    lambda p: p.add_argument("--lmeval-tasks", default="gsm8k,hellaswag"),
+    lambda p: p.add_argument("--lmeval-limit", type=int, default=250),
+    lambda p: p.add_argument("--lmeval-version", default="0.4.12"),
+]
+
+STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
+          "quant": stage_quant}
 
 
 def main() -> None:
