@@ -1,0 +1,9 @@
+{
+  "stage": "smoke",
+  "run_id": "20261015-064738_smoke",
+  "git_sha": "43eb255-dirty",
+  "runtime_s": 20.0,
+  "args": {
+    "stage": "smoke"
+  }
+}
