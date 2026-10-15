@@ -115,15 +115,65 @@ def hf_token() -> str | None:
     if os.environ.get("HF_TOKEN"):
         return os.environ["HF_TOKEN"]
     global HF_SECRET_ERROR
+    # Versions pushed with `kaggle kernels push` get a KAGGLE_URL_BASE on api.kaggle.com, where the secrets
+    # endpoint answers HTTP 400; UI-saved versions use www.kaggle.com and get 200 (smoke runs, 2026-10-15).
+    # So: the kernel's own base first, then www.kaggle.com.
+    errors = []
+    for base in (None, "https://www.kaggle.com"):
+        old = os.environ.get("KAGGLE_URL_BASE")
+        if base:
+            os.environ["KAGGLE_URL_BASE"] = base
+        try:
+            from kaggle_secrets import UserSecretsClient
+            tok = UserSecretsClient().get_secret("HF_TOKEN")
+            if tok:
+                os.environ["HF_TOKEN"] = tok
+                HF_SECRET_ERROR = f"ok via {base or 'kernel KAGGLE_URL_BASE'}" + (f" (first try: {errors[0]})" if errors else "")
+                return tok
+        except Exception as exc:
+            errors.append(f"{base or 'kernel base'}: {type(exc).__name__}: {str(exc)[:150]}")
+        finally:
+            if base:
+                if old is None:
+                    os.environ.pop("KAGGLE_URL_BASE", None)
+                else:
+                    os.environ["KAGGLE_URL_BASE"] = old
+    HF_SECRET_ERROR = " | ".join(errors)
+    return None
+
+
+def secret_diagnosis(label: str = "HF_TOKEN") -> dict:
+    """Why kaggle_secrets fails: it turns any URLError (incl. HTTP 4xx) into a generic ConnectionError.
+    Records the KAGGLE_* env var NAMES (never values) and the real urllib error of one get_secret() call."""
+    import urllib.request
+    seen: list[str] = []
+    real = urllib.request.urlopen
+
+    def spy(req, *a, **kw):
+        url = req.full_url if hasattr(req, "full_url") else str(req)
+        try:
+            resp = real(req, *a, **kw)
+            seen.append(f"{url} -> {getattr(resp, 'status', '?')}")
+            return resp
+        except Exception as exc:
+            body = ""
+            if hasattr(exc, "read"):
+                try:
+                    body = exc.read().decode(errors="replace")[:300]
+                except Exception:
+                    pass
+            seen.append(f"{url} -> {type(exc).__name__} {getattr(exc, 'code', '')} {getattr(exc, 'reason', exc)} {body}")
+            raise
+    urllib.request.urlopen = spy
     try:
         from kaggle_secrets import UserSecretsClient
-        tok = UserSecretsClient().get_secret("HF_TOKEN")
-        if tok:
-            os.environ["HF_TOKEN"] = tok
-        return tok
+        UserSecretsClient().get_secret(label)
+        result = "ok (value not recorded)"
     except Exception as exc:
-        HF_SECRET_ERROR = f"{type(exc).__name__}: {str(exc)[:200]}"
-        return None
+        result = f"{type(exc).__name__}: {str(exc)[:200]}"
+    finally:
+        urllib.request.urlopen = real
+    return {"env_names": sorted(k for k in os.environ if k.startswith("KAGGLE")), "get_secret": result, "http": seen}
 
 
 HF_SECRET_ERROR = None
@@ -480,6 +530,7 @@ def stage_smoke(a) -> None:
     access = [hf_access(r) for r in HF_REPOS_TO_CHECK]
     st.write("smoke", {"pip_show_vllm_rc": rc_v, "pip_show_vllm": vllm_show.strip()[:300], "pynvml": nvml,
                        "dcgm_probe_rc": rc_d, "dcgm_probe": dcgm.strip()[:500], "hf_token_present": hf_token() is not None, "hf_secret_error": HF_SECRET_ERROR,
+                       "secret_diagnosis": secret_diagnosis(),
                        "hf_access": access, "env": st.env})
 
 
@@ -1014,6 +1065,9 @@ def main() -> None:
     for add in STAGE_ARGS.get(a.stage, []):
         add(sub)
     a = argparse.Namespace(**vars(a), **vars(sub.parse_args(rest)))
+    if not os.environ.get("GOODPUT_RESULTS") and not Path("/kaggle/working").is_dir():
+        sys.exit("t4_notebook.py runs inside a Kaggle kernel. From this machine: make t4-run STAGE=" + a.stage
+                 + "  (set GOODPUT_RESULTS=<dir> to run it locally anyway)")
     log(f"stage {a.stage} start (run {RUN_ID}, git {GIT_SHA})")
     t0 = time.time()
     try:

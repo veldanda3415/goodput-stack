@@ -32,7 +32,8 @@ vLLM and step back only on failure. 0.31.0 worked, so it is pinned. Re-check 0.3
 
 | Role | Repo | Revision | Note |
 |---|---|---|---|
-| 3B baseline, sweep, FP16 | `Qwen/Qwen2.5-3B-Instruct` | `aa8e72537993ba99e69dfaafa59ed015b17504d1` | **substitute** for `meta-llama/Llama-3.2-3B-Instruct` (gated: download 401 without an HF token in the kernel) |
+| 3B baseline, sweep (predicted model) | `meta-llama/Llama-3.2-3B-Instruct` | `0cb88a4f764b7a12671c53f0838cd831a0843b95` | gated; needs the `HF_TOKEN` Kaggle secret (read via `www.kaggle.com`, see the T4 README) |
+| 3B baseline, sweep, FP16 (first round) | `Qwen/Qwen2.5-3B-Instruct` | `aa8e72537993ba99e69dfaafa59ed015b17504d1` | **substitute** used while the secret could not be read |
 | 3B AWQ INT4 | `Qwen/Qwen2.5-3B-Instruct-AWQ` | `3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd` | official Qwen |
 | 3B GGUF Q8_0 / Q4_K_M | `Qwen/Qwen2.5-3B-Instruct-GGUF` | `7dabda4d13d513e3e842b20f0d435c732f172cbe` | official Qwen |
 | 8B AWQ INT4 (KV grid) | `hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4` | `db1f81ad4b8c7e39777509fac66c652eb0a52f91` | ungated |

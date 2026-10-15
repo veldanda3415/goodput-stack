@@ -6,6 +6,7 @@ JSONL row in this directory. The rows carry the timestamp, git sha, GPU/driver/C
 revision, every serving flag and the client config. Generated tables: [summary.md](summary.md) (all stages),
 [../../kv_capacity_table.md](../../kv_capacity_table.md) (8B KV grid), [RESULTS.md](../../../RESULTS.md) (headline rows).
 
+- [Llama-3.2-3B — the predicted model](#llama-32-3b--the-predicted-model)
 - [What ran](#what-ran)
 - [Versions](#versions)
 - [Task 1 — baseline serve](#task-1--baseline-serve)
@@ -22,14 +23,16 @@ One Kaggle kernel version per stage (`make t4-run STAGE=<stage>`). Results are i
 
 | Stage | Question | Run(s) |
 |---|---|---|
-| smoke | GPU, driver, packages, DCGM, HF access | 20261014-213711, -214014, -214129 |
-| baseline | which vLLM serves on sm_75; startup facts; chat API; batch-1 decode; /metrics | 20261014-214232 (failed, see below), **20261014-215653** |
+| smoke | GPU, driver, packages, DCGM, HF access | 20261014-213711, -214014, -214129; secret diagnosis 20261015-063714; token fix **20261015-064738** |
+| baseline | which vLLM serves on sm_75; startup facts; chat API; batch-1 decode; /metrics | 20261014-214232 (failed, see below), **20261014-215653** (Qwen), **20261015-064953** (Llama) |
 | kvgrid | 8B AWQ INT4: KV pool vs `--gpu-memory-utilization` × `--max-model-len` | **20261014-220938** |
-| sweep | closed loop c=1..64 × two `--max-num-seqs`, open loop, `vllm bench serve` cross-check | **20261014-220946**; cross-check 20261014-225021 (other session, invalid pair), **20261014-230457** (same session); TTFT-tail diagnosis 20261014-232257, 20261014-233928 |
+| sweep | closed loop c=1..64 × two `--max-num-seqs`, open loop, `vllm bench serve` cross-check | Llama **20261015-070248**; Qwen **20261014-220946**; cross-check 20261014-225021 (other session, invalid pair), **20261014-230457** (same session); TTFT-tail diagnosis 20261014-232257, 20261014-233928 |
 | quant | FP16 vs AWQ (vLLM) vs GGUF Q8_0/Q4_K_M (llama.cpp CUDA): speed, PPL, lm-eval, cost | **20261014-224513** (speed, PPL), 20261014-230851 (lm-eval vLLM), 20261014-234235 (lm-eval GGUF) |
 
-GPU time: **3.89 GPU-hours** of script session time over 15 Kaggle runs (4.25 h push→done upper bound); per run in
-[runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Kaggle's output download sometimes saves a 502
+GPU time: **5.06 GPU-hours** of script session time over 20 Kaggle runs pushed by `run_kaggle.py` (5.46 h push→done
+upper bound); per run in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Not in the ledger: two
+versions started from the Kaggle editor on 2026-10-15 (a re-run of the GGUF lm-eval stage, ~24 min, and the
+one-minute smoke that proved the secret works from the editor). Kaggle's output download sometimes saves a 502
 HTML page in place of a file; `run_kaggle.py` retries and never overwrites a good file with one.
 
 ## Versions
@@ -38,12 +41,53 @@ Full table with sources: [docs/environment.md](../../../docs/environment.md). Sh
 580.178.04, CUDA 13.0 (driver), Python 3.13.15, **vLLM 0.31.0** with torch 2.13.0+cu130, llama.cpp b11146 CUDA 12.8
 prebuilt, lm-eval 0.4.12.
 
-**Models.** `meta-llama/Llama-3.2-3B-Instruct` is gated and the Kaggle kernel had no usable HF token: `kaggle_secrets`
-returned *"ConnectionError: Connection error trying to communicate with service"*, which is what Kaggle returns when no
-secret is attached to the kernel. So every 3B result is **`Qwen/Qwen2.5-3B-Instruct` (substitute)**, revision
-`aa8e7253…`. The 8B KV grid uses the ungated `hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4`.
-Note: `huggingface_hub.model_info()` *succeeds* on the gated Llama repos without a token (metadata only). Only a
-file download (`config.json`) returns the 401, so the notebook checks both.
+**Models.** `meta-llama/Llama-3.2-3B-Instruct` (revision `0cb88a4f…`) is gated. Until 2026-10-15 the pushed kernels
+could not read the `HF_TOKEN` Kaggle secret, so the first round of 3B results (baseline, sweep, quant) is
+**`Qwen/Qwen2.5-3B-Instruct` (substitute)**, revision `aa8e7253…`. Llama baseline and sweep followed once the secret
+worked; see [the next section](#llama-32-3b--the-predicted-model). Quant stays Qwen-only, since Qwen publishes the
+FP16/AWQ/GGUF set from one source. The 8B KV grid uses the ungated `hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4`.
+
+Why the secret failed (smoke runs 20261015-063714 and -064738, `secret_diagnosis`): the secret *was* attached. In
+versions created by `kaggle kernels push`, `kaggle_secrets` calls
+`https://api.kaggle.com/requests/GetUserSecretByLabelRequest`, which answers **HTTP 400**; the client reports that as
+*"ConnectionError: Connection error trying to communicate with service"*. A version saved in the Kaggle editor calls
+`https://www.kaggle.com/...` and gets **200**. `hf_token()` now retries with `KAGGLE_URL_BASE=https://www.kaggle.com`.
+Note: `huggingface_hub.model_info()` *succeeds* on gated repos without a token (metadata only); only a file
+download (`config.json`) returns the 401, so the notebook checks both.
+
+## Llama-3.2-3B — the predicted model
+
+`meta-llama/Llama-3.2-3B-Instruct` @ `0cb88a4f…`, FP16, vLLM 0.31.0 (TRITON_ATTN), `--dtype half
+--gpu-memory-utilization 0.9 --max-model-len 4096 --no-enable-prefix-caching`.
+
+| Quantity | Predicted | Measured | Source |
+|---|---|---|---|
+| KV bytes/token | 114,688 | 114,688 = 2 × 28 layers × 8 KV heads × 128 × 2 B | config.json |
+| KV pool @ 0.90 | ≈ 55,000 tokens | **53,904** (−2.0 %); check: 5.76 GiB ÷ 114,688 B = 53,926 | baseline 20261015-064953, log + `cache_config_info` |
+| GPU blocks × block size | ≈ KV pool | 3,369 × 16 = 53,904 | `cache_config_info` |
+| Batch-1 decode | ≤ 50, expect 30–35 tok/s | **36.65** median (35.67–37.11, spread 3.9 %) | baseline 20261015-064953 |
+| Weights | — | 6.04 GiB | log |
+
+The decode runs drifted from 37.11 to 35.67 tok/s as the SM clock fell from 1,076 to 773 MHz, with zero throttle-counter time.
+
+**Sweep (run 20261015-070248; this session was power-capped, read the shape, not the absolute values).** The "SW
+Power Capping" counter ran for 291 s during the 1-client matched run, and the SM clock averaged 341 MHz at c=1 against
+841 MHz at c=64. So the c=1 point (TPOT 102 ms, 12 tok/s) is the clock state, not the engine: c=2 ran at 35 ms ITL.
+For clean batch-1 speed use the baseline number above.
+
+| | default `--max-num-seqs` | `--max-num-seqs 8` |
+|---|---|---|
+| steady output tok/s at c = 8 / 16 / 64 | 157 / 231 / **402** (still rising) | 158 / 159 / 160 (flat) |
+| TTFT p50 at c = 16 / 32 / 64 | 378 / 454 / 664 ms | **6,829 / 19,653 / 44,671 ms** |
+| vLLM KV usage max at c = 64 | 0.42 (Qwen: 0.13; Llama's tokens cost 3.1× more) | 0.05 |
+| preemptions | 0 | 0 |
+
+Open loop at 2.34 / 3.13 / 3.91 req/s (0.75 / 1.0 / 1.25 × the c=64 rate): achieved 2.30 / 2.90 / 3.40 req/s, 0
+errors, KV usage up to **0.81**, still 0 preemptions, TTFT p95 0.64 / 0.93 / 1.26 s. Same-session tool cross-check:
+TPOT agrees at c=1 (103.9 harness vs 104.0 ms bench) and ITL at c=16 (53.6 vs 54.0 ms). bench's c=16 TTFT p95 is
+7.1 s against 1.86 s, the same sampled first-wave stall found with Qwen (bench sends no temperature). Charts:
+[throughput](charts/sweep_throughput-llama-3.2-3b-instruct.png), [TTFT](charts/sweep_ttft-llama-3.2-3b-instruct.png),
+[ITL](charts/sweep_itl-llama-3.2-3b-instruct.png).
 
 ## Task 1 — baseline serve
 
@@ -260,7 +304,8 @@ source build) with `-ngl 99 -c 8192 -np 16 --metrics`. Full table: [summary.md](
   sessions are not directly comparable; each table says which run it came from.
 - **NVML sampling, not DCGM.** DCGM is not installed on Kaggle (no `dcgmi`, `nv-hostengine` or `libdcgm*`), so
   there is no SM_ACTIVE/occupancy, only NVML `util.gpu` (kernel-running time) at 1 Hz.
-- **Substitute model.** Every 3B number is Qwen2.5-3B-Instruct, not Llama-3.2-3B (gated, no token in the kernel).
+- **Two 3B models.** Baseline and sweep exist for Llama-3.2-3B (the predicted model) and for Qwen2.5-3B (the earlier
+  substitute); quant is Qwen-only. The tables say which model each row is.
 - **Closed loop is not real traffic**; the open-loop runs are short (≤ 533 requests) and their rates were
   anchored to the edge of the sweep, not to a measured saturation knee.
 - **Single repeat per point** for the sweep. Spread is only measured for batch-1 decode (5 runs).
