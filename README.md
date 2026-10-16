@@ -14,8 +14,10 @@ EPP routes size-blind, and enabling and tuning llm-d's own `token-load-scorer` f
 > **Status:** backends, Helm chart, Gateway API inference routing (with probes P1–P9), Prometheus/Grafana observability
 > and KEDA queue-depth autoscaling run on a single-node k3s lab. vLLM runs on a free Kaggle T4 (engine benchmarks,
 > quantization, cost). GPU scheduling (device plugin, DRA, Kueue, node health) runs on a separate k3d cluster with
-> **simulated** GPUs. An isolated FRR/containerlab fabric lab is in use as **EMULATED**; lossless RoCE and
-> PFC/DCQCN behavior are not built. Nothing is claimed as done until it is in the repo with evidence:
+> **simulated** GPUs. An AI-cluster fabric (leaf-spine, eBGP, ECMP, BFD, EVPN-VXLAN tenants) runs as an **EMULATED**
+> FRR/containerlab lab rendered from one intent file, with Soft-RoCE endpoints, collective-shaped traffic, failure drills,
+> an NX-OS render checked offline by Batfish, and a CALCULATED design for 256 / 2,048 GPUs. Lossless RoCE (PFC, DCQCN,
+> switch buffers) is designed and rendered but cannot run on veth links. Nothing is claimed as done until it is in the repo with evidence:
 > headline numbers with provenance are in [RESULTS.md](RESULTS.md).
 
 ## What runs today
@@ -40,7 +42,7 @@ flowchart LR
     kueue["GPU scheduling: device plugin, DRA, Kueue<br/>separate k3d cluster, SIMULATED GPUs"] -.-> pg
     prom["Prometheus / Grafana<br/>kube-prometheus-stack"] --> es
     prom --> ec
-    fabric["AI fabric: leaf-spine, eBGP, RoCE v2 design<br/>containerlab, in progress"] -.-> pg
+    fabric["AI fabric: leaf-spine, eBGP, ECMP, BFD, EVPN<br/>containerlab, EMULATED; RoCE v2 design"] -.-> pg
 
     classDef planned stroke-dasharray: 5 5,fill:none
     class pg,kueue,fabric planned
@@ -69,7 +71,13 @@ flowchart LR
   free Kaggle T4, driven from the lab with `make t4-run STAGE=...`. Headline numbers with provenance: [RESULTS.md](RESULTS.md).
 - **Probes** ([scripts/](scripts/)): small, single-question tests (queueing, bring-up, EPP routing, fail-open, disconnect, gateway kill,
   size-blind routing, burst vs metrics refresh, EPP overhead, gateway capacity).
-- **AI fabric** ([fabric/](fabric/)): vendor-neutral intent, FRR/containerlab renderer, live validation, and E1/E2 experiments. The lab is **EMULATED**; RoCE, PFC and DCQCN behavior is not implemented or measured.
+- **AI fabric** ([fabric/](fabric/), design in [DESIGN.md](fabric/DESIGN.md)): one vendor-neutral intent file renders FRR, host
+  setup and a containerlab topology (2 spines, 4 leaves, dual-rail hosts), plus an NX-OS config checked offline with Batfish
+  ([ADR 0004](docs/adr/0004-fabric-intent-render.md), [ADR 0006](docs/adr/0006-multi-nos-render-batfish.md)). eBGP unnumbered,
+  ECMP and BFD (E1, E2); Soft-RoCE RC traffic between VM endpoints and RED/ECN marking (E3, E4); collective-shaped traffic on
+  shaped uplinks, where job time tracks the busiest link (E5); failure drills under load (E6); EVPN-VXLAN tenant VRFs on the
+  front end (E7); nine runbooks. Sizing for 256 / 2,048 GPUs and the rail-optimized backend choice are CALCULATED
+  ([ADR 0005](docs/adr/0005-backend-topology.md)). Labels: EMULATED, SOFT-ROCE, INTENT-ONLY (PFC, headroom, SONiC QoS), OFFLINE-VALIDATED.
 
 ## Evidence at a glance
 
@@ -86,6 +94,10 @@ Selected; every row links its source. Full tables: [RESULTS.md](RESULTS.md).
 | How much KV cache fits on a T4? | Llama-3.2-3B FP16 at 0.90 memory: 53,904 tokens measured vs ≈ 55,000 predicted (−2 %) | Kaggle T4, real |
 | Cost per 1M output tokens (Qwen2.5-3B, 16 clients, T4 on-demand $0.526/h) | FP16 $0.428 · AWQ INT4 $0.272 · GGUF Q4_K_M $0.480 | Kaggle T4, real; calculated cost |
 | What happens when a GPU node fails? | Pods Ready on the healthy node in 3.8–6.7 s after fencing (3 runs) | SIMULATED GPUs |
+| Does ECMP hashing slow a collective? | Job time tracks the busiest link (r = 0.998, 36 runs); ring with L3 hash ≈ 1.9× the even split, L4 + 16 flows/pair within 1 % (E5) | EMULATED |
+| What does BFD buy when a link fails silently? | Loss window 0.5–0.6 s with BFD vs 7.4–9.1 s without (E2) | EMULATED |
+| Is a flapping link worse than a dead one? | Yes: a 2 s flap every 20 s cost > 30 s of step time vs ≈ 8 s for a dead link; one leaf down stalled the whole ring (E6) | EMULATED |
+| Can config drift be caught before deploy? | A one-device ASN change in the NX-OS render showed up as 4 half-open sessions in Batfish (≈ 9 s) | OFFLINE-VALIDATED |
 
 ## Repository
 
@@ -99,7 +111,7 @@ Selected; every row links its source. Full tables: [RESULTS.md](RESULTS.md).
 | [observability/](observability/) | kube-prometheus-stack, monitors for gateway/EPPs/engines, inference dashboard, EPP alerts | in use (lab) |
 | [autoscaling/](autoscaling/) | KEDA on queue depth (both pools), step load generator, scale-from-zero experiment (#10) | in use (lab) |
 | [scheduling/](scheduling/) | fake GPUs, device plugin vs DRA, Kueue quotas, GPU node health (k3d multi-node, SIMULATED GPUs) | in use (simulated) |
-| [fabric/](fabric/) | intent-rendered FRR/containerlab leaf-spine lab, eBGP unnumbered, BFD, validation and E1/E2; RoCE/PFC/DCQCN design only | EMULATED lab in use |
+| [fabric/](fabric/) | intent → FRR / NX-OS render, containerlab leaf-spine (eBGP unnumbered, ECMP, BFD, EVPN-VXLAN), Soft-RoCE VMs, experiments E1–E7, Batfish, runbooks, telemetry exporter, DESIGN.md + sizing/collective calculators; PFC/DCQCN design only | EMULATED lab in use |
 
 ## Quick start (k3s lab)
 
@@ -123,10 +135,11 @@ step 5 is the real check. After changing `deploy/gateway/epp-*.values.yaml`: `ma
 Other entry points: `make help` · `make bringup ARGS="--runs 10"` (pod bring-up timing) · `make sim-watch` ·
 probes P1–P3, P7 (`make probe-p7`), P8 (`make probe-p8`), P9 (`make probe-burst`) in [scripts/README.md](scripts/README.md) ·
 `make obs-up` (observability) · `make keda-up` (autoscaling) · `make gpusim-up` (simulated GPU cluster, [scheduling/](scheduling/README.md)) ·
-`make t4-run STAGE=...` (Kaggle T4).
+`make t4-run STAGE=...` (Kaggle T4) · `make fabric-up` / `make fabric-test` / `make fabric-batfish` (fabric lab, [fabric/README.md](fabric/README.md)).
 
 ## Environment
-- Local: k3s on WSL2 (single node `ravi-home`, i7-10700, CPU only); k3d on Podman for multi-node scheduling work.
+- Local: k3s on WSL2 (single node `ravi-home`, i7-10700, CPU only); k3d on Podman for multi-node scheduling work;
+  containerlab 0.78.2 on rootful Podman 5.7.0 with FRR 10.2.1 for the fabric lab.
 - GPU: free Kaggle/Colab T4 (16 GB, FP16/INT4). GPU benchmarks run on the T4 host directly.
 
 ## Ground rules
