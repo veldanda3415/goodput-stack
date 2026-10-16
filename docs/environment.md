@@ -43,3 +43,7 @@ Revisions are the `model_info().sha` recorded in each result row at run time.
 ## Local lab
 
 See the top-level [README](../README.md#environment): k3s on WSL2, i7-10700, CPU only.
+
+Fabric lab: containerlab 0.78.2 (`--runtime podman`, rootful Podman 5.7.0), FRR 10.2.1, netshoot v0.13, iproute2 6.9.0,
+Batfish `allinone:2026.08.27.3685` + pybatfish 2026.8.19.3660. Every image is pinned by digest in
+[fabric/intent/fabric.yaml](../fabric/intent/fabric.yaml) and [fabric/batfish/README.md](../fabric/batfish/README.md).

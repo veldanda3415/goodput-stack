@@ -3,7 +3,10 @@
 Hand-curated: one row per headline lab finding, each linking the write-up that has the method, raw files and caveats.
 Labels: **SIMULATED** = llm-d-inference-sim (vLLM API and metrics, no model: routing, scaling and scheduling decisions are
 real, latencies are configured); **workstation CPU** = real llama.cpp on an i7-10700 (single node); **SIMULATED GPUs** =
-Run:ai fake-gpu-operator (the scheduler sees devices that don't exist). Small n: these are behaviour checks, not benchmarks.
+Run:ai fake-gpu-operator (the scheduler sees devices that don't exist); **EMULATED** = containerlab veth links + Linux
+kernel forwarding (FRR control plane is real; throughput is never switch or NIC performance); **SOFT-ROCE** = `rdma_rxe` in QEMU
+guest kernels (CPU-bound, no DCQCN); **OFFLINE-VALIDATED** = checked by Batfish, never deployed; **CALCULATED** = design
+arithmetic from cited datasheets, nothing run. Small n: these are behaviour checks, not benchmarks.
 Appended to RESULTS.md by `benchmarks/analyze.py` (links are relative to the repo root); edit this file, not RESULTS.md.
 
 | area | result | value | label | write-up |
@@ -23,3 +26,13 @@ Appended to RESULTS.md by `benchmarks/analyze.py` (links are relative to the rep
 | scheduling | Kueue quotas, borrowing, preemption, gang, TAS | over-quota suspended; cohort borrowing and reclaim; all-or-nothing admission; rack/block placement | SIMULATED GPUs | [scenario 03](scheduling/scenarios/03-kueue-quota-preemption.md) |
 | scheduling | GPU node fault (injected XID-style condition) → fence, evict, reschedule | pods Ready on the healthy node in 3.8–6.7 s (3 runs); remediation 0.7 s | SIMULATED GPUs | [scenario 04](scheduling/scenarios/04-gpu-node-health.md) |
 | scheduling | Time-slicing | **not demonstrated**: the pinned fake operator doesn't honour it (documented, not faked) | SIMULATED GPUs | [scenario 02](scheduling/scenarios/02-sharing-and-dra.md) |
+| fabric | F1 bring-up: 2 spines × 4 leaves, eBGP unnumbered (IPv4 over IPv6 next hops), BFD, rendered from one intent file | 16 / 16 sessions Established ≈ 5.6 s after deploy start; two-way ECMP on every leaf | EMULATED | [f1-bringup](fabric/results/f1-bringup.md) |
+| fabric | E1 ECMP hash: L3 vs L4 policy, 1 / 4 / 32 flows (leaf TX-byte counters, 3 repeats) | L3: 100 % on one uplink at every flow count; L4 32 flows: 37–53 % / 47–63 % | EMULATED | [E1](fabric/experiments/E1-ecmp-hash.md) |
+| fabric | E2 BFD under silent loss (carrier stays up) | loss window 488–568 ms with BFD vs 7.4–9.1 s without (3 repeats each) | EMULATED | [E2](fabric/experiments/E2-bfd-convergence.md) |
+| fabric | E3 RDMA RC across a spine (VM endpoints; container rxe blocked by the kernel, #31) | `ib_write_bw` 0.60–0.64 Gbit/s; RoCE v2 on UDP 4791 with DSCP 26 on the wire | SOFT-ROCE + EMULATED | [E3](fabric/experiments/E3-soft-roce.md) |
+| fabric | E4 RED/ECN on a 500 Mbit/s bottleneck | TCP ECN: CE marks + ECE/CWR response; Soft-RoCE: RED marked counter +11,615, zero CNPs (rxe has no DCQCN) | EMULATED | [E4](fabric/experiments/E4-ecn.md) |
+| fabric | E5 collective traffic vs ECMP, uplinks shaped to 500 Mbit/s, 36 runs | job time tracks the busiest link (Pearson r = 0.998); ring with L3 hash ≈ 1.9× the measured even split; L4 + 16 flows/pair within +0.03 s | EMULATED | [E5 shaped](fabric/experiments/E5-collective-entropy.md#shaped-uplinks-rerun) |
+| fabric | E6 failure drills under a shaped ring collective | silent loss: 0.5–0.7 s loss (BFD); a 2 s flap every 20 s cost > 30 s of step time vs ≈ 8 s for a dead link; one leaf down stalled the whole ring | EMULATED | [E6](fabric/experiments/E6-failure-drills.md) |
+| fabric | E7 EVPN-VXLAN front-end tenants (2 VRFs, symmetric IRB) | 8 / 8 same-tenant pairs reach, 12 / 12 cross-tenant and 15 / 15 tenant→rail blocked; route-target and next-hop traps reproduced | EMULATED | [E7](fabric/experiments/E7-evpn-tenancy.md) |
+| fabric | NX-OS render + Batfish pre-deploy check (numbered variant; lab's unnumbered FRR also checked) | 16 / 16 sessions compatible; a one-device ASN drift flagged as 4 half-open sessions before deploy | OFFLINE-VALIDATED | [batfish/](fabric/batfish/README.md), [ADR 0006](docs/adr/0006-multi-nos-render-batfish.md) |
+| fabric | One link at 50 % in the inter-node ring, 8B model on 256 GPUs | DP all-reduce +55 %, step +8.3 % | CALCULATED | [DESIGN §2](fabric/DESIGN.md) |
