@@ -1,0 +1,19 @@
+version: 1
+config:
+- type: physical
+  name: management
+  mac_address: '52:54:00:02:00:01'
+  set-name: mgmt0
+  subnets:
+  - type: dhcp
+- type: physical
+  name: fabric
+  mac_address: '52:54:00:02:01:01'
+  set-name: fabric0
+  subnets:
+  - type: static
+    address: 10.210.0.22/30
+    routes:
+    - network: 10.210.0.0
+      netmask: 255.255.0.0
+      gateway: 10.210.0.21

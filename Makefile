@@ -214,7 +214,7 @@ fabric-render: ## Validate fabric intent and render FRR + containerlab configs
 > $(FABRIC_PY) -m fabric.render.render --example
 
 fabric-up: fabric-render ## Deploy the EMULATED containerlab fabric
-> containerlab deploy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
+> containerlab deploy --reconfigure --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
 
 fabric-down: ## Destroy the EMULATED containerlab fabric
 > containerlab destroy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
@@ -231,15 +231,21 @@ fabric-e2: fabric-render ## Run E2 BFD convergence experiment (EMULATED)
 > $(FABRIC_PY) -m fabric.experiments.e2
 
 # ---- RoCE on the fabric lab (fabric/README.md; SOFT-ROCE + INTENT-ONLY QoS) ---------------------
-.PHONY: roce-registry roce-image roce-e3 fabric-headroom
+.PHONY: roce-registry roce-image roce-vm-image roce-vm-up roce-e3 fabric-headroom
 ROCE_REGISTRY := $(shell awk '$$1 == "registry:" {print $$2}' fabric/intent/fabric.yaml)
 ROCE_IMAGE := $(firstword $(subst @, ,$(shell awk '$$1 == "host:" && /localhost:5000/ {print $$2}' fabric/intent/fabric.yaml)))
+ROCE_VM_IMAGE := localhost:5000/goodput-roce-vm:0.1.0
 
 roce-registry: ## Start the localhost:5000 registry that serves the lab host image (rootless podman)
 > podman start goodput-registry 2>/dev/null || podman run -d --name goodput-registry -p 127.0.0.1:5000:5000 $(ROCE_REGISTRY)
 
 roce-image: roce-registry ## Build + push the RoCE host image; put the printed digest in intent images.host
 > podman build -t $(ROCE_IMAGE) fabric/images/roce-host && podman push --tls-verify=false --digestfile /dev/stdout $(ROCE_IMAGE)
+
+roce-vm-image: roce-registry ## Build + push the pinned Debian QEMU runner; record its digest in intent images.vmrunner
+> podman build -t $(ROCE_VM_IMAGE) fabric/images/roce-vm && podman push --tls-verify=false --digestfile /dev/stdout $(ROCE_VM_IMAGE)
+
+roce-vm-up: fabric-up ## Deploy the EMULATED fabric with SOFT-ROCE VM endpoints
 
 roce-e3: ## E3: SOFT-ROCE devices + GIDs and host QoS classification (verbs traffic blocked; see E3 doc)
 > $(FABRIC_PY) -m fabric.experiments.e3.run devices qos

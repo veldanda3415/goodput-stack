@@ -1,0 +1,30 @@
+FROM docker.io/library/debian:trixie-20260918-slim@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c
+
+ARG SNAPSHOT=20260918T000000Z
+ARG CLOUD_IMAGE_SHA512=d4721b56d60472370f3ff088a85ca36f298b360d3131af421a009bb8ea03c4d80eb67915bb57a69f6057e56c5bd48e69d3a47fbc5b8efacc5434a9c756b345d3
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN rm -f /etc/apt/sources.list.d/debian.sources \
+ && printf '%s\n' \
+    "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie main" \
+    > /etc/apt/sources.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+    ca-certificates=20250419 \
+    cloud-image-utils=0.33-1 \
+    curl=8.14.1-2+deb13u5 \
+    iproute2=6.15.0-1 \
+    openssh-client=1:10.0p1-7+deb13u4 \
+    qemu-system-x86=1:10.0.13+ds-0+deb13u1 \
+    qemu-utils=1:10.0.13+ds-0+deb13u1 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSLo /opt/debian-13-generic-amd64.qcow2 \
+      https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2 \
+ && echo "${CLOUD_IMAGE_SHA512}  /opt/debian-13-generic-amd64.qcow2" | sha512sum --check
+
+COPY vmhost-start.sh /usr/local/sbin/vmhost-start
+COPY vm-exec.sh /usr/local/bin/vm-exec
+RUN chmod 0755 /usr/local/sbin/vmhost-start /usr/local/bin/vm-exec
+
+CMD ["/usr/local/sbin/vmhost-start"]

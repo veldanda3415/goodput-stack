@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["name", "address_plan", "rails", "nodes", "hosts", "links", "bgp", "bfd", "ecmp_width", "images", "capture_taps", "rdma", "qos"],
+  "required": ["name", "address_plan", "rails", "nodes", "hosts", "vm_hosts", "links", "bgp", "bfd", "ecmp_width", "images", "capture_taps", "rdma", "qos"],
   "properties": {
     "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
     "address_plan": {
@@ -49,6 +49,37 @@
                 "address": {"type": "string"},
                 "gateway": {"type": "string", "format": "ipv4"},
                 "subnet": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "vm_hosts": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "memory_mib", "vcpus", "management_mac", "nics"],
+        "properties": {
+          "name": {"type": "string"},
+          "memory_mib": {"type": "integer", "minimum": 128, "maximum": 1024},
+          "vcpus": {"type": "integer", "minimum": 1, "maximum": 4},
+          "management_mac": {"type": "string", "pattern": "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$"},
+          "nics": {
+            "type": "array", "minItems": 1, "maxItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["rail", "leaf", "interface", "address", "gateway", "subnet", "mac"],
+              "properties": {
+                "rail": {"type": "string"},
+                "leaf": {"type": "string"},
+                "interface": {"type": "string"},
+                "address": {"type": "string"},
+                "gateway": {"type": "string", "format": "ipv4"},
+                "subnet": {"type": "string"},
+                "mac": {"type": "string", "pattern": "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$"}
               },
               "additionalProperties": false
             }
@@ -107,8 +138,8 @@
     "ecmp_width": {"type": "integer", "minimum": 1},
     "images": {
       "type": "object",
-      "required": ["frr", "host", "registry"],
-      "properties": {"frr": {"type": "string"}, "host": {"type": "string"}, "registry": {"type": "string"}},
+      "required": ["frr", "host", "vmrunner", "registry"],
+      "properties": {"frr": {"type": "string"}, "host": {"type": "string"}, "vmrunner": {"type": "string"}, "registry": {"type": "string"}},
       "additionalProperties": false
     },
     "capture_taps": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},

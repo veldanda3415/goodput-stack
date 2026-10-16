@@ -1,0 +1,56 @@
+#cloud-config
+hostname: vmhost1
+manage_etc_hosts: true
+apt:
+  preserve_sources_list: true
+bootcmd:
+- - sh
+  - -c
+  - rm -f /etc/apt/sources.list.d/*.sources; printf '%s\n' 'deb [check-valid-until=no]
+    http://snapshot.debian.org/archive/debian/20260918T000000Z trixie main' > /etc/apt/sources.list
+package_update: true
+packages:
+- rdma-core=56.1-1
+- ibverbs-utils=56.1-1
+- ibverbs-providers=56.1-1
+- rdmacm-utils=56.1-1
+- perftest=25.01.0+0.80-1
+- iproute2=6.15.0-1
+- iperf3=3.18-2+deb13u2
+- tcpdump=4.99.5-2
+- tshark=4.4.18-0+deb13u1
+- sysstat=12.7.5-2
+- procps=2:4.0.4-9
+- iputils-ping=3:20240905-3
+- traceroute=1:2.1.6-1
+- openssh-server=1:10.0p1-7+deb13u4
+ssh_pwauth: false
+users:
+- default
+- name: fabric
+  shell: /bin/bash
+  groups:
+  - sudo
+  sudo: ALL=(ALL) NOPASSWD:ALL
+  lock_passwd: true
+  ssh_authorized_keys:
+  - __VM_SSH_PUBLIC_KEY__
+runcmd:
+- - modprobe
+  - rdma_rxe
+- - ip
+  - route
+  - replace
+  - 10.210.0.0/16
+  - via
+  - 10.210.0.17
+  - dev
+  - fabric0
+- - rdma
+  - link
+  - add
+  - rxe_vmhost1_a
+  - type
+  - rxe
+  - netdev
+  - fabric0

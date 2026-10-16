@@ -120,6 +120,24 @@ topology:
       exec:
       - sh /usr/local/bin/host-setup.sh
       - sh /usr/local/bin/host-qos.sh
+    vmhost1:
+      kind: linux
+      image: localhost:5000/goodput-roce-vm:0.1.0@sha256:88cebaaa66e8ddf6b993934b8aab2bc084af7d2662a6f201dcb869e83a62c783
+      privileged: true
+      cmd: /usr/local/sbin/vmhost-start
+      binds:
+      - ./vms/vmhost1:/run/vm:ro
+      - /dev/kvm:/dev/kvm
+      - /dev/net/tun:/dev/net/tun
+    vmhost2:
+      kind: linux
+      image: localhost:5000/goodput-roce-vm:0.1.0@sha256:88cebaaa66e8ddf6b993934b8aab2bc084af7d2662a6f201dcb869e83a62c783
+      privileged: true
+      cmd: /usr/local/sbin/vmhost-start
+      binds:
+      - ./vms/vmhost2:/run/vm:ro
+      - /dev/kvm:/dev/kvm
+      - /dev/net/tun:/dev/net/tun
     spine1-tap:
       kind: linux
       image: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
@@ -181,3 +199,9 @@ topology:
   - endpoints:
     - host4:eth2
     - leaf4:eth4
+  - endpoints:
+    - vmhost1:eth1
+    - leaf1:eth5
+  - endpoints:
+    - vmhost2:eth1
+    - leaf2:eth5

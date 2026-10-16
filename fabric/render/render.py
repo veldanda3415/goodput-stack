@@ -16,6 +16,22 @@ from fabric.render.qos import host_qos_script, sonic_config
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "frr"
 LINUX_TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "linux"
+VM_RDMA_PACKAGES = [
+    "rdma-core=56.1-1",
+    "ibverbs-utils=56.1-1",
+    "ibverbs-providers=56.1-1",
+    "rdmacm-utils=56.1-1",
+    "perftest=25.01.0+0.80-1",
+    "iproute2=6.15.0-1",
+    "iperf3=3.18-2+deb13u2",
+    "tcpdump=4.99.5-2",
+    "tshark=4.4.18-0+deb13u1",
+    "sysstat=12.7.5-2",
+    "procps=2:4.0.4-9",
+    "iputils-ping=3:20240905-3",
+    "traceroute=1:2.1.6-1",
+    "openssh-server=1:10.0p1-7+deb13u4",
+]
 
 
 def router_peer_groups(intent: dict[str, Any], name: str) -> list[dict[str, Any]]:
@@ -54,7 +70,7 @@ def router_peer_groups(intent: dict[str, Any], name: str) -> list[dict[str, Any]
 
 def leaf_host_addresses(intent: dict[str, Any], name: str) -> dict[str, str]:
     assigned: dict[str, str] = {}
-    for host in intent["hosts"]:
+    for host in [*intent["hosts"], *intent.get("vm_hosts", [])]:
         for nic in host["nics"]:
             if nic["leaf"] == name:
                 leaf_interface = next(
@@ -91,7 +107,7 @@ def render(intent: dict[str, Any], output: Path) -> None:
     )
     frr_template = env.get_template("frr.conf.j2")
     daemons_template = env.get_template("daemons.j2")
-    hosts = {host["name"]: host for host in intent["hosts"]}
+    hosts = {host["name"]: host for host in [*intent["hosts"], *intent.get("vm_hosts", [])]}
     topology: dict[str, Any] = {
         "name": intent["name"],
         "mgmt": {
@@ -138,6 +154,8 @@ def render(intent: dict[str, Any], output: Path) -> None:
         }
 
     for host_name, host in hosts.items():
+        if host_name in {vm["name"] for vm in intent.get("vm_hosts", [])}:
+            continue
         setup_dir = output / "hosts"
         setup_dir.mkdir(parents=True, exist_ok=True)
         (setup_dir / f"{host_name}-setup.sh").write_text(host_setup(host, intent["rdma"]), encoding="utf-8")
@@ -152,6 +170,101 @@ def render(intent: dict[str, Any], output: Path) -> None:
                 f"./hosts/{host_name}-qos.sh:/usr/local/bin/host-qos.sh:ro",
             ],
             "exec": ["sh /usr/local/bin/host-setup.sh", "sh /usr/local/bin/host-qos.sh"],
+        }
+
+    for vm_host in intent.get("vm_hosts", []):
+        vm_dir = output / "vms" / vm_host["name"]
+        vm_dir.mkdir(parents=True, exist_ok=True)
+        nic = vm_host["nics"][0]
+        config = "\n".join([
+            f"VM_NAME={vm_host['name']}",
+            f"VM_MEMORY_MIB={vm_host['memory_mib']}",
+            f"VM_CPUS={vm_host['vcpus']}",
+            f"VM_MANAGEMENT_MAC={vm_host['management_mac']}",
+            f"VM_FABRIC_MAC={nic['mac']}",
+            "",
+        ])
+        (vm_dir / "config").write_text(config, encoding="utf-8")
+        (vm_dir / "meta-data").write_text(
+            yaml.safe_dump({"instance-id": vm_host["name"], "local-hostname": vm_host["name"]}),
+            encoding="utf-8",
+        )
+        user_data = {
+            "hostname": vm_host["name"],
+            "manage_etc_hosts": True,
+            "apt": {"preserve_sources_list": True},
+            "bootcmd": [[
+                "sh", "-c",
+                "rm -f /etc/apt/sources.list.d/*.sources; "
+                "printf '%s\\n' 'deb [check-valid-until=no] "
+                "http://snapshot.debian.org/archive/debian/20260918T000000Z trixie main' "
+                "> /etc/apt/sources.list",
+            ]],
+            "package_update": True,
+            "packages": VM_RDMA_PACKAGES,
+            "ssh_pwauth": False,
+            "users": [
+                "default",
+                {
+                    "name": "fabric",
+                    "shell": "/bin/bash",
+                    "groups": ["sudo"],
+                    "sudo": "ALL=(ALL) NOPASSWD:ALL",
+                    "lock_passwd": True,
+                    "ssh_authorized_keys": ["__VM_SSH_PUBLIC_KEY__"],
+                },
+            ],
+            "runcmd": [
+                ["modprobe", "rdma_rxe"],
+                ["ip", "route", "replace", "10.210.0.0/16", "via", nic["gateway"], "dev", "fabric0"],
+                ["rdma", "link", "add", f"rxe_{vm_host['name']}_a", "type", "rxe", "netdev", "fabric0"],
+            ],
+        }
+        (vm_dir / "user-data").write_text(
+            "#cloud-config\n" + yaml.safe_dump(user_data, sort_keys=False),
+            encoding="utf-8",
+        )
+        network_config = {
+            "version": 1,
+            "config": [
+                {
+                    "type": "physical",
+                    "name": "management",
+                    "mac_address": vm_host["management_mac"],
+                    "set-name": "mgmt0",
+                    "subnets": [{"type": "dhcp"}],
+                },
+                {
+                    "type": "physical",
+                    "name": "fabric",
+                    "mac_address": nic["mac"],
+                    "set-name": "fabric0",
+                    "subnets": [{
+                        "type": "static",
+                        "address": nic["address"],
+                        "routes": [{
+                            "network": "10.210.0.0",
+                            "netmask": "255.255.0.0",
+                            "gateway": nic["gateway"],
+                        }],
+                    }],
+                },
+            ],
+        }
+        (vm_dir / "network-config").write_text(
+            yaml.safe_dump(network_config, sort_keys=False),
+            encoding="utf-8",
+        )
+        topology["topology"]["nodes"][vm_host["name"]] = {
+            "kind": "linux",
+            "image": intent["images"]["vmrunner"],
+            "privileged": True,
+            "cmd": "/usr/local/sbin/vmhost-start",
+            "binds": [
+                f"./vms/{vm_host['name']}:/run/vm:ro",
+                "/dev/kvm:/dev/kvm",
+                "/dev/net/tun:/dev/net/tun",
+            ],
         }
 
     for router in intent["capture_taps"]:
@@ -194,7 +307,7 @@ def advertised_prefixes(intent: dict[str, Any], node_name: str) -> list[str]:
     if node["role"] == "leaf":
         prefixes.extend(
             nic["subnet"]
-            for host in intent["hosts"]
+            for host in [*intent["hosts"], *intent.get("vm_hosts", [])]
             for nic in host["nics"]
             if nic["leaf"] == node_name
         )
