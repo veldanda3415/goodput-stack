@@ -18,6 +18,7 @@ does not describe the lab runtime. No Docker Engine was used.
 ```bash
 make fabric-render  # validate intent; render FRR and containerlab files
 make fabric-up      # render, then deploy the EMULATED lab
+make fabric-status  # read-only: is the lab up, BGP/BFD, shaping, hash policy, telemetry, Batfish
 make fabric-test    # validate the running lab; run after fabric-up
 make fabric-e1      # ECMP hash policy experiment
 make fabric-e2      # BFD convergence experiment

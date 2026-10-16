@@ -7,6 +7,28 @@ from typing import Any
 from fabric.intent.schema.validate import load_intent
 
 
+def lab_nodes(name: str | None = None) -> dict[str, str]:
+    """Running lab containers as {node: state}; {} when the lab is not deployed."""
+    name = name or load_intent()["name"]
+    completed = subprocess.run(
+        ["containerlab", "inspect", "--runtime", "podman", "--name", name, "--format", "json", "--log-level", "error"],
+        check=False, capture_output=True, text=True,
+    )
+    if completed.returncode != 0:
+        return {}
+    containers = [c for group in json.loads(completed.stdout).values() for c in group]
+    prefix = f"clab-{name}-"
+    return {c["name"].removeprefix(prefix): c.get("state", "?") for c in containers}
+
+
+def require_lab() -> None:
+    """Exit with a one-line hint instead of a containerlab traceback when the lab is down."""
+    name = load_intent()["name"]
+    if not lab_nodes(name):
+        raise SystemExit(f"fabric lab '{name}' is not running: run `make fabric-up` (then `make fabric-shape-on` "
+                         "for shaped experiments). `make fabric-status` shows what is up.")
+
+
 def node_result(node: str, command: str) -> dict[str, Any]:
     intent = load_intent()
     completed = subprocess.run(

@@ -17,7 +17,7 @@ from typing import Any
 
 from fabric.intent.schema.validate import load_intent
 from fabric.render.shaping import PIN_RULE_PRIORITY, fabric_ports
-from fabric.tests.lab import node_json, node_result
+from fabric.tests.lab import node_json, node_result, require_lab
 
 BUILD = Path(__file__).resolve().parents[2] / "fabric" / "build" / "shaping"
 
@@ -74,6 +74,7 @@ def main() -> None:
     parser.add_argument("command", choices=["on", "off", "status", "pin", "unpin"])
     parser.add_argument("pattern", nargs="?", choices=["ring", "all-to-all"])
     args = parser.parse_args()
+    require_lab()
     intent = load_intent()
     if args.command in ("on", "off"):
         apply_shape(intent, args.command == "on")
