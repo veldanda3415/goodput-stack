@@ -68,7 +68,8 @@ flowchart LR
   health controller (fence, evict, requeue, return to service). Time-slicing is not demonstrated (the fake operator doesn't honour it).
 - **Benchmarks** ([benchmarks/](benchmarks/)): the engine suite against llama.cpp and the simulator, with recorded provenance.
 - **GPU engine track** ([benchmarks/results/t4/](benchmarks/results/t4/README.md)): vLLM 0.31.0 and llama.cpp CUDA on a
-  free Kaggle T4, driven from the lab with `make t4-run STAGE=...`. Headline numbers with provenance: [RESULTS.md](RESULTS.md).
+  free Kaggle T4, driven from the lab with `make t4-run STAGE=...`, plus NCCL collectives between two T4s over PCIe
+  (`STAGE=nccl`) checked against the fabric's collective model. Headline numbers with provenance: [RESULTS.md](RESULTS.md).
 - **Probes** ([scripts/](scripts/)): small, single-question tests (queueing, bring-up, EPP routing, fail-open, disconnect, gateway kill,
   size-blind routing, burst vs metrics refresh, EPP overhead, gateway capacity).
 - **AI fabric** ([fabric/](fabric/), design in [DESIGN.md](fabric/DESIGN.md)): one vendor-neutral intent file renders FRR, host
@@ -98,6 +99,9 @@ Selected; every row links its source. Full tables: [RESULTS.md](RESULTS.md).
 | What does BFD buy when a link fails silently? | Loss window 0.5–0.6 s with BFD vs 7.4–9.1 s without (E2) | EMULATED |
 | Is a flapping link worse than a dead one? | Yes: a 2 s flap every 20 s cost > 30 s of step time vs ≈ 8 s for a dead link; one leaf down stalled the whole ring (E6) | EMULATED |
 | Can config drift be caught before deploy? | A one-device ASN change in the NX-OS render showed up as 4 half-open sessions in Batfish (≈ 9 s) | OFFLINE-VALIDATED |
+| What does the gateway cost? | ≤ 16 concurrent: −2.7 to −4.7 % rps, +4–11 ms p50 vs direct; above that the single load generator saturates first (#21) | SIMULATED |
+| Why did recovery lose more than failure? | Not BGP: leaves re-added the restored spine to ECMP at link-up and black-holed traffic until its FIB had routes (#32, still open) | EMULATED |
+| What does NCCL do between two T4s? | All-reduce 3.89 GB/s at 1 GiB via host shared memory (PHB topology, P2P declined by default); Tree beats the default Ring by 15 % | Kaggle 2×T4, real |
 
 ## Repository
 
