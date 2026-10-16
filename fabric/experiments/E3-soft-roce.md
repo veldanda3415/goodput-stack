@@ -2,8 +2,9 @@
 
 **Status (2026-10-16):** Task 1 is complete: two VM endpoints run
 **SOFT-ROCE** in separate guest kernels across the **EMULATED** fabric and
-complete RC verbs traffic across a spine. The original container-netns
-blocker remains valid for the container hosts. Task 2 wire decode is pending.
+complete RC verbs traffic across a spine. Task 2 wire decode is complete.
+Linux 6.18's initial-netns limitation still blocks the original container
+hosts, but VM endpoints provide a working path for issue #31's experiment.
 
 Labels used here:
 
@@ -33,7 +34,7 @@ already the case.
 | Option (a): rxe inside the container | `rdma link add rxe_h1a type rxe netdev eth1` (netshoot + `apk add iproute2-rdma`, test only) | **succeeded**; `rdma link show` → `rxe_h1a/1 state ACTIVE ... netdev eth1` |
 | Verbs device in the container | `ibv_devices` after deploy | rxe device missing at first; fixed (see Failures) |
 | GID table | `ibv_devinfo -v -d rxe_host1_a` | GID[0] `fe80::a8c1:abff:fe2a:a554` RoCE v2; **GID[1] `::ffff:10.210.0.2` RoCE v2** |
-| Verbs traffic | `ib_write_bw -d rxe_host1_a -x 1 -s 65536 -n 100 -F --bind_source_ip 10.210.0.2 10.210.0.6` (server on host2: `ib_write_bw -d rxe_host2_a -x 1 -s 65536 -n 100 -F`) | **failed**: `Completion with error at client` / `Failed status 5: wr_id 0 syndrom 0x0` / `scnt=100, ccnt=0` |
+| Verbs traffic in container hosts | `ib_write_bw -d rxe_host1_a -x 1 -s 65536 -n 100 -F --bind_source_ip 10.210.0.2 10.210.0.6` (server on host2: `ib_write_bw -d rxe_host2_a -x 1 -s 65536 -n 100 -F`) | **failed**: `Completion with error at client` / `Failed status 5: wr_id 0 syndrom 0x0` / `scnt=100, ccnt=0` |
 
 GID index choice: rxe derives GIDs from the addresses of its netdev. The RoCE
 v2 GID for a rail is the IPv4-mapped address `::ffff:<rail IPv4>`, and it is
@@ -73,8 +74,9 @@ The kernel source explains both directions. Tree: `~/src/wsl-kernel`, tag
 `rdma system` "shared" mode only makes the RDMA *device* visible in every
 namespace; it does not move rxe's packet I/O. Options (a) and (b) both leave
 the netdev in the container netns, so both fail the same way. Option (c),
-rootful, is already in use. **Per (d), RDMA work stopped here**, and Tasks
-3–4 were completed.
+rootful, is already in use. This feasibility result still applies to the
+original container hosts; the VM endpoint path below completes the requested
+RDMA experiment without changing that kernel limitation.
 
 The VM endpoint path now avoids that limitation by running `rdma_rxe` in each
 guest's init network namespace. The VM runner bridges its containerlab rail
@@ -99,11 +101,14 @@ software latency on an unloaded lab. These are predictions, not results.
 
 | Path / test | Prediction | Measured result |
 |---|---|---|
-| vmhost1 rail A → vmhost2 rail A, `ib_write_bw`, 64 KiB / 1 MiB, 3 repeats | QP should establish; CPU-bound and below iperf3 | Pending |
-| Same path, `ib_read_lat`, 64 KiB / 1 MiB, 3 repeats | RC read completes; software latency, not NIC latency | Pending |
-| Same path, iperf3 TCP, 64 KiB / 1 MiB, 3 repeats | higher throughput than Soft-RoCE | Pending |
+| vmhost1 rail A → vmhost2 rail A, `ib_write_bw`, 64 KiB / 1 MiB, 3 repeats | QP should establish; CPU-bound and below iperf3 | 64 KiB: 0.64 Gbit/s (0.61–0.68); 1 MiB: 0.60 Gbit/s (0.57–0.62) |
+| Same path, `ib_read_lat`, 64 KiB / 1 MiB, 3 repeats | RC read completes; software latency, not NIC latency | 64 KiB: 1,301.77 µs (1,199.97–1,349.30); 1 MiB: 10,940.61 µs (10,780.51–11,224.85) |
+| Same path, iperf3 TCP, 64 KiB / 1 MiB, 3 repeats | higher throughput than Soft-RoCE | 64 KiB: 2.627 Gbit/s (2.186–2.718); 1 MiB: 2.541 Gbit/s (2.465–2.558) |
 
-Measured command lines and raw outputs are recorded in `e3-results.json`.
+Verbs client CPU was 54.24% / 55.80% for 64 KiB / 1 MiB; `mpstat %usr`
+median was 29.62% / 28.90%. iperf3 median sender/receiver CPU was
+8.98%/49.44% and 12.45%/44.99%, respectively. Measured command lines and
+raw outputs are recorded in [`e3-results.json`](./e3-results.json).
 
 Possible ways forward for the original container hosts:
 
@@ -271,8 +276,8 @@ Prepared for this task:
   Spreading needs several QPs, which gives the same few-flows imbalance E1
   measured. rxe copies the GRH traffic class into IPv4 TOS
   (`rxe_net.c:248`, `iph->tos = tos` from `av->grh.traffic_class`), so
-  `--tclass 104` should appear on the wire as DSCP 26, ECN 00 (Not-ECT).
-  Not verified.
+  `--tclass 104` appears on the wire as DSCP 26, ECN 00 (Not-ECT), as
+  confirmed by the 200-packet TShark/decoder sample above.
 
 A quick pre-VM attempt to see DSCP 26 at the spine taps with TCP
 (`iperf3 --tos 104`, `tcpdump -v` on spine1-tap/spine2-tap `eth1`) captured 0
@@ -301,11 +306,11 @@ Marked traffic lands in the intended band. The 14 and 16 packets in the
 default band during marked runs are probably iperf3's unmarked control
 connection; this was not separately verified.
 
-This proves classification only. veth has no PFC, no switch buffers, and no
-queue ECN marking. Linux `prio` bands are strict priority, so the intent's
-DWRR 50/50 is not reproduced (this kernel has no `sch_ets`:
-`CONFIG_NET_SCH_ETS` is absent from `/proc/config.gz`). ECN marking with
-`tc` RED is later work.
+This proves host classification only. veth has no PFC or switch buffers.
+Linux `prio` bands are strict priority, so the intent's DWRR 50/50 is not
+reproduced (this kernel has no `sch_ets`: `CONFIG_NET_SCH_ETS` is absent from
+`/proc/config.gz`). The separate **EMULATED** `tc` RED/ECN experiment and
+its TCP/SOFT-ROCE results are in [E4](E4-ecn.md).
 
 ## 4. Headroom (INTENT-ONLY arithmetic)
 
@@ -334,9 +339,10 @@ classes.
    `rxe_host1_a`). Cause: the privileged container's `/dev` is populated at
    creation, before the rxe devices exist. Fix: the rendered host setup now
    `mknod`s missing `uverbsN` nodes from `/sys/class/infiniband_verbs/*/dev`.
-3. **Verbs traffic fails (`Failed status 5`).** Evidence and cause: §0; rxe
-   is bound to `init_net` in Linux 6.18. VM guests in their own init netns
-   resolve this for VM endpoints; no fix for the original containers.
+3. **Verbs traffic fails in original container hosts (`Failed status 5`).**
+   Evidence and cause: §0; rxe is bound to `init_net` in Linux 6.18. Separate
+   QEMU guest kernels resolve this for VM endpoints; container-host endpoints
+   remain blocked.
 4. **No `tcpdump` on spines.** The FRR image is Alpine without capture tools.
    Fix: `capture_taps` in intent renders `spineN-tap` nodes (the pinned host
    image, `network-mode: container:spineN`) instead of adding packages to the
@@ -356,18 +362,19 @@ classes.
    file. Fix: use a unique per-run remote path, retain and check tcpdump's
    exit/status output, and remove that exact temporary file after transfer.
 
-## Notes for DESIGN §5 (for F2, who owns `fabric/DESIGN.md`)
+## Notes for DESIGN §§5–6
 
-- Soft-RoCE cannot be used inside containerlab host namespaces on this
-  kernel. Linux 6.18 `rdma_rxe` routes (`rxe_net.c:37`) and receives
-  (`rxe_net.c:633/648`) only in `init_net`. Any RDMA-on-fabric claim needs a
-  kernel with rxe netns support, init-namespace endpoints, or real NICs.
+- Linux 6.18 `rdma_rxe` in container host namespaces routes
+  (`rxe_net.c:37`) and receives (`rxe_net.c:633/648`) only in `init_net`.
+  QEMU guest kernels provide working **SOFT-ROCE** endpoints, but all
+  measurements remain software over **EMULATED** veth links, not NIC
+  performance.
 - The lab runtime is rootful Podman through setuid containerlab. The host
   image comes from a localhost:5000 registry trusted by a root-owned
   `registries.conf.d` entry.
 - RoCE v2 ECMP entropy in rxe is one UDP source port per QP
-  (`rxe_qp.c:256`). Expect E1-style imbalance with few QPs; multi-QP
-  collectives are the entropy lever.
+  (`rxe_qp.c:256`). E3 confirms that L3 still pins all same-IP-pair QPs to
+  spine2; E5 measures L4 distribution over both emulated spines.
 - QoS intent: RoCE DSCP 26 → TC3 lossless (PFC 3); CNP DSCP 48 → TC6
   strict; default TC0. ECN Kmin/Kmax 150 KB/1.5 MB with Pmax 100 % (Cumulus
   5.16 defaults), below a 3 MB XOFF threshold (a design choice). PFC
@@ -377,6 +384,6 @@ classes.
   priority, using the conservative IEEE response. Each lossless class
   reserves 5.8 % of a 128 MB buffer at 64 × 800G/100 m (H3C response term),
   so keep 1–2.
-- The host Linux `prio` render shows DSCP classification only. Adding ECN
-  (tc RED) and an ETS-capable kernel are prerequisites for any queueing
-  experiment.
+- Host `tc` proves DSCP classification only. E4's RED bottleneck is an
+  explicit **EMULATED** qdisc experiment; it does not represent PFC, switch
+  buffers or DCQCN. Linux `prio` is strict priority, not the intent's DWRR.

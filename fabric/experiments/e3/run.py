@@ -2,18 +2,17 @@
 
 Run: python -m fabric.experiments.e3.run <steps>. Subcommands (results land in fabric/experiments/e3-results.json):
   devices   rxe devices, GID tables, chosen RoCE v2 GID index per rail
-  rdma      ib_write_bw / ib_read_lat vs iperf3 on three paths, with CPU
+  rdma      ib_write_bw / ib_read_lat vs iperf3 on selected paths, with CPU
   wire      tcpdump on the spine taps, tshark + bth_decode, UDP source-port
-            entropy for 1 vs 4 QPs, DSCP/ECN with --tclass
+            entropy for 1 vs 4/16 QPs, DSCP/ECN with --tclass
   qos       host tc classification counters for DSCP-marked traffic
 
-Status: `devices` and `qos` ran. `rdma` and `wire` are implemented but
-cannot complete on Linux 6.18: rdma_rxe routes and receives only in the
-initial network namespace, so verbs traffic from a container rail fails
-(E3-soft-roce.md section 0). They are kept for a kernel with rxe netns support.
+Container-host verbs remain blocked on Linux 6.18 because rdma_rxe routes and
+receives only in the initial network namespace. The `vm-cross-spine` path
+runs successfully in QEMU guest kernels (E3-soft-roce.md sections 0–2).
 
 All numbers come from rdma_rxe (software RoCE v2, CPU-bound, no DCQCN, no
-PFC) on veth links. They are not NIC or switch performance.
+PFC) on EMULATED veth links. They are not NIC or switch performance.
 """
 from __future__ import annotations
 
