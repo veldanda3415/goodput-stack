@@ -246,3 +246,16 @@ gpusim-health: ## Run the SIMULATED GPU health controller (watches node conditio
 > python3 scheduling/health_controller.py
 gpusim-health-run: ## Scenario 04: inject fault, measure fence/evict/reschedule/remediate, N runs (RUNS=3)
 > python3 scheduling/health_run.py $(or $(RUNS),3)
+
+# ---- AI fabric design calculators (fabric/DESIGN.md; CALCULATED, not measured) -------------
+.PHONY: design-tables design-test
+
+design-tables: ## Regenerate CALCULATED tables in fabric/design/tables/ and fabric/DESIGN.md
+> python3 -m venv .venv
+> $(FABRIC_PY) -m pip install -q -r fabric/requirements.txt
+> $(FABRIC_PY) -m fabric.design.tables
+
+design-test: ## pytest the fabric design calculators
+> python3 -m venv .venv
+> $(FABRIC_PY) -m pip install -q -r fabric/requirements.txt
+> $(FABRIC_PY) -m pytest -q fabric/design/tests
