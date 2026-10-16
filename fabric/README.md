@@ -33,6 +33,8 @@ make fabric-shape-off     # remove shaping and any even-split pins
 make fabric-shape-status  # shaped ports and pin rules
 make fabric-e5-shaped     # E5 rerun with shaped uplinks + measured even-split baseline
 make fabric-e6            # E6 failure drills under collective load (shaped)
+.venv/bin/python -m fabric.experiments.e6_restore --repeats 3   # E6 #32: instrumented spine restore (shaped)
+.venv/bin/python -m fabric.experiments.e6_restore_report        # its per-run restore timeline
 make fabric-e7            # E7 EVPN-VXLAN tenant evidence + trap drills
 make fabric-batfish       # render NX-OS (+FRR) and validate OFFLINE with Batfish
 make fabric-down    # destroy the lab
@@ -47,6 +49,12 @@ Emulated throughput is never switch or NIC performance.
 Generated files are in ignored `fabric/build/`; `fabric/build/example/` is the
 committed review render. Rendering the same intent is byte-deterministic.
 Focused tests: `make fabric-test`; this runs pytest in `fabric/tests/`.
+65 tests, 11 of them need the running lab (`test_running_lab.py` and the
+five `# ---- running lab` tests in `test_tenants.py`). With the lab down there
+is no marker; run the other 54 with
+`pytest fabric/tests --ignore=fabric/tests/test_running_lab.py -k 'not reach and not isolated and not route_targets and not path_mtu'`.
+The lab tests fail rather than pass when the lab is down: the tenant isolation
+checks no longer treat "containerlab exec failed" as "unreachable".
 
 The FRR image is pinned to
 [`quay.io/frrouting/frr:10.2.1`](https://quay.io/repository/frrouting/frr)

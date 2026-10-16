@@ -73,7 +73,9 @@ def ping(source: str, target_ip: str, extra: str = "") -> int:
     command = f"ping -c 2 -W 1 {extra} {target_ip}".replace("  ", " ")
     try:
         return node_result(source, command)["return-code"]
-    except AssertionError:
+    except AssertionError as error:
+        if str(error).startswith("containerlab exec failed"):
+            raise  # no lab is not "unreachable": isolation tests must not pass vacuously
         return 1
 
 
