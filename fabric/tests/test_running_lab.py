@@ -29,7 +29,7 @@ def intended_prefixes(intent: dict) -> set[str]:
     prefixes = {node["loopback"] for node in intent["nodes"]}
     prefixes.update(
         nic["subnet"]
-        for host in intent["hosts"]
+        for host in [*intent["hosts"], *intent.get("vm_hosts", [])]
         for nic in host["nics"]
     )
     return prefixes
@@ -147,3 +147,29 @@ def test_host_to_host_reachability_matrix_per_rail() -> None:
                 f"host reachability failed on rail {rail}: {source_name} -> {target_name}; "
                 f"stdout={result['stdout']!r}; stderr={result['stderr']!r}"
             )
+
+
+def test_vm_hosts_boot_with_active_rxe_and_reach_each_other_across_spines() -> None:
+    intent = load_intent()
+    vm_hosts = {host["name"]: host for host in intent["vm_hosts"]}
+    source = vm_hosts["vmhost1"]["nics"][0]
+    target = vm_hosts["vmhost2"]["nics"][0]
+    for name, vm_host in vm_hosts.items():
+        output = node_result(name, "vm-exec rdma link show")["stdout"]
+        assert f"rxe_{name}_a/1 state ACTIVE" in output, (
+            f"{name} has no active SOFT-ROCE device: {output!r}"
+        )
+        classes = node_json(
+            name, "vm-exec /usr/sbin/tc -s -j class show dev fabric"
+        )
+        assert {entry["handle"] for entry in classes} == {"1:1", "1:2", "1:3"}, (
+            f"{name} has unexpected VM guest QoS bands: {classes!r}"
+        )
+    result = node_result(
+        "vmhost1",
+        f"vm-exec ping -I {source['address'].split('/')[0]} -c 1 -W 2 "
+        f"{target['address'].split('/')[0]}",
+    )
+    assert result["return-code"] == 0, (
+        f"VM cross-spine reachability failed: {result['stdout']!r}; {result['stderr']!r}"
+    )

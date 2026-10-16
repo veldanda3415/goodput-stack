@@ -2,18 +2,17 @@
 
 Run: python -m fabric.experiments.e3.run <steps>. Subcommands (results land in fabric/experiments/e3-results.json):
   devices   rxe devices, GID tables, chosen RoCE v2 GID index per rail
-  rdma      ib_write_bw / ib_read_lat vs iperf3 on three paths, with CPU
+  rdma      ib_write_bw / ib_read_lat vs iperf3 on selected paths, with CPU
   wire      tcpdump on the spine taps, tshark + bth_decode, UDP source-port
-            entropy for 1 vs 4 QPs, DSCP/ECN with --tclass
+            entropy for 1 vs 4/16 QPs, DSCP/ECN with --tclass
   qos       host tc classification counters for DSCP-marked traffic
 
-Status: `devices` and `qos` ran. `rdma` and `wire` are implemented but
-cannot complete on Linux 6.18: rdma_rxe routes and receives only in the
-initial network namespace, so verbs traffic from a container rail fails
-(E3-soft-roce.md section 0). They are kept for a kernel with rxe netns support.
+Container-host verbs remain blocked on Linux 6.18 because rdma_rxe routes and
+receives only in the initial network namespace. The `vm-cross-spine` path
+runs successfully in QEMU guest kernels (E3-soft-roce.md sections 0–2).
 
 All numbers come from rdma_rxe (software RoCE v2, CPU-bound, no DCQCN, no
-PFC) on veth links. They are not NIC or switch performance.
+PFC) on EMULATED veth links. They are not NIC or switch performance.
 """
 from __future__ import annotations
 
@@ -23,6 +22,7 @@ import json
 import re
 import subprocess
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -39,11 +39,21 @@ SIZES = (65536, 1048576)
 REPEATS = 3
 DURATION = 3
 TCLASS_DSCP26 = 104  # DSCP 26 << 2, ECN bits 0
+CAPTURE_PACKETS = 1000
+CAPTURE_SNAPLEN = 64
+TCLASS_CAPTURE_PACKETS = 200
+TCP_CAPTURE_PACKETS = 100
+MAX_PCAP_BYTES = 2 * 1024 * 1024
 
 
 def text(node: str, command: str) -> str:
-    out = node_result(node, command)["stdout"]
+    out = node_result(node, node_command(node, command))["stdout"]
     return out if isinstance(out, str) else json.dumps(out)
+
+
+def node_command(node: str, command: str) -> str:
+    vm_names = {host["name"] for host in load_intent().get("vm_hosts", [])}
+    return f"vm-exec {command}" if node in vm_names else command
 
 
 def background(node: str, command: str) -> subprocess.Popen[str]:
@@ -53,7 +63,7 @@ def background(node: str, command: str) -> subprocess.Popen[str]:
             "--name", load_intent()["name"],
             "--label", f"clab-node-name={node}",
             "--format", "json", "--log-level", "error",
-            "--cmd", command,
+            "--cmd", node_command(node, command),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -72,16 +82,31 @@ def finish(node: str, process: subprocess.Popen[str], timeout: int = 60) -> str:
     return out
 
 
+def finish_capture(node: str, process: subprocess.Popen[str]) -> dict[str, Any]:
+    stdout, stderr = process.communicate(timeout=DURATION + 20)
+    if process.returncode != 0:
+        raise RuntimeError(f"containerlab capture exec failed on {node}: {stderr!r}")
+    result = json.loads(stdout)[f"clab-{load_intent()['name']}-{node}"][0]
+    if result["return-code"] not in (0, 124):
+        raise RuntimeError(
+            f"tcpdump failed on {node}: rc={result['return-code']} "
+            f"stdout={result['stdout']!r} stderr={result['stderr']!r}"
+        )
+    return result
+
+
 def endpoints() -> dict[str, dict[str, Any]]:
     """(host, rail) -> address, interface, rxe device."""
     out = {}
-    for host in load_intent()["hosts"]:
+    intent = load_intent()
+    vm_names = {host["name"] for host in intent.get("vm_hosts", [])}
+    for host in [*intent["hosts"], *intent.get("vm_hosts", [])]:
         for nic in host["nics"]:
             out[f"{host['name']}:{nic['rail']}"] = {
                 "host": host["name"],
                 "rail": nic["rail"],
                 "ip": nic["address"].split("/")[0],
-                "interface": nic["interface"],
+                "interface": "fabric" if host["name"] in vm_names else nic["interface"],
                 "leaf": nic["leaf"],
                 "device": rdma_device(host["name"], nic["rail"]),
             }
@@ -92,6 +117,7 @@ PATHS = {
     "same-leaf (host1 A -> host2 A)": ("host1:A", "host2:A"),
     "cross-spine same rail (host1 A -> host3 A)": ("host1:A", "host3:A"),
     "cross-rail (host1 A -> host3 B)": ("host1:A", "host3:B"),
+    "vm-cross-spine": ("vmhost1:A", "vmhost2:A"),
 }
 
 
@@ -157,7 +183,8 @@ def parse_perftest(tool: str, output: str, size: int) -> dict[str, Any]:
             # bytes iterations t_min t_max t_typical t_avg t_stdev p99 p99.9 (usec)
             return {"iterations": values[0], "t_min_us": values[1], "t_max_us": values[2],
                     "t_typical_us": values[3], "t_avg_us": values[4], "t_stdev_us": values[5],
-                    "p99_us": values[6], "p999_us": values[7]}
+                    "p99_us": values[6] if len(values) > 6 else None,
+                    "p999_us": values[7] if len(values) > 7 else None}
     raise RuntimeError(f"no result line for size {size} in {tool} output:\n{output}")
 
 
@@ -176,7 +203,7 @@ def iperf(src: dict[str, Any], dst: dict[str, Any], size: int) -> dict[str, Any]
     server = background(dst["host"], f"timeout 30 iperf3 -s -1 -B {dst['ip']}")
     time.sleep(1)
     command = f"iperf3 -c {dst['ip']} -B {src['ip']} -t {DURATION} -l {size} --json"
-    result = node_result(src["host"], command)["stdout"]
+    result = node_result(src["host"], node_command(src["host"], command))["stdout"]
     data = result if isinstance(result, dict) else json.loads(result)
     finish(dst["host"], server)
     return {
@@ -187,10 +214,18 @@ def iperf(src: dict[str, Any], dst: dict[str, Any], size: int) -> dict[str, Any]
     }
 
 
-def cmd_rdma(results: dict[str, Any]) -> None:
+def cmd_rdma(results: dict[str, Any], selected_paths: list[str] | None = None) -> None:
     eps = endpoints()
-    runs: dict[str, Any] = {"nproc": text("host1", "nproc").strip()}
-    for label, (src_key, dst_key) in PATHS.items():
+    vm_eps = {key: endpoint for key, endpoint in eps.items() if endpoint["host"].startswith("vmhost")}
+    runs: dict[str, Any] = {
+        "nproc": text("vmhost1", "nproc").strip(),
+        "rxe_counters_before": {
+            key: rdma_counters(endpoint) for key, endpoint in vm_eps.items()
+        },
+    }
+    labels = selected_paths or list(PATHS)
+    for label in labels:
+        src_key, dst_key = PATHS[label]
         src, dst = eps[src_key], eps[dst_key]
         path = {"traceroute": text(src["host"], f"traceroute -n -q 1 -s {src['ip']} {dst['ip']}")}
         for size in SIZES:
@@ -200,7 +235,24 @@ def cmd_rdma(results: dict[str, Any]) -> None:
             path[f"iperf3_{size}"] = [iperf(src, dst, size) for _ in range(REPEATS)]
             print(label, "iperf3", size, [r["received_gbps"] for r in path[f"iperf3_{size}"]])
         runs[label] = path
+    runs["rxe_counters_after"] = {
+        key: rdma_counters(endpoint) for key, endpoint in vm_eps.items()
+    }
     results["rdma"] = runs
+
+
+def rdma_counters(endpoint: dict[str, Any]) -> dict[str, int]:
+    output = text(
+        endpoint["host"],
+        f"rdma statistic show link {endpoint['device']}/1",
+    )
+    counters = {
+        name: int(value)
+        for name, value in re.findall(r"^\s*(sent_pkts|rcvd_pkts)\s+(\d+)\s*$", output, re.M)
+    }
+    if set(counters) != {"sent_pkts", "rcvd_pkts"}:
+        raise RuntimeError(f"missing rxe packet counters for {endpoint['device']}:\n{output}")
+    return counters
 
 
 def tx_bytes(node: str, interface: str) -> int:
@@ -231,10 +283,11 @@ def capture_run(src: dict[str, Any], dst: dict[str, Any], qps: int, tclass: int 
     """Run ib_write_bw while capturing on both spines' ports toward the source leaf."""
     ups = uplinks(src["leaf"])
     before = {iface: tx_bytes(src["leaf"], iface) for iface in ups}
+    capture_id = time.time_ns()
     taps = {}
     for spine in sorted(set(ups.values())):
         port = spine_port_to(spine, src["leaf"])
-        pcap = f"/tmp/e3-{tag}-{spine}.pcap"
+        pcap = f"/tmp/e3-{tag}-{spine}-{capture_id}.pcap"
         cmd = f"timeout {DURATION + 8} tcpdump -n -i {port} -s {snaplen} -c {packets} -w {pcap} udp port 4791"
         taps[spine] = {"port": port, "pcap": pcap, "command": cmd, "proc": background(f"{spine}-tap", cmd)}
     time.sleep(1.5)
@@ -243,35 +296,146 @@ def capture_run(src: dict[str, Any], dst: dict[str, Any], qps: int, tclass: int 
     after = {iface: tx_bytes(src["leaf"], iface) for iface in ups}
     out: dict[str, Any] = {"qps": qps, "tclass": tclass, "perftest": run["parsed"],
                            "client_command": run["client_command"],
+                           "server_command": run["server_command"],
+                           "client_output": run["client_output"],
+                           "server_output_tail": run["server_output_tail"],
                            "leaf_tx_delta": {f"{src['leaf']}:{i} (to {ups[i]})": after[i] - before[i] for i in ups},
                            "spines": {}}
     for spine, tap in taps.items():
-        stdout, _ = tap["proc"].communicate(timeout=DURATION + 20)  # tcpdump exits 124 on timeout
+        capture_result = finish_capture(f"{spine}-tap", tap["proc"])
         raw = base64.b64decode(text(f"{spine}-tap", f"base64 -w0 {tap['pcap']}").strip() or "")
         local = CAPTURE_DIR / f"{tag}-{spine}.pcap"
         local.write_bytes(raw)
         decoded = [p for lt, frame in pcap_records(raw) if (p := decode(frame, lt))] if raw else []
-        out["spines"][spine] = {"command": tap["command"], "pcap": str(local.relative_to(ROOT)),
-                                "pcap_bytes": len(raw), "summary": summarize(decoded)}
+        spine_result = {
+            "command": tap["command"],
+            "pcap": str(local.relative_to(ROOT)),
+            "pcap_bytes": len(raw),
+            "summary": summarize(decoded),
+            "decoded_excerpt": decoded[:12],
+            "tcpdump_return_code": capture_result["return-code"],
+            "tcpdump_stdout": capture_result["stdout"],
+            "tcpdump_stderr": capture_result["stderr"],
+        }
+        if tclass is None:
+            text(f"{spine}-tap", f"rm -f -- {tap['pcap']}")
+        else:
+            spine_result["remote_pcap"] = tap["pcap"]
+        out["spines"][spine] = spine_result
     return out
+
+
+def capture_tcp_dscp(src: dict[str, Any], dst: dict[str, Any]) -> dict[str, Any]:
+    ups = uplinks(src["leaf"])
+    before = {iface: tx_bytes(src["leaf"], iface) for iface in ups}
+    qos_before = tc_class_packets(src["host"], src["interface"])
+    capture_id = time.time_ns()
+    taps = {}
+    for spine in sorted(set(ups.values())):
+        port = spine_port_to(spine, src["leaf"])
+        pcap = f"/tmp/e3-tcp-dscp-{spine}-{capture_id}.pcap"
+        cmd = (
+            f"timeout {DURATION + 8} tcpdump -n -i {port} -s {CAPTURE_SNAPLEN} "
+            f"-c {TCP_CAPTURE_PACKETS} -w {pcap} tcp and host {src['ip']} and host {dst['ip']}"
+        )
+        taps[spine] = {"port": port, "pcap": pcap, "command": cmd,
+                       "proc": background(f"{spine}-tap", cmd)}
+    server_command = f"timeout 20 iperf3 -s -1 -B {dst['ip']}"
+    server = background(dst["host"], server_command)
+    time.sleep(1)
+    client_command = (
+        f"iperf3 -c {dst['ip']} -B {src['ip']} -t {DURATION} --tos {TCLASS_DSCP26} --json"
+    )
+    client_data = json.loads(text(src["host"], client_command))
+    server_output = finish(dst["host"], server)
+    after = {iface: tx_bytes(src["leaf"], iface) for iface in ups}
+    qos_after = tc_class_packets(src["host"], src["interface"])
+    result: dict[str, Any] = {
+        "client_command": client_command,
+        "server_command": server_command,
+        "received_gbps": client_data["end"]["sum_received"]["bits_per_second"] / 1e9,
+        "sender_cpu_total": client_data["end"]["cpu_utilization_percent"]["host_total"],
+        "receiver_cpu_total": client_data["end"]["cpu_utilization_percent"]["remote_total"],
+        "server_output": server_output,
+        "leaf_tx_delta": {
+            f"{src['leaf']}:{iface} (to {ups[iface]})": after[iface] - before[iface]
+            for iface in ups
+        },
+        "host_class_packet_delta": {
+            handle: qos_after.get(handle, 0) - qos_before.get(handle, 0)
+            for handle in qos_after
+        },
+        "spines": {},
+    }
+    for spine, tap in taps.items():
+        capture_result = finish_capture(f"{spine}-tap", tap["proc"])
+        raw = base64.b64decode(text(f"{spine}-tap", f"base64 -w0 {tap['pcap']}").strip() or "")
+        local = CAPTURE_DIR / f"tcp-dscp-{spine}.pcap"
+        local.write_bytes(raw)
+        remote = tap["pcap"]
+        tos_fields = text(
+            f"{spine}-tap",
+            f"tshark -r {remote} -T fields -e ip.dsfield.dscp -e ip.dsfield.ecn",
+        )
+        pairs = [tuple(line.split("\t")) for line in tos_fields.splitlines() if line.strip()]
+        text(f"{spine}-tap", f"rm -f -- {tap['pcap']}")
+        result["spines"][spine] = {
+            "command": tap["command"],
+            "pcap": str(local.relative_to(ROOT)),
+            "pcap_bytes": len(raw),
+            "packets": len(pairs),
+            "dscp_ecn_counts": {
+                f"DSCP {dscp}, ECN {ecn}": count
+                for (dscp, ecn), count in Counter(pairs).items()
+            },
+            "tshark_fields": tos_fields,
+            "tcpdump_return_code": capture_result["return-code"],
+            "tcpdump_stdout": capture_result["stdout"],
+            "tcpdump_stderr": capture_result["stderr"],
+        }
+    return result
 
 
 def cmd_wire(results: dict[str, Any]) -> None:
     eps = endpoints()
-    src, dst = eps["host1:A"], eps["host3:A"]
+    src, dst = eps["vmhost1:A"], eps["vmhost2:A"]
     CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
     wire: dict[str, Any] = {}
-    # Decode sample: full frames, DSCP 26 marking, at most 400 packets per spine (< 2 MB).
-    wire["tclass104_1qp"] = capture_run(src, dst, 1, TCLASS_DSCP26, 400, 0, "tclass104-1qp")
-    # Entropy: headers only, more packets, 1 vs 4 QPs, three repeats each.
-    for qps in (1, 4):
+    # Capture BTH and IP fields while bounding the complete pcap set below 2 MiB.
+    qos_before = tc_class_packets(src["host"], src["interface"])
+    wire["tclass104_1qp"] = capture_run(
+        src, dst, 1, TCLASS_DSCP26, TCLASS_CAPTURE_PACKETS, 0, "tclass104-1qp"
+    )
+    qos_after = tc_class_packets(src["host"], src["interface"])
+    wire["tclass104_1qp"]["host_class_packet_delta"] = {
+        handle: qos_after.get(handle, 0) - qos_before.get(handle, 0)
+        for handle in qos_after
+    }
+    # Header-only captures bound the complete sweep below the 2 MiB artifact budget.
+    for qps in (1, 4, 16):
+        packet_limit = 2000 if qps == 16 else CAPTURE_PACKETS
         wire[f"entropy_{qps}qp"] = [
-            capture_run(src, dst, qps, None, 4000, 96, f"entropy-{qps}qp-r{r}") for r in range(1, REPEATS + 1)
+            capture_run(
+                src, dst, qps, None, packet_limit, CAPTURE_SNAPLEN,
+                f"entropy-{qps}qp-r{r}",
+            )
+            for r in range(1, REPEATS + 1)
         ]
+    wire["tcp_dscp"] = capture_tcp_dscp(src, dst)
+    total_pcap_bytes = sum(
+        capture["pcap_bytes"]
+        for sample in [wire["tclass104_1qp"], *wire["entropy_1qp"], *wire["entropy_4qp"], *wire["entropy_16qp"]]
+        for capture in sample["spines"].values()
+    ) + sum(capture["pcap_bytes"] for capture in wire["tcp_dscp"]["spines"].values())
+    if total_pcap_bytes > MAX_PCAP_BYTES:
+        raise RuntimeError(
+            f"E3 capture set is {total_pcap_bytes} bytes, above the {MAX_PCAP_BYTES}-byte limit"
+        )
+    wire["pcap_bytes_total"] = total_pcap_bytes
     sample = wire["tclass104_1qp"]["spines"]
     busiest = max(sample, key=lambda s: sample[s]["pcap_bytes"])
     tap, pcap = f"{busiest}-tap", sample[busiest]["pcap"]
-    remote = f"/tmp/e3-tclass104-1qp-{busiest}.pcap"
+    remote = sample[busiest]["remote_pcap"]
     fields = ("-T fields -E header=y -e frame.number -e ip.src -e ip.dst -e ip.dsfield.dscp "
               "-e ip.dsfield.ecn -e udp.srcport -e infiniband.bth.opcode -e infiniband.bth.destqp "
               "-e infiniband.bth.psn -e infiniband.bth.a -e infiniband.invariant.crc")
@@ -284,11 +448,20 @@ def cmd_wire(results: dict[str, Any]) -> None:
         "verbose_command": f"tshark -r {remote} -d udp.port==4791,infiniband -c 1 -V -O ip,udp,infiniband",
         "verbose": text(tap, f"tshark -r {remote} -d udp.port==4791,infiniband -c 1 -V -O ip,udp,infiniband"),
     }
+    for spine, spine_capture in sample.items():
+        text(f"{spine}-tap", f"rm -f -- {spine_capture['remote_pcap']}")
     results["wire"] = wire
 
 
 def tc_class_packets(host: str, interface: str) -> dict[str, int]:
-    stats = node_json(host, f"tc -s -j class show dev {interface}")
+    is_vm = host in {vm["name"] for vm in load_intent().get("vm_hosts", [])}
+    command = f"/usr/sbin/tc -s -j class show dev {interface}" if is_vm else (
+        f"tc -s -j class show dev {interface}"
+    )
+    if is_vm:
+        stats = json.loads(text(host, command))
+    else:
+        stats = node_json(host, command)
     return {entry["handle"]: int(entry["stats"]["packets"]) for entry in stats}
 
 
@@ -316,11 +489,15 @@ def cmd_qos(results: dict[str, Any]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("steps", nargs="+", choices=["devices", "rdma", "wire", "qos"])
+    parser.add_argument("--path", action="append", choices=PATHS, dest="paths")
     args = parser.parse_args()
     results = json.loads(RESULT_PATH.read_text()) if RESULT_PATH.exists() else {}
     commands = {"devices": cmd_devices, "rdma": cmd_rdma, "wire": cmd_wire, "qos": cmd_qos}
     for step in args.steps:
-        commands[step](results)
+        if step == "rdma":
+            cmd_rdma(results, args.paths)
+        else:
+            commands[step](results)
         results.setdefault("timestamps", {})[step] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         RESULT_PATH.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
         print(f"wrote {step} to {RESULT_PATH.relative_to(ROOT)}")

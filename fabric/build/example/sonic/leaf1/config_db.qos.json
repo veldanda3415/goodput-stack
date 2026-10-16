@@ -15,6 +15,10 @@
     "Ethernet24": {
       "mtu": "9100",
       "speed": "400000"
+    },
+    "Ethernet32": {
+      "mtu": "9100",
+      "speed": "400000"
     }
   },
   "CABLE_LENGTH": {
@@ -22,7 +26,8 @@
       "Ethernet0": "10m",
       "Ethernet8": "10m",
       "Ethernet16": "3m",
-      "Ethernet24": "3m"
+      "Ethernet24": "3m",
+      "Ethernet32": "3m"
     }
   },
   "DSCP_TO_TC_MAP": {
@@ -161,6 +166,14 @@
       "pfc_to_queue_map": "ROCE",
       "pfc_enable": "3",
       "pfcwd_sw_enable": "3"
+    },
+    "Ethernet32": {
+      "dscp_to_tc_map": "ROCE",
+      "tc_to_queue_map": "ROCE",
+      "tc_to_pg_map": "ROCE",
+      "pfc_to_queue_map": "ROCE",
+      "pfc_enable": "3",
+      "pfcwd_sw_enable": "3"
     }
   },
   "SCHEDULER": {
@@ -233,6 +246,16 @@
     },
     "Ethernet24|0": {
       "scheduler": "scheduler.default"
+    },
+    "Ethernet32|3": {
+      "scheduler": "scheduler.roce",
+      "wred_profile": "ROCE_LOSSLESS"
+    },
+    "Ethernet32|6": {
+      "scheduler": "scheduler.cnp"
+    },
+    "Ethernet32|0": {
+      "scheduler": "scheduler.default"
     }
   },
   "BUFFER_PROFILE": {
@@ -263,6 +286,9 @@
     },
     "Ethernet24|3": {
       "profile": "pg_lossless_400000_3m_profile"
+    },
+    "Ethernet32|3": {
+      "profile": "pg_lossless_400000_3m_profile"
     }
   },
   "PFC_WD": {
@@ -285,6 +311,11 @@
       "restoration_time": "200"
     },
     "Ethernet24": {
+      "action": "drop",
+      "detection_time": "200",
+      "restoration_time": "200"
+    },
+    "Ethernet32": {
       "action": "drop",
       "detection_time": "200",
       "restoration_time": "200"

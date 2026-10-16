@@ -405,11 +405,95 @@ link-local addresses with RFC 8950 next hops, two-way ECMP, and BFD at
 
 ## 5. RoCE v2 and lossless transport
 
-TBD in F3.
+RoCE v2 carries RDMA over UDP/IP (destination port 4791); RC QPs provide
+reliable delivery, but losslessness is a fabric QoS design rather than a
+property of the transport. This repository's class mapping is
+**INTENT-ONLY**: RoCE DSCP 26 → TC3 / PFC priority 3, CNP DSCP 48 → strict
+TC6, and unmarked traffic → default TC0. The SONiC `config_db` render has not
+been applied to a switch. Host `tc` confirms DSCP classification, but its
+`prio` qdisc is strict priority, not the intent's 50/50 DWRR scheduler.
+Sources and vendor-specific field mappings are in
+[`qos/README.md`](qos/README.md).
+
+The original container hosts can create `rdma_rxe` devices and expose
+RoCE-v2 IPv4-mapped GIDs, but on the measured WSL2 Linux 6.18 kernel rxe
+routes and UDP 4791 receive sockets are bound to `init_net`. Consequently,
+verbs traffic from those container network namespaces fails. Two small QEMU
+VM hosts solve the experimental endpoint problem by giving each rxe device
+its own guest kernel and initial namespace: 768 MiB and 2 vCPUs per VM, KVM
+on the measured host (TCG fallback). These are **SOFT-ROCE** endpoints over
+the **EMULATED** veth fabric, not NICs. See [E3](experiments/E3-soft-roce.md)
+for VM/image/package checksums, sources, commands, and raw results.
+
+E3 observed 200/200 captured RoCE data packets as DSCP 26 / Not-ECT with
+`--tclass 104`; the host tc counter moved into the RoCE band. The capture
+decoded BTH opcode, destination QP, PSN, and AckReq. With L3 ECMP hashing,
+all same-IP-pair QPs selected spine2 despite distinct per-QP UDP source
+ports. This demonstrates packet formatting and Linux forwarding only.
+
+Lossless buffer arithmetic is design guidance, not a test of PFC. The intent
+sets ECN Kmin/Kmax to 150,000/1,500,000 B and PFC XOFF to 3,000,000 B, so
+ECN is intended to mark before pause. At 400 Gbit/s, the conservative IEEE
+response calculation gives 72.8 KB at 3 m and 76.4 KB at 10 m per port per
+priority. On a 64 × 800G, 128 MB example, one H3C-response lossless class
+reserves 5.8% at 100 m; two reserve 11.6%. Refer to
+[`tools/headroom.py`](tools/headroom.py) and the cited assumptions in
+[`qos/README.md`](qos/README.md). No PFC, switch buffers, or NIC pause
+behavior exists in the EMULATED lab.
 
 ## 6. Congestion control and telemetry
 
-TBD in F4.
+ECN should signal congestion before PFC XOFF, giving endpoints time to
+reduce load and limiting pause propagation. DCQCN is the intended RoCE
+congestion-control mechanism, but it is **INTENT-ONLY** in this work: rxe
+does not implement DCQCN, the lab does not implement PFC, and Linux qdisc CE
+marks are not switch ECN behavior.
+
+E4 scaled the intent's RED thresholds to a 500 Mbit/s Linux TBF bottleneck
+(effective Kmin/Kmax 1,500/3,000 B; scaled XOFF 3,750 B). The prediction was
+that ECN-on TCP would react to CE with ECE/CWR and that Not-ECT TCP would be
+dropped; SOFT-ROCE would show CE but no CNP or rate reaction. Measurements:
+
+| Test | Prediction | Measured |
+|---|---|---|
+| TCP ECN on | CE, ECE/CWR, useful throughput | 103/1200, 129/1200, 103/1200 sampled packets CE; ECE 146/193/124, CWR 24/33/21; RX 0.402/0.396/0.394 Gbit/s |
+| TCP ECN off | Not-ECT drops; no ECN response; lower or less stable throughput | 1200/1200 packets Not-ECT per repeat; no ECE/CWR; RX 0.435/0.445/0.442 Gbit/s, higher than predicted |
+| SOFT-ROCE | CE likely; no CNP/DCQCN response | 17/1200 sampled packets CE, zero BTH opcode `0x81` CNPs; reported 0.46 Gbit/s under the shaper |
+
+No conclusion about real DCQCN response or PFC headroom follows from these
+EMULATED/SOFT-ROCE data. The measurements and qdisc/capture evidence are in
+[E4](experiments/E4-ecn.md).
+
+E5 tested ring and all-to-all collective-shaped loads against the two-spine
+Linux ECMP fabric. Prediction: L3 would pin streams within an IP pair; L4
+would gain entropy as parallel flows/QPs increased, but remain lumpy.
+Measured mean max/mean uplink-load imbalance for TCP was:
+
+| Pattern | Hash | 1 flow/pair | 4 flows/pair | 16 flows/pair |
+|---|---|---:|---:|---:|
+| Ring | L3 | 1.998 | 1.998 | 1.997 |
+| Ring | L4 | 1.998 | 1.217 | 1.248 |
+| All-to-all | L3 | 1.530 | 1.541 | 1.515 |
+| All-to-all | L4 | 1.668 | 1.296 | 1.119 |
+
+L4 did not guarantee even distribution. E5's job times and the
+counter-derived perfect-split estimates are explicitly distinguished; the
+ideal estimate is not a second run or a measured speedup. Supplemental
+SOFT-ROCE QP runs kept the fixed pair on spine2 with L3 and observed both
+spines with L4 at 4/16 QPs. This is Linux hash behavior, not ASIC ECMP.
+Meta's low-flow-entropy report and Llama 3's 16 flows per GPU pair (sources
+S12/S13 in [`design/sources.md`](design/sources.md)) motivate the experiment;
+they do not make the emulation a production model. Full results are in
+[E5](experiments/E5-collective-entropy.md).
+
+The dashboard [fabric.json](../observability/dashboards/fabric.json) uses a
+host-side Python exporter for Linux interface/qdisc counters and FRR BGP/BFD
+state. A standalone digest-pinned Prometheus is scraped locally; there is no
+k3s scrape configuration and no successful gNMI stream. SR Linux 24.10.1
+did not deploy successfully with containerlab 0.78.2/Podman, so the dashboard
+data are **EMULATED** Linux/FRR telemetry, not gNMI or switch ASIC telemetry.
+Exporter pins, failure evidence, and E5 query-range output are documented in
+[`telemetry/README.md`](telemetry/README.md).
 
 ## 7. Tenancy and failure domains
 

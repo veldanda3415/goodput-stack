@@ -2,7 +2,7 @@
 
 **Run:** 2026-10-15, WSL2 kernel `6.18.33.2-microsoft-standard-WSL2`
 **Status:** EMULATED (veth links and Linux kernel forwarding; no ASICs or line-rate claims)
-**Runtime:** containerlab `0.78.2`, Podman `5.7.0`, `containerlab --runtime podman`. The containerlab 0.78.2 deploy docs call Podman experimental. `podman info` reported `rootless=true`; the requested rootful socket at `/run/podman/podman.sock` was not accessible to this user. The successful deployment used the Podman runtime and user-owned containers; no Docker Engine was present.
+**Runtime:** containerlab `0.78.2`, Podman `5.7.0`, `containerlab --runtime podman`. The containerlab 0.78.2 deploy docs call Podman experimental. `podman info` reported `rootless=true` for the invoking user's Podman context, but `/usr/bin/containerlab` is setuid root and uses the system/rootful Podman service; the lab containers do not appear in the user's rootless `podman ps`. The earlier inference that deployment used user-owned containers was incorrect. No Docker Engine was present.
 
 ## Address plan
 

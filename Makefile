@@ -202,7 +202,7 @@ probe-zero: ## 0->1 through zero-pool (KEDA does the scale): make probe-zero ARG
 > $(PY) autoscaling/scale-from-zero/probe_zero.py $(ARGS)
 
 # ---- AI fabric lab (fabric/README.md; EMULATED) ----------------------------------------------
-.PHONY: fabric-render fabric-up fabric-down fabric-test fabric-e1 fabric-e2
+.PHONY: fabric-render fabric-up fabric-down fabric-test fabric-e1 fabric-e2 fabric-e3 fabric-e4 fabric-e5 telemetry-up telemetry-down
 FABRIC_PY := .venv/bin/python
 FABRIC_TOPO := fabric/build/topology.clab.yml
 FABRIC_RUNTIME ?= podman
@@ -214,7 +214,7 @@ fabric-render: ## Validate fabric intent and render FRR + containerlab configs
 > $(FABRIC_PY) -m fabric.render.render --example
 
 fabric-up: fabric-render ## Deploy the EMULATED containerlab fabric
-> containerlab deploy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
+> containerlab deploy --reconfigure --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
 
 fabric-down: ## Destroy the EMULATED containerlab fabric
 > containerlab destroy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
@@ -230,10 +230,28 @@ fabric-e1: fabric-render ## Run E1 ECMP hash-policy experiment (EMULATED)
 fabric-e2: fabric-render ## Run E2 BFD convergence experiment (EMULATED)
 > $(FABRIC_PY) -m fabric.experiments.e2
 
+fabric-e3: roce-vm-up ## Run E3 VM SOFT-ROCE verbs, wire decode, and QoS checks
+> $(FABRIC_PY) -m fabric.experiments.e3.run devices qos
+> $(FABRIC_PY) -m fabric.experiments.e3.run rdma --path vm-cross-spine
+> $(FABRIC_PY) -m fabric.experiments.e3.run wire
+
+fabric-e4: ## E4: scale QoS intent into an EMULATED RED/ECN bottleneck
+> $(FABRIC_PY) -m fabric.experiments.e4_ecn
+
+fabric-e5: ## E5: collective traffic and ECMP entropy sweep (EMULATED)
+> $(FABRIC_PY) -m fabric.tools.collective_gen
+
+telemetry-up: ## Start local Prometheus + the EMULATED fabric Python exporter
+> $(FABRIC_PY) -m fabric.telemetry.service up
+
+telemetry-down: ## Stop local fabric telemetry services
+> $(FABRIC_PY) -m fabric.telemetry.service down
+
 # ---- RoCE on the fabric lab (fabric/README.md; SOFT-ROCE + INTENT-ONLY QoS) ---------------------
-.PHONY: roce-registry roce-image roce-e3 fabric-headroom
+.PHONY: roce-registry roce-image roce-vm-image roce-vm-up roce-e3 fabric-headroom
 ROCE_REGISTRY := $(shell awk '$$1 == "registry:" {print $$2}' fabric/intent/fabric.yaml)
 ROCE_IMAGE := $(firstword $(subst @, ,$(shell awk '$$1 == "host:" && /localhost:5000/ {print $$2}' fabric/intent/fabric.yaml)))
+ROCE_VM_IMAGE := localhost:5000/goodput-roce-vm:0.1.0
 
 roce-registry: ## Start the localhost:5000 registry that serves the lab host image (rootless podman)
 > podman start goodput-registry 2>/dev/null || podman run -d --name goodput-registry -p 127.0.0.1:5000:5000 $(ROCE_REGISTRY)
@@ -241,7 +259,12 @@ roce-registry: ## Start the localhost:5000 registry that serves the lab host ima
 roce-image: roce-registry ## Build + push the RoCE host image; put the printed digest in intent images.host
 > podman build -t $(ROCE_IMAGE) fabric/images/roce-host && podman push --tls-verify=false --digestfile /dev/stdout $(ROCE_IMAGE)
 
-roce-e3: ## E3: SOFT-ROCE devices + GIDs and host QoS classification (verbs traffic blocked; see E3 doc)
+roce-vm-image: roce-registry ## Build + push the pinned Debian QEMU runner; record its digest in intent images.vmrunner
+> podman build -t $(ROCE_VM_IMAGE) fabric/images/roce-vm && podman push --tls-verify=false --digestfile /dev/stdout $(ROCE_VM_IMAGE)
+
+roce-vm-up: fabric-up ## Deploy the EMULATED fabric with SOFT-ROCE VM endpoints
+
+roce-e3: ## E3: container-host SOFT-ROCE devices/GIDs + host QoS classification (verbs blocked; see E3 doc)
 > $(FABRIC_PY) -m fabric.experiments.e3.run devices qos
 
 fabric-headroom: ## PFC headroom table (INTENT-ONLY arithmetic)

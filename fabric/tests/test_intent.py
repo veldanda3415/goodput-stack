@@ -20,7 +20,23 @@ def test_intent_is_valid_and_has_rail_optimized_shape() -> None:
     assert len([node for node in intent["nodes"] if node["role"] == "spine"]) == 2
     assert len([node for node in intent["nodes"] if node["role"] == "leaf"]) == 4
     assert len(intent["hosts"]) == 4
+    assert len(intent["vm_hosts"]) == 2
     assert all({nic["rail"] for nic in host["nics"]} == {"A", "B"} for host in intent["hosts"])
+    assert all(vm["memory_mib"] <= 1024 and len(vm["nics"]) == 1 for vm in intent["vm_hosts"])
+
+
+def test_rejects_vm_host_over_one_gib() -> None:
+    intent = raw_intent()
+    intent["vm_hosts"][0]["memory_mib"] = 1025
+    with pytest.raises(ValueError, match="memory_mib must be between 128 and 1024"):
+        validate_semantics(intent)
+
+
+def test_rejects_duplicate_vm_mac_addresses() -> None:
+    intent = raw_intent()
+    intent["vm_hosts"][1]["management_mac"] = intent["vm_hosts"][0]["management_mac"]
+    with pytest.raises(ValueError, match="duplicate VM MAC address"):
+        validate_semantics(intent)
 
 
 def test_rejects_duplicate_leaf_asn() -> None:
@@ -84,11 +100,26 @@ def test_renderer_is_byte_deterministic(tmp_path: Path) -> None:
     }
     assert first == second
     topology = yaml.safe_load((output / "topology.clab.yml").read_text(encoding="utf-8"))
-    assert len(topology["topology"]["nodes"]) == 12
+    assert len(topology["topology"]["nodes"]) == 14
     assert topology["topology"]["nodes"]["spine1-tap"]["network-mode"] == "container:spine1"
-    assert len(topology["topology"]["links"]) == 16
+    assert len(topology["topology"]["links"]) == 18
     assert topology["mgmt"]["ipv4-subnet"] == "10.253.0.0/24"
     assert all(node["privileged"] for node in topology["topology"]["nodes"].values())
+    assert topology["topology"]["nodes"]["vmhost1"]["image"] == load_intent()["images"]["vmrunner"]
+    assert "/dev/kvm:/dev/kvm" in topology["topology"]["nodes"]["vmhost1"]["binds"]
+    network = yaml.safe_load((output / "vms/vmhost1/network-config").read_text(encoding="utf-8"))
+    assert network["config"][1]["subnets"][0]["address"] == "10.210.0.18/30"
+    assert network["config"][1]["subnets"][0]["routes"][0]["gateway"] == "10.210.0.17"
+    assert all("set-name" not in nic for nic in network["config"])
+    user_data = (output / "vms/vmhost1/user-data").read_text(encoding="utf-8")
+    assert user_data.startswith("#cloud-config\n")
+    assert "perftest=25.01.0+0.80-1" in user_data
+    assert "netdev\n  - fabric" in user_data
+    vm_config = yaml.safe_load(user_data)
+    qos_script = vm_config["write_files"][0]["content"]
+    assert "flower ip_tos 0x68/0xfc classid 1:2" in qos_script
+    assert "tc qdisc add dev fabric root" in qos_script
+    assert "__VM_SSH_PUBLIC_KEY__" in user_data
 
 
 def test_renderer_configures_bgp_and_host_source_routing(tmp_path: Path) -> None:

@@ -27,12 +27,18 @@ def load_intent(path: Path = INTENT_PATH) -> dict[str, Any]:
 def validate_semantics(intent: dict[str, Any]) -> None:
     nodes = {node["name"]: node for node in intent["nodes"]}
     hosts = {host["name"]: host for host in intent["hosts"]}
+    vm_hosts = {host["name"]: host for host in intent.get("vm_hosts", [])}
     if len(nodes) != len(intent["nodes"]):
         raise ValueError("node names must be unique")
     if len(hosts) != len(intent["hosts"]):
         raise ValueError("host names must be unique")
-    all_names = set(nodes) | set(hosts)
-    if len(all_names) != len(nodes) + len(hosts):
+    if len(vm_hosts) != len(intent.get("vm_hosts", [])):
+        raise ValueError("VM host names must be unique")
+    host_names = set(hosts) | set(vm_hosts)
+    if len(host_names) != len(hosts) + len(vm_hosts):
+        raise ValueError("container and VM host names must not overlap")
+    all_names = set(nodes) | host_names
+    if len(all_names) != len(nodes) + len(hosts) + len(vm_hosts):
         raise ValueError("node and host names must not overlap")
 
     spines = [node for node in nodes.values() if node["role"] == "spine"]
@@ -92,16 +98,31 @@ def validate_semantics(intent: dict[str, Any]) -> None:
             endpoint_owners[key] = link["name"]
         if link["kind"] == "fabric" and any(endpoint["node"] not in nodes for endpoint in (link["a"], link["b"])):
             raise ValueError(f"fabric link {link['name']} must connect router nodes")
-        if link["kind"] == "host" and not any(endpoint["node"] in hosts for endpoint in (link["a"], link["b"])):
+        if link["kind"] == "host" and not any(endpoint["node"] in host_names for endpoint in (link["a"], link["b"])):
             raise ValueError(f"host link {link['name']} must include a host")
 
     subnet_networks: list[tuple[str, ipaddress.IPv4Network]] = []
-    for host in hosts.values():
-        if len(host["nics"]) != len(intent["rails"]):
-            raise ValueError(f"{host['name']} must have exactly one NIC per rail")
-        rails = [nic["rail"] for nic in host["nics"]]
-        if set(rails) != set(intent["rails"]) or len(set(rails)) != len(rails):
-            raise ValueError(f"{host['name']} must have exactly one NIC for each rail {intent['rails']}")
+    vm_macs: set[str] = set()
+    for host in [*hosts.values(), *vm_hosts.values()]:
+        is_vm_host = host["name"] in vm_hosts
+        if is_vm_host:
+            if len(host["nics"]) != 1 or host["nics"][0]["rail"] not in intent["rails"]:
+                raise ValueError(f"{host['name']} must have exactly one NIC on a declared rail")
+            if not 128 <= host["memory_mib"] <= 1024:
+                raise ValueError(f"{host['name']} memory_mib must be between 128 and 1024")
+            if not 1 <= host["vcpus"] <= 4:
+                raise ValueError(f"{host['name']} vcpus must be between 1 and 4")
+            macs = [host["management_mac"], *(nic["mac"] for nic in host["nics"])]
+            normalized_macs = [mac.lower() for mac in macs]
+            if len(set(normalized_macs)) != len(normalized_macs) or any(mac in vm_macs for mac in normalized_macs):
+                raise ValueError(f"{host['name']} has a duplicate VM MAC address")
+            vm_macs.update(normalized_macs)
+        else:
+            if len(host["nics"]) != len(intent["rails"]):
+                raise ValueError(f"{host['name']} must have exactly one NIC per rail")
+            rails = [nic["rail"] for nic in host["nics"]]
+            if set(rails) != set(intent["rails"]) or len(set(rails)) != len(rails):
+                raise ValueError(f"{host['name']} must have exactly one NIC for each rail {intent['rails']}")
         for nic in host["nics"]:
             if nic["leaf"] not in nodes or nodes[nic["leaf"]]["role"] != "leaf":
                 raise ValueError(f"{host['name']} {nic['rail']} NIC references non-leaf {nic['leaf']}")
