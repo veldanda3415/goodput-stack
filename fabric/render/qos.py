@@ -23,6 +23,8 @@ def sonic_port(interface: str, stride: int) -> str:
 def switch_ports(intent: dict[str, Any], node: str) -> list[tuple[str, dict[str, Any]]]:
     ports = []
     for link in intent["links"]:
+        if link["kind"] == "tenant":
+            continue  # front-end tenant ports carry no lossless RoCE class
         for endpoint in (link["a"], link["b"]):
             if endpoint["node"] == node:
                 ports.append((endpoint["interface"], link))

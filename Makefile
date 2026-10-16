@@ -247,6 +247,36 @@ telemetry-up: ## Start local Prometheus + the EMULATED fabric Python exporter
 telemetry-down: ## Stop local fabric telemetry services
 > $(FABRIC_PY) -m fabric.telemetry.service down
 
+# ---- AI fabric F5: shaping, tenants, failure drills, NX-OS + Batfish (fabric/README.md) -------
+.PHONY: fabric-shape-on fabric-shape-off fabric-shape-status fabric-e5-shaped fabric-e7 fabric-e6 fabric-batfish fabric-batfish-down
+
+fabric-shape-on: fabric-render ## EMULATED: TBF-shape both ends of every leaf<->spine veth (intent lab_shaping)
+> $(FABRIC_PY) -m fabric.tools.shaping on
+
+fabric-shape-off: fabric-render ## Remove the lab_shaping TBF qdiscs and any even-split pins
+> $(FABRIC_PY) -m fabric.tools.shaping unpin && $(FABRIC_PY) -m fabric.tools.shaping off
+
+fabric-shape-status: ## Show shaped fabric ports and pin rules
+> $(FABRIC_PY) -m fabric.tools.shaping status
+
+fabric-e5-shaped: fabric-shape-on ## E5 rerun with shaped uplinks + measured even-split baseline (EMULATED)
+> $(FABRIC_PY) -m fabric.experiments.e5_shaped run
+
+fabric-e7: ## E7 EVPN-VXLAN tenant evidence and trap drills (EMULATED)
+> $(FABRIC_PY) -m fabric.experiments.e7_evpn all
+
+fabric-e6: fabric-shape-on ## E6 failure drills under collective load (EMULATED, shaped)
+> $(FABRIC_PY) -m fabric.experiments.e6_drills all
+
+fabric-batfish: ## Render NX-OS from intent and validate it OFFLINE with Batfish (starts/stops the container)
+> $(FABRIC_PY) -m pip install -q -r fabric/batfish/requirements.txt
+> $(FABRIC_PY) -m fabric.render.nxos
+> $(FABRIC_PY) -m fabric.batfish.service up
+> $(FABRIC_PY) -m pytest -q fabric/batfish/tests; status=$$?; $(FABRIC_PY) -m fabric.batfish.service down; exit $$status
+
+fabric-batfish-down: ## Stop the local Batfish container
+> $(FABRIC_PY) -m fabric.batfish.service down
+
 # ---- RoCE on the fabric lab (fabric/README.md; SOFT-ROCE + INTENT-ONLY QoS) ---------------------
 .PHONY: roce-registry roce-image roce-vm-image roce-vm-up roce-e3 fabric-headroom
 ROCE_REGISTRY := $(shell awk '$$1 == "registry:" {print $$2}' fabric/intent/fabric.yaml)

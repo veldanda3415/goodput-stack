@@ -55,4 +55,40 @@ router bgp {{ node.asn }}
 {% endfor %}
   maximum-paths {{ intent.ecmp_width }}
  exit-address-family
+{%- if evpn %}
+ address-family l2vpn evpn
+{%- for group in peer_groups %}
+  neighbor {{ group.name }} activate
+{%- if node.role == "spine" %}
+  neighbor {{ group.name }} attribute-unchanged next-hop
+{%- endif %}
+{%- endfor %}
+{%- if node.role == "leaf" %}
+  advertise-all-vni
+{%- for vrf in vrfs %}
+  vni {{ vrf.segment.l2vni }}
+   route-target import {{ vrf.segment.route_target }}
+   route-target export {{ vrf.segment.route_target }}
+  exit-vni
+{%- endfor %}
+{%- endif %}
+ exit-address-family
+{%- endif %}
 !
+{%- for vrf in vrfs %}
+vrf {{ vrf.name }}
+ vni {{ vrf.l3vni }}
+exit-vrf
+!
+router bgp {{ node.asn }} vrf {{ vrf.name }}
+ bgp router-id {{ node.loopback.split('/')[0] }}
+ address-family ipv4 unicast
+  redistribute connected
+ exit-address-family
+ address-family l2vpn evpn
+  advertise ipv4 unicast
+  route-target import {{ vrf.route_target }}
+  route-target export {{ vrf.route_target }}
+ exit-address-family
+!
+{%- endfor %}

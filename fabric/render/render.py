@@ -11,6 +11,8 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from fabric.intent.schema.validate import INTENT_PATH, load_intent
 from fabric.render.qos import host_qos_script, sonic_config
+from fabric.render.shaping import pin_scripts, shape_scripts
+from fabric.render.tenants import endpoint_nodes, leaf_tenant_script, leaf_vrfs
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -128,6 +130,8 @@ def render(intent: dict[str, Any], output: Path) -> None:
                 peer_groups=router_peer_groups(intent, node["name"]),
                 host_addresses=host_addresses,
                 advertised_prefixes=advertised_prefixes(intent, node["name"]),
+                evpn="tenants" in intent,
+                vrfs=leaf_vrfs(intent, node["name"]) if node["role"] == "leaf" else [],
             ),
             encoding="utf-8",
         )
@@ -152,6 +156,15 @@ def render(intent: dict[str, Any], output: Path) -> None:
                 "sysctl -w net.ipv6.conf.all.forwarding=1",
             ],
         }
+        if node["role"] == "leaf" and leaf_vrfs(intent, node["name"]):
+            tenant_dir = output / "tenants"
+            tenant_dir.mkdir(parents=True, exist_ok=True)
+            (tenant_dir / f"{node['name']}-tenants.sh").write_text(
+                leaf_tenant_script(intent, node["name"]), encoding="utf-8"
+            )
+            router = topology["topology"]["nodes"][node["name"]]
+            router["binds"].append(f"./tenants/{node['name']}-tenants.sh:/usr/local/bin/tenants.sh:ro")
+            router["exec"].append("sh /usr/local/bin/tenants.sh")
 
     for host_name, host in hosts.items():
         if host_name in {vm["name"] for vm in intent.get("vm_hosts", [])}:
@@ -285,13 +298,29 @@ def render(intent: dict[str, Any], output: Path) -> None:
             "cmd": "sleep infinity",
         }
 
+    topology["topology"]["nodes"].update(endpoint_nodes(intent))
+
     for link in intent["links"]:
-        topology["topology"]["links"].append({
+        entry: dict[str, Any] = {
             "endpoints": [
                 f"{link['a']['node']}:{link['a']['interface']}",
                 f"{link['b']['node']}:{link['b']['interface']}",
             ]
-        })
+        }
+        if "fabric_mtu" in intent:
+            entry["mtu"] = intent["fabric_mtu"]
+        topology["topology"]["links"].append(entry)
+    if "lab_shaping" in intent:
+        shaping_dir = output / "shaping"
+        shaping_dir.mkdir(parents=True, exist_ok=True)
+        for node, scripts in shape_scripts(intent).items():
+            for state, script in scripts.items():
+                (shaping_dir / f"{node}-shape-{state}.sh").write_text(script, encoding="utf-8")
+        for pattern in ("ring", "all-to-all"):
+            for leaf, scripts in pin_scripts(intent, pattern).items():
+                (shaping_dir / f"{leaf}-pin-{pattern}.sh").write_text(scripts["on"], encoding="utf-8")
+                (shaping_dir / f"{leaf}-pin-off.sh").write_text(scripts["off"], encoding="utf-8")
+
     (output / "topology.clab.yml").write_text(
         yaml.safe_dump(topology, sort_keys=False), encoding="utf-8"
     )

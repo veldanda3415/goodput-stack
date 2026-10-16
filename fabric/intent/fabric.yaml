@@ -94,6 +94,17 @@ rdma:
 # (containerlab network-mode container:<node>), so tcpdump/tshark run on the
 # router's interfaces without adding tools to the pinned FRR image.
 capture_taps: [spine1, spine2]
+# EMULATED lab profile (not a hardware design value): Linux TBF on both ends
+# of every leaf<->spine veth so the fabric, not the host containers, is the
+# bottleneck for E5-shaped and E6. Applied/removed at runtime with
+# `make fabric-shape-on/off`; BGP/BFD are untouched. pin_rail selects the
+# hosts whose cross-leaf pairs get the even-split pinning baseline. The rate
+# is justified in E5 "Shaped uplinks rerun" from measured host throughput.
+lab_shaping:
+  uplink_rate_mbit: 500
+  burst_bytes: 125000          # 2 ms at 500 Mbit/s; >= rate/HZ (tc-tbf(8))
+  limit_bytes: 625000          # 10 ms of queue at 500 Mbit/s
+  pin_rail: A
 # INTENT-ONLY lossless RoCE v2 QoS design. Rendered to SONiC config_db
 # fragments (never run on hardware) and to a Linux tc equivalent that runs on
 # the lab host rail NICs. Veth has no PFC, no switch buffers and no queue ECN
