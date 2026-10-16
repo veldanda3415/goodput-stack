@@ -1,0 +1,15 @@
+$ nvidia-smi topo -p2p w
+# rc=0
+ 	[4mGPU0	GPU1	[0m
+ GPU0	X	NS	
+ GPU1	NS	X	
+
+Legend:
+
+  X    = Self
+  OK   = Status Ok
+  CNS  = Chipset not supported
+  GNS  = GPU not supported
+  TNS  = Topology not supported
+  NS   = Not supported
+  U    = Unknown

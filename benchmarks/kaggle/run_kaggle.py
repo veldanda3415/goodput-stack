@@ -5,6 +5,11 @@
     python -m benchmarks.kaggle.run_kaggle --stage kvgrid --resume benchmarks/results/t4/<run-id>
     python -m benchmarks.kaggle.run_kaggle --stage sweep --no-wait          # push only
     python -m benchmarks.kaggle.run_kaggle --fetch benchmarks/results/t4/<run-id>   # poll + download a pushed run
+    python -m benchmarks.kaggle.run_kaggle --stage nccl --machine-shape NvidiaTeslaT4  # 2 x T4 (see below)
+
+Machine shape: `machine_shape` in kernel-metadata.json. Kaggle documents `NvidiaTeslaT4` as "GPU T4 x2"
+(Kaggle/kaggle-api docs/kernels_metadata.md, main @ 6894864f, 2026-10-16), and every run in runs.jsonl pushed
+with it recorded 2 GPUs (env.json gpu_count). --machine-shape overrides it; the value is recorded in run.json.
 
 What gets pushed: a new version of one generated Kaggle *script* kernel `<user>/goodput-t4` (all stages) (GPU T4, internet on,
 private). The script carries a base64 tarball of benchmarks/harness/, benchmarks/gpu_sampler.py and
@@ -109,7 +114,8 @@ print("stage {stage} exit code", rc, "session %.1f s" % (time.time() - T0))
 '''
 
 
-def push(stage: str, args: list[str], resume: Path | None, slug: str = "goodput-t4") -> Path:
+def push(stage: str, args: list[str], resume: Path | None, slug: str = "goodput-t4",
+         machine_shape: str = "NvidiaTeslaT4") -> Path:
     user, sha = kaggle_user(), git_sha()
     run_id = f"{datetime.now():%Y%m%d-%H%M%S}_{stage}"
     run_dir = RESULTS / run_id
@@ -119,7 +125,7 @@ def push(stage: str, args: list[str], resume: Path | None, slug: str = "goodput-
                                                     payload=payload(stage, resume)))
     meta = {"id": f"{user}/{slug}", "title": slug, "code_file": f"{slug}.py", "language": "python",
             "kernel_type": "script", "is_private": True, "enable_gpu": True, "enable_tpu": False,
-            "enable_internet": True, "machine_shape": "NvidiaTeslaT4", "keywords": [],
+            "enable_internet": True, "machine_shape": machine_shape, "keywords": [],
             "dataset_sources": [], "kernel_sources": [], "competition_sources": [], "model_sources": []}
     (build / "kernel-metadata.json").write_text(json.dumps(meta, indent=2))
     out = kaggle("kernels", "push", "-p", str(build))
@@ -208,7 +214,7 @@ def fetch(run_dir: Path, poll_s: int, timeout_min: float) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--stage", help="t4_notebook stage: smoke, baseline, kvgrid, sweep, quant")
+    ap.add_argument("--stage", help="t4_notebook stage: smoke, baseline, kvgrid, sweep, quant, nccl")
     ap.add_argument("--args", default="", help="extra args for the stage, one shell-quoted string")
     ap.add_argument("--resume", type=Path, help="earlier run dir of the same stage; its results are re-uploaded and skipped")
     ap.add_argument("--fetch", type=Path, help="poll + download an already pushed run dir")
@@ -216,6 +222,8 @@ def main() -> None:
     ap.add_argument("--kernel", default="goodput-t4",
                     help="kernel slug (default goodput-t4: the one with the HF_TOKEN secret attached; a second slug "
                          "lets an ungated stage run at the same time)")
+    ap.add_argument("--machine-shape", default="NvidiaTeslaT4",
+                    help="kernel-metadata machine_shape (default NvidiaTeslaT4 = Kaggle's 'GPU T4 x2', see above)")
     ap.add_argument("--poll-s", type=int, default=30)
     ap.add_argument("--timeout-min", type=float, default=240)
     a = ap.parse_args()
@@ -225,7 +233,8 @@ def main() -> None:
         if not a.stage:
             ap.error("--stage or --fetch is required")
         import shlex
-        run_dir = push(a.stage, shlex.split(a.args), a.resume.resolve() if a.resume else None, a.kernel)
+        run_dir = push(a.stage, shlex.split(a.args), a.resume.resolve() if a.resume else None, a.kernel,
+                       a.machine_shape)
         if a.no_wait:
             return
         rec = fetch(run_dir, a.poll_s, a.timeout_min)
