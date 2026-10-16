@@ -252,6 +252,42 @@ Cost: Azure Standard_NC4as_T4_v3 US East Linux on-demand 0.526 USD/1 Hour; fetch
 
 ![decode](charts/quant_decode.png)
 
+## NCCL — 2 × T4 collectives (PCIe, one box)
+
+**2 × Tesla T4 in one Kaggle VM, GPU↔GPU over PCIe — GPU collective communication inside one box; not the scale-out fabric, not NVLink.** nccl-tests rows from one session: [20261016-153016_nccl](../../../benchmarks/results/t4/20261016-153016_nccl/results/nccl/nccl.jsonl).
+
+- Topology: `nvidia-smi topo -m` GPU0↔GPU1 = **PHB**; `topo -p2p r` = **OK**; torch `can_device_access_peer(0,1)` = **True**; PCIe under load Gen3 x16 (idle Gen3).
+- Versions: NCCL **2.28.9+cuda12.9** (`nvidia-nccl-cu12==2.28.9`, library code 22809 printed by nccl-tests); nccl-tests v2.21.0 (`a3d4589e8f32`), nvcc 12.8.93, driver 580.178.04 (CUDA 13.0), torch 2.11.0+cu128 (its NCCL 2.28.9).
+- Transport NCCL chose (default run): **SHM/direct/direct**; graph `Pattern 1, crossNic 0, nChannels 1, bw 10.000000/10.000000, type PHB/PIX, sameChannels 1`; 2 coll channels.
+
+| run | env | rc | busbw @ 1 GiB (GB/s) | algbw @ 1 GiB | time @ 8 B (µs) | avg busbw | #wrong | transport | algo/proto @ 8 B → 1 GiB |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| `allreduce-default-r1` | default | 0 | 3.91 | 3.91 | 16.6 | 1.87 | 0 | SHM/direct/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+| `allreduce-default-r2` | default | 0 | 3.89 | 3.89 | 18.0 | 1.92 | 0 | SHM/direct/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+| `allreduce-default-r3` | default | 0 | 3.88 | 3.88 | 18.9 | 1.92 | 0 | SHM/direct/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+| `allreduce-ring` | NCCL_ALGO=Ring | 0 | 3.87 | 3.87 | 16.4 | 1.92 | 0 | SHM/direct/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+| `allreduce-tree` | NCCL_ALGO=Tree | 0 | 4.47 | 4.47 | 17.6 | 2.03 | 0 | SHM/direct/direct | TREE/LL/ch1 → TREE/SIMPLE/ch2 |
+| `allreduce-p2p-disabled` | NCCL_P2P_DISABLE=1 | 0 | 3.86 | 3.86 | 17.6 | 1.91 | 0 | SHM/direct/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+| `allgather` | default | 0 | 3.19 | 6.38 | — | 1.53 | 0 | SHM/direct/direct | ? → ? |
+| `reducescatter` | default | 0 | 3.60 | 7.20 | — | 1.59 | 0 | SHM/direct/direct | ? → ? |
+| `alltoall` | default | 0 | 4.43 | 8.85 | — | 1.78 | 0 | SHM/direct/direct | — |
+| `sendrecv` | default | 0 | 3.64 | 3.64 | 14.0 | 1.83 | 0 | SHM/direct/direct | — |
+| `allreduce-p2p-shm-disabled` | NCCL_P2P_DISABLE=1 NCCL_SHM_DISABLE=1 | 0 | 2.25 | 2.25 | 66.5 | 0.97 | 0 | NET/Socket/0 | RING/LL/ch1 → RING/SIMPLE/ch2 |
+
+P2P follow-up, one session ([20261016-154427_nccl](../../../benchmarks/results/t4/20261016-154427_nccl/results/nccl/nccl.jsonl)): `topo -p2p r` = OK, torch P2P = True. NCCL 2.28.9 uses P2P only up to PXB by default; `NCCL_P2P_LEVEL=PHB` allows it on this PHB path.
+
+| run | env | rc | busbw @ 1 GiB (GB/s) | algbw @ 1 GiB | time @ 8 B (µs) | avg busbw | #wrong | transport | algo/proto @ 8 B → 1 GiB |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| `p2pcheck-default` | default | 0 | 3.83 | 3.83 | 19.8 | 1.84 | 0 | SHM/direct/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+| `p2pcheck-p2p-level-phb` | NCCL_P2P_LEVEL=PHB | 0 | 4.12 | 4.12 | 17.7 | 2.06 | 0 | P2P/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+| `p2pcheck-p2p-disabled` | NCCL_P2P_DISABLE=1 | 0 | 3.91 | 3.91 | 18.8 | 1.92 | 0 | SHM/direct/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+| `p2pcheck-tree` | NCCL_ALGO=Tree | 0 | 4.49 | 4.49 | 18.0 | 2.03 | 0 | SHM/direct/direct | TREE/LL/ch1 → TREE/SIMPLE/ch2 |
+| `p2pcheck-ring` | NCCL_ALGO=Ring | 0 | 3.94 | 3.94 | 17.8 | 1.93 | 0 | SHM/direct/direct | RING/LL/ch1 → RING/SIMPLE/ch2 |
+
+busbw = algbw × 2(N−1)/N for all-reduce, (N−1)/N for all-gather / reduce-scatter / all-to-all, 1 for send/recv (nccl-tests PERFORMANCE.md); at N = 2 all-reduce busbw = algbw. Out-of-place columns. Model check against fabric/design/collectives.py: [fabric/design/nccl_check.md](../../../fabric/design/nccl_check.md).
+
+![all-reduce busbw](charts/nccl-allreduce-busbw.png)
+
 ## Kaggle runs (GPU time)
 
 | run | stage | status | script session s | GPU-h (script) | GPU-h (push→done, upper bound) |
@@ -276,5 +312,8 @@ Cost: Azure Standard_NC4as_T4_v3 US East Linux on-demand 0.526 USD/1 Hour; fetch
 | 20261015-064738_smoke | smoke | complete | 20.3 | 0.006 | 0.010 |
 | 20261015-064953_baseline | baseline | complete | 729.6 | 0.203 | 0.215 |
 | 20261015-070248_sweep | sweep | complete | 3,408.5 | 0.947 | 0.957 |
-| **total** | | | | **5.056** | **5.458** |
+| 20261016-152535_nccl | nccl | complete | 125.6 | 0.035 | 0.047 |
+| 20261016-153016_nccl | nccl | complete | 722.6 | 0.201 | 0.215 |
+| 20261016-154427_nccl | nccl | complete | 429.5 | 0.119 | 0.128 |
+| **total** | | | | **5.411** | **5.848** |
 

@@ -14,6 +14,7 @@ revision, every serving flag and the client config. Generated tables: [summary.m
 - [Task 2 — 8B AWQ KV capacity](#task-2--8b-awq-kv-capacity)
 - [Task 4 — concurrency sweep](#task-4--concurrency-sweep)
 - [Task 5 — quantization](#task-5--quantization)
+- [NCCL — 2 × T4 collectives (PCIe, one box)](#nccl--2--t4-collectives-pcie-one-box)
 - [Limits — what is emulated or missing](#limits--what-is-emulated-or-missing)
 - [Reproduce](#reproduce)
 
@@ -28,9 +29,10 @@ One Kaggle kernel version per stage (`make t4-run STAGE=<stage>`). Results are i
 | kvgrid | 8B AWQ INT4: KV pool vs `--gpu-memory-utilization` × `--max-model-len` | **20261014-220938** |
 | sweep | closed loop c=1..64 × two `--max-num-seqs`, open loop, `vllm bench serve` cross-check | Llama **20261015-070248**; Qwen **20261014-220946**; cross-check 20261014-225021 (other session, invalid pair), **20261014-230457** (same session); TTFT-tail diagnosis 20261014-232257, 20261014-233928 |
 | quant | FP16 vs AWQ (vLLM) vs GGUF Q8_0/Q4_K_M (llama.cpp CUDA): speed, PPL, lm-eval, cost | **20261014-224513** (speed, PPL), 20261014-230851 (lm-eval vLLM), 20261014-234235 (lm-eval GGUF) |
+| nccl | NCCL collectives between the kernel's 2 T4s over PCIe: topology, transport, nccl-tests sweep | smoke 20261016-152535 (wrong NCCL picked, rows split; see below), **20261016-153016** (sweep), **20261016-154427** (P2P follow-up) |
 
-GPU time: **5.06 GPU-hours** of script session time over 20 Kaggle runs pushed by `run_kaggle.py` (5.46 h push→done
-upper bound); per run in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Not in the ledger: two
+GPU time: **5.41 GPU-hours** of script session time over 23 Kaggle runs pushed by `run_kaggle.py` (5.85 h push→done
+upper bound; the three nccl runs are 0.355 h); per run in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Not in the ledger: two
 versions started from the Kaggle editor on 2026-10-15 (a re-run of the GGUF lm-eval stage, ~24 min, and the
 one-minute smoke that proved the secret works from the editor). Kaggle's output download sometimes saves a 502
 HTML page in place of a file; `run_kaggle.py` retries and never overwrites a good file with one.
@@ -297,9 +299,54 @@ source build) with `-ngl 99 -c 8192 -np 16 --metrics`. Full table: [summary.md](
     because `-c 8192 -np 16` leaves 512 tokens per slot and gsm8k 5-shot prompts are 1.2–1.6K tokens; (3) llama-server
     restarted for lm-eval with `-c 16384 -np 8` (2,048 per slot). The speed rows above used the `-np 16` server.
 
+## NCCL — 2 × T4 collectives (PCIe, one box)
+
+**What this is:** GPU collective communication between the **two T4s of one Kaggle "GPU T4 x2" VM, over PCIe**.
+It is not the scale-out fabric (no NIC, no RDMA, no switch) and not NVLink (T4 has none). Stage `nccl` in
+[t4_notebook.py](../../kaggle/t4_notebook.py) records topology and versions, builds nccl-tests, runs the sweep and
+parses each run into `nccl.jsonl`: per size time / algbw / busbw / #wrong, plus the transport, channels, graph,
+tuning table and per-size algorithm/protocol from `NCCL_DEBUG=INFO` (`NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING`, written to
+its own file with `NCCL_DEBUG_FILE`; full logs gzipped next to a deduplicated excerpt). Tables: [summary.md](summary.md#nccl--2--t4-collectives-pcie-one-box);
+model check against fabric/design/collectives.py: [fabric/design/nccl_check.md](../../../fabric/design/nccl_check.md).
+
+- **Machine shape.** `machine_shape: NvidiaTeslaT4` *is* Kaggle's "GPU T4 x2" (Kaggle/kaggle-api
+  `docs/kernels_metadata.md`, main @ `6894864f`: "`NvidiaTeslaT4` for GPU T4 ×2"). Every earlier run in
+  runs.jsonl also recorded `gpu_count: 2`. `run_kaggle.py --machine-shape` exists for other shapes (default
+  unchanged). The stage exits with code 3 if `nvidia-smi -L` lists fewer than 2 GPUs.
+- **Topology.** GPU0 ↔ GPU1 = **PHB**; PCIe **Gen3 x16** under load (Gen1 at idle). CUDA P2P **differed by session**:
+  `NS` / torch False in the smoke session, `OK` / True in both measurement sessions.
+- **Versions.** NCCL **2.28.9** from a pinned `nvidia-nccl-cu12==2.28.9` installed with `pip --target` into a private
+  dir. That is the NCCL the image's torch 2.11.0+cu128 reports. nccl-tests **v2.21.0** (`a3d4589e`, one before the
+  latest v2.21.1), `make MPI=0 CUDA_HOME=/usr/local/cuda-12.8 NCCL_HOME=… NVCC_GENCODE=sm_75`; nvcc 12.8.93; driver
+  580.178.04. nccl-tests' header confirms `nccl-library=22809`, and the stage stops if it differs.
+- **Commands.** `all_reduce_perf -g 2 -b 8 -e 1G -f 2 -n 50 -w 10 -c 1` (the same args for all collectives; the
+  Socket contrast uses `-n 10 -w 2`). The 1 GiB busbw of the 3 default repeats spans 0.8 %, so 50 iterations are enough.
+
+| 1 GiB, out-of-place (run 20261016-153016) | busbw GB/s | note |
+|---|---:|---|
+| all-reduce default ×3 | 3.91 / 3.89 / 3.88 | SHM/direct/direct, Ring/Simple, 2 channels |
+| all-reduce `NCCL_ALGO=Ring` / `Tree` | 3.87 / **4.47** | Tree +15 % (P2P follow-up: +14 %), yet NCCL picks Ring |
+| all-reduce `NCCL_P2P_DISABLE=1` | 3.86 | same SHM transport: NCCL never used P2P here |
+| all-reduce P2P + SHM disabled | 2.25 | NET/Socket (TCP in one VM); 66.5 µs at 8 B |
+| all-gather / reduce-scatter / all-to-all / send-recv | 3.19 / 3.60 / 4.43 / 3.64 | algbw 6.38 / 7.20 / 8.85 / 3.64 |
+| all-reduce at 8 B (3 repeats) | 16.6 / 18.0 / 18.9 µs | Ring/LL, 1 channel |
+| P2P follow-up 20261016-154427: `NCCL_P2P_LEVEL=PHB` vs default | **4.12 vs 3.83** | P2P/direct vs SHM: **1.08×** |
+
+**Why SHM.** NCCL 2.28.9 uses P2P only up to path type PXB by default (`src/graph/paths.cc:319`); the PHB path here is
+one level further, so NCCL copies through host shared memory even when CUDA P2P works (`isAllCudaP2p 1` in the
+log). Forcing P2P across PHB gains 8 %.
+
+**Smoke failures (20261016-152535), both fixed before the sweep:**
+(1) symptom: parsed rows had no size column → evidence: NCCL INFO lines from the in-place call appeared in the middle
+of nccl-tests rows in stdout → cause: both write to the same stdout → fix: `NCCL_DEBUG_FILE`. (2) symptom: NCCL
+`2.31.2+cuda13.3` in the log and `nccl-library=23102`, while torch reports 2.28.9 → evidence: `pip show -f` lists
+`nvidia/nccl/include/nccl.h` under *both* `nvidia-nccl-cu12` 2.28.9 and `nvidia-nccl-cu13` 2.31.2, and a system
+`libnccl.so.2.25.1` also exists → cause: the two wheels share one path, and the files on disk are the 2.31.2 copy → fix: the pinned cu12
+wheel goes to a private `--target` dir, plus a version assert.
+
 ## Limits — what is emulated or missing
 
-- **Free-tier Kaggle T4, single GPU.** The kernel has 2 × T4; only GPU 0 is used. Sessions land on different
+- **Free-tier Kaggle T4, single GPU.** The kernel has 2 × T4; the engine stages use only GPU 0 (the `nccl` stage uses both). Sessions land on different
   machines whose clocks differ (398 vs 873 MHz mean SM clock at the same c=1 workload). Results from different
   sessions are not directly comparable; each table says which run it came from.
 - **NVML sampling, not DCGM.** DCGM is not installed on Kaggle (no `dcgmi`, `nv-hostengine` or `libdcgm*`), so
@@ -325,6 +372,8 @@ make t4-run STAGE=baseline
 make t4-run STAGE=kvgrid ARGS='--kernel goodput-t4-kv --args "--vllm-version 0.31.0"'
 make t4-run STAGE=sweep  ARGS='--args "--vllm-version 0.31.0"'
 make t4-run STAGE=quant  ARGS='--args "--vllm-version 0.31.0"'
+make t4-run STAGE=nccl   ARGS='--machine-shape NvidiaTeslaT4'                    # add --args=--smoke for probe+build only
+make t4-run STAGE=nccl   ARGS='--machine-shape NvidiaTeslaT4 --args="--plan p2pcheck"'
 .venv/bin/python benchmarks/analyze.py --price-json benchmarks/results/t4/pricing/azure-NC4as_T4_v3-eastus.json
 ```
 
