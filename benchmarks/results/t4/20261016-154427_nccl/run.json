@@ -1,0 +1,21 @@
+{
+  "run_id": "20261016-154427_nccl",
+  "stage": "nccl",
+  "args": [
+    "--plan",
+    "p2pcheck"
+  ],
+  "kernel": "raviveldanda/goodput-t4",
+  "git_sha": "c7a848b-dirty",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-16T19:44:29+00:00",
+  "push_output": "Kernel version 18 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4",
+  "output_cmd_output": "3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/pip-show-torch.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/smi-q-pci.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/system-nccl.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/toolchain.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/topo-m.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/topo-p2p-a.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/topo-p2p-n.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/topo-p2p-r.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/topo-p2p-w.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/logs/torch-p2p.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/nccl.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/results/nccl/stage.json\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack-nccl/benchmarks/results/t4/20261016-154427_nccl/_download/goodput-t4.log",
+  "finished_at_utc": "2026-10-16T19:52:10+00:00",
+  "status": "complete",
+  "wall_push_to_done_min": 7.7,
+  "script_session_s": 429.5,
+  "gpu_hours_script": 0.119,
+  "gpu_hours_upper_bound": 0.128
+}

@@ -1,0 +1,132 @@
+# Excerpt of benchmarks/results/t4/20261016-153016_nccl/results/nccl/logs/allreduce-default-r1.nccl_debug.txt.gz:
+# verbatim lines, later duplicates (same text after 'NCCL INFO') removed.
+82fa569cfcf0:926:926 [0] NCCL INFO ENV/Plugin: Could not find: libnccl-env.so
+82fa569cfcf0:926:926 [0] NCCL INFO cudaDriverVersion 13000
+82fa569cfcf0:926:926 [0] NCCL INFO NCCL version 2.28.9+cuda12.9
+82fa569cfcf0:926:936 [1] NCCL INFO NET/Plugin: Could not find: libnccl-net.so
+82fa569cfcf0:926:936 [1] NCCL INFO NET/IB : No device found.
+82fa569cfcf0:926:936 [1] NCCL INFO NET/IB : Using [RO]; OOB eth0:172.19.2.2<0>
+82fa569cfcf0:926:936 [1] NCCL INFO Failed to initialize NET plugin IB
+82fa569cfcf0:926:936 [1] NCCL INFO NET/Socket : Using [0]eth0:172.19.2.2<0>
+82fa569cfcf0:926:936 [1] NCCL INFO Initialized NET plugin Socket
+82fa569cfcf0:926:936 [1] NCCL INFO Assigned NET plugin Socket to comm
+82fa569cfcf0:926:936 [1] NCCL INFO Using network Socket
+82fa569cfcf0:926:936 [1] NCCL INFO ncclCommInitRankConfig comm 0x57e8e6be1110 rank 1 nranks 2 cudaDev 1 nvmlDev 1 busId 50 commId 0x1eb49322a2a5018f - Init START
+82fa569cfcf0:926:935 [0] NCCL INFO ncclCommInitRankConfig comm 0x57e8e6ad0540 rank 0 nranks 2 cudaDev 0 nvmlDev 0 busId 40 commId 0x1eb49322a2a5018f - Init START
+82fa569cfcf0:926:936 [1] NCCL INFO RAS client listening socket at ::1<28028>
+82fa569cfcf0:926:935 [0] NCCL INFO Topology detection : could not read /sys/devices/pci0000:00/0000:00:04.0/max_link_speed, ignoring
+82fa569cfcf0:926:935 [0] NCCL INFO Topology detection : could not read /sys/devices/pci0000:00/0000:00:04.0/../max_link_speed, ignoring
+82fa569cfcf0:926:935 [0] NCCL INFO Topology detection : could not read /sys/devices/pci0000:00/0000:00:04.0/max_link_width, ignoring
+82fa569cfcf0:926:936 [1] NCCL INFO Topology detection : could not read /sys/devices/pci0000:00/0000:00:05.0/max_link_speed, ignoring
+82fa569cfcf0:926:935 [0] NCCL INFO Topology detection : could not read /sys/devices/pci0000:00/0000:00:04.0/../max_link_width, ignoring
+82fa569cfcf0:926:936 [1] NCCL INFO Topology detection : could not read /sys/devices/pci0000:00/0000:00:05.0/../max_link_speed, ignoring
+82fa569cfcf0:926:936 [1] NCCL INFO Topology detection : could not read /sys/devices/pci0000:00/0000:00:05.0/max_link_width, ignoring
+82fa569cfcf0:926:936 [1] NCCL INFO Topology detection : could not read /sys/devices/pci0000:00/0000:00:05.0/../max_link_width, ignoring
+82fa569cfcf0:926:935 [0] NCCL INFO TOPO/NET : Importing network plugins to topology
+82fa569cfcf0:926:935 [0] NCCL INFO ncclTopoPopulateNics : Filled eth0 in topo with pciPath=(null) keep=1 coll=(null)
+82fa569cfcf0:926:935 [0] NCCL INFO KV Convert to int : could not find value of '' in dictionary, falling back to 60
+82fa569cfcf0:926:935 [0] NCCL INFO === System : maxBw 12.0 totalBw 12.0 ===
+82fa569cfcf0:926:935 [0] NCCL INFO CPU/0-0 (1/1/2)
+82fa569cfcf0:926:935 [0] NCCL INFO + PCI[5000.0] - NIC/0-0
+82fa569cfcf0:926:935 [0] NCCL INFO                 + NET[1.2] - NET/0-0 (0/0/0/1.250000)
+82fa569cfcf0:926:935 [0] NCCL INFO + PCI[12.0] - GPU/0-40 (0)
+82fa569cfcf0:926:935 [0] NCCL INFO + PCI[12.0] - GPU/0-50 (1)
+82fa569cfcf0:926:935 [0] NCCL INFO ==========================================
+82fa569cfcf0:926:935 [0] NCCL INFO GPU/0-40 :GPU/0-40 (0/5000.0/LOC) GPU/0-50 (2/12.0/PHB) CPU/0-0 (1/12.0/PHB) NET/0-0 (3/1.2/PHB) 
+82fa569cfcf0:926:935 [0] NCCL INFO GPU/0-50 :GPU/0-40 (2/12.0/PHB) GPU/0-50 (0/5000.0/LOC) CPU/0-0 (1/12.0/PHB) NET/0-0 (3/1.2/PHB) 
+82fa569cfcf0:926:935 [0] NCCL INFO NET/0-0 :GPU/0-40 (3/1.2/PHB) GPU/0-50 (3/1.2/PHB) CPU/0-0 (2/1.2/PHB) NET/0-0 (0/5000.0/LOC) 
+82fa569cfcf0:926:935 [0] NCCL INFO ncclTopoGetCpuAffinity: Affinity for GPU 0 is 0-3. (GPU affinity = 0-3 ; CPU affinity = 0-3).
+82fa569cfcf0:926:935 [0] NCCL INFO NVLS multicast support is not available on dev 0 (NVLS_NCHANNELS 0)
+82fa569cfcf0:926:935 [0] NCCL INFO Pattern 4, crossNic 0, nChannels 1, bw 10.000000/10.000000, type PHB/PIX, sameChannels 1
+82fa569cfcf0:926:935 [0] NCCL INFO  0 : GPU/0-40 GPU/0-50
+82fa569cfcf0:926:936 [1] NCCL INFO ncclTopoGetCpuAffinity: Affinity for GPU 1 is 0-3. (GPU affinity = 0-3 ; CPU affinity = 0-3).
+82fa569cfcf0:926:936 [1] NCCL INFO NVLS multicast support is not available on dev 1 (NVLS_NCHANNELS 0)
+82fa569cfcf0:926:935 [0] NCCL INFO Pattern 1, crossNic 0, nChannels 1, bw 10.000000/10.000000, type PHB/PIX, sameChannels 1
+82fa569cfcf0:926:936 [1] NCCL INFO comm 0x57e8e6be1110 rank 1 nRanks 2 nNodes 1 localRanks 2 localRank 1 MNNVL 0
+82fa569cfcf0:926:935 [0] NCCL INFO comm 0x57e8e6ad0540 rank 0 nRanks 2 nNodes 1 localRanks 2 localRank 0 MNNVL 0
+82fa569cfcf0:926:935 [0] NCCL INFO Tree 0 : -1 -> 0 -> 1/-1/-1
+82fa569cfcf0:926:936 [1] NCCL INFO Tree 0 : 0 -> 1 -> -1/-1/-1
+82fa569cfcf0:926:936 [1] NCCL INFO Tree 1 : 0 -> 1 -> -1/-1/-1
+82fa569cfcf0:926:935 [0] NCCL INFO Tree 1 : -1 -> 0 -> 1/-1/-1
+82fa569cfcf0:926:936 [1] NCCL INFO Ring 00 : 0 -> 1 -> 0
+82fa569cfcf0:926:936 [1] NCCL INFO Ring 01 : 0 -> 1 -> 0
+82fa569cfcf0:926:936 [1] NCCL INFO Trees [0] -1/-1/-1->1->0 [1] -1/-1/-1->1->0
+82fa569cfcf0:926:935 [0] NCCL INFO Channel 00/02 : 0 1
+82fa569cfcf0:926:936 [1] NCCL INFO P2P Chunksize set to 131072
+82fa569cfcf0:926:935 [0] NCCL INFO Channel 01/02 : 0 1
+82fa569cfcf0:926:935 [0] NCCL INFO Ring 00 : 1 -> 0 -> 1
+82fa569cfcf0:926:935 [0] NCCL INFO Ring 01 : 1 -> 0 -> 1
+82fa569cfcf0:926:935 [0] NCCL INFO Trees [0] 1/-1/-1->0->-1 [1] 1/-1/-1->0->-1
+82fa569cfcf0:926:936 [1] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so
+82fa569cfcf0:926:936 [1] NCCL INFO Check P2P Type isAllDirectP2p 0 directMode 1 isAllCudaP2p 1
+82fa569cfcf0:926:938 [0] NCCL INFO [Proxy Service] Device 1 CPU core 0
+82fa569cfcf0:926:935 [0] NCCL INFO ncclP2pSchedule: group size used is 2
+82fa569cfcf0:926:939 [0] NCCL INFO [Proxy Service] Device 0 CPU core 1
+82fa569cfcf0:926:940 [0] NCCL INFO [Proxy Service UDS] Device 1 CPU core 2
+82fa569cfcf0:926:941 [0] NCCL INFO [Proxy Service UDS] Device 0 CPU core 3
+82fa569cfcf0:926:936 [1] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so
+82fa569cfcf0:926:936 [1] NCCL INFO threadThresholds 8/8/64 | 16/8/64 | 512 | 512
+82fa569cfcf0:926:936 [1] NCCL INFO 2 coll channels, 2 collnet channels, 0 nvls channels, 2 p2p channels, 2 p2p channels per peer
+82fa569cfcf0:926:935 [0] NCCL INFO   Algorithm   |                            Tree                  |                            Ring                  |                   CollNetDirect                  |
+82fa569cfcf0:926:935 [0] NCCL INFO   Protocol    |             LL |          LL128 |         Simple |             LL |          LL128 |         Simple |             LL |          LL128 |         Simple |
+82fa569cfcf0:926:935 [0] NCCL INFO  Max NThreads |            512 |            640 |            512 |            512 |            640 |            256 |              0 |              0 |            640 |
+82fa569cfcf0:926:935 [0] NCCL INFO     Broadcast |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     7.6/   5.0 |    16.5/   0.0 |    14.1/  10.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO        Reduce |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     7.6/   5.0 |    16.5/   0.0 |    14.1/  10.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO     AllGather |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     7.6/  10.0 |    16.5/   0.0 |    14.1/  20.0 |     0.8/   0.0 |     0.8/   0.0 |    39.2/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO ReduceScatter |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     7.6/  10.0 |    16.5/   0.0 |    14.1/  20.0 |     0.8/   0.0 |     0.8/   0.0 |    39.2/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO     AllReduce |     8.8/   1.2 |    17.8/   0.0 |    16.4/   4.6 |     8.6/   5.0 |    19.0/   0.0 |    19.8/  10.0 |     0.8/   0.0 |     0.8/   0.0 |    39.2/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO   Algorithm   |                    CollNetChain                  |                            NVLS                  |                        NVLSTree                  |
+82fa569cfcf0:926:935 [0] NCCL INFO  Max NThreads |              0 |              0 |            640 |              0 |              0 |            640 |              0 |              0 |            640 |
+82fa569cfcf0:926:935 [0] NCCL INFO     Broadcast |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO        Reduce |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO     AllGather |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO ReduceScatter |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO     AllReduce |     0.0/   0.0 |     0.0/   0.0 |    35.6/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO   Algorithm   |                             PAT                  |
+82fa569cfcf0:926:935 [0] NCCL INFO  Max NThreads |              0 |              0 |              0 |
+82fa569cfcf0:926:935 [0] NCCL INFO     Broadcast |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO        Reduce |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO     AllGather |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO ReduceScatter |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO     AllReduce |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+82fa569cfcf0:926:935 [0] NCCL INFO CC Off, workFifoBytes 1048576
+82fa569cfcf0:926:935 [0] NCCL INFO ncclCommInitRankConfig comm 0x57e8e6ad0540 rank 0 nranks 2 cudaDev 0 nvmlDev 0 busId 40 commId 0x1eb49322a2a5018f - Init COMPLETE
+82fa569cfcf0:926:935 [0] NCCL INFO Init timings - ncclCommInitRankConfig: rank 0 nranks 2 total 0.40 (kernels 0.34, alloc 0.05, bootstrap 0.00, allgathers 0.00, topo 0.01, graphs 0.00, connections 0.00, rest 0.00)
+82fa569cfcf0:926:936 [1] NCCL INFO ncclCommInitRankConfig comm 0x57e8e6be1110 rank 1 nranks 2 cudaDev 1 nvmlDev 1 busId 50 commId 0x1eb49322a2a5018f - Init COMPLETE
+82fa569cfcf0:926:936 [1] NCCL INFO Init timings - ncclCommInitRankConfig: rank 1 nranks 2 total 0.40 (kernels 0.34, alloc 0.05, bootstrap 0.00, allgathers 0.00, topo 0.01, graphs 0.00, connections 0.00, rest 0.00)
+82fa569cfcf0:926:943 [0] NCCL INFO Channel 00 : 0[0] -> 1[1] via SHM/direct/direct
+82fa569cfcf0:926:942 [1] NCCL INFO Channel 00 : 1[1] -> 0[0] via SHM/direct/direct
+82fa569cfcf0:926:943 [0] NCCL INFO Channel 01 : 0[0] -> 1[1] via SHM/direct/direct
+82fa569cfcf0:926:942 [1] NCCL INFO Channel 01 : 1[1] -> 0[0] via SHM/direct/direct
+82fa569cfcf0:926:943 [0] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 8 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 16 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 32 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 64 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 128 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 256 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 512 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 1024 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 2048 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 4096 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 8192 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 16384 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 32768 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 65536 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 131072 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 262144 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 524288 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 1048576 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 2097152 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 4194304 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 8388608 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 16777216 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 33554432 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 67108864 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 134217728 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 268435456 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 536870912 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO AllReduce: 1073741824 Bytes -> Algo RING proto SIMPLE channel{Lo..Hi}={0..1}
+82fa569cfcf0:926:926 [0] NCCL INFO comm 0x57e8e6ad0540 rank 0 nranks 2 cudaDev 0 busId 40 - Destroy COMPLETE
+82fa569cfcf0:926:926 [1] NCCL INFO comm 0x57e8e6be1110 rank 1 nranks 2 cudaDev 1 busId 50 - Destroy COMPLETE
+82fa569cfcf0:926:926 [1] NCCL INFO ENV/Plugin: Closing env plugin ncclEnvDefault

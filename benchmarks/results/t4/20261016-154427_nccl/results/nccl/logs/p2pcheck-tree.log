@@ -1,0 +1,47 @@
+$ NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING NCCL_DEBUG_FILE=/kaggle/working/results/nccl/logs/p2pcheck-tree.nccl_debug.txt NCCL_ALGO=Tree /tmp/nccl-tests/build/all_reduce_perf -g 2 -b 8 -e 1G -f 2 -n 50 -w 10 -c 1
+# rc=0 wall_s=61.2
+# nccl-tests version 2.21.0 (a3d4589) nccl-headers=22809 nccl-library=22809
+# Collective test starting: all_reduce_perf
+# nThread 1 nGpus 2 minBytes 8 maxBytes 1073741824 step: 2(factor) warmup iters: 10 iters: 50 agg iters: 1 validation: 1 graph: 0 unalign: 0
+#
+# Using devices
+#  Rank  0 Group  0 Pid    993 on 8c9ff8c5bad8 device  0 [0000:00:04] Tesla T4
+#  Rank  1 Group  0 Pid    993 on 8c9ff8c5bad8 device  1 [0000:00:05] Tesla T4
+#
+#                                                              out-of-place                       in-place
+#       size         count      type   redop    root     time   algbw   busbw  #wrong     time   algbw   busbw  #wrong
+#        (B)    (elements)                               (us)  (GB/s)  (GB/s)             (us)  (GB/s)  (GB/s)        
+           8             2     float     sum      -1    17.99    0.00    0.00       0    22.30    0.00    0.00       0
+          16             4     float     sum      -1    17.93    0.00    0.00       0    16.96    0.00    0.00       0
+          32             8     float     sum      -1    20.08    0.00    0.00       0    17.79    0.00    0.00       0
+          64            16     float     sum      -1    16.74    0.00    0.00       0    26.27    0.00    0.00       0
+         128            32     float     sum      -1    23.11    0.01    0.01       0    17.24    0.01    0.01       0
+         256            64     float     sum      -1    17.67    0.01    0.01       0    20.05    0.01    0.01       0
+         512           128     float     sum      -1    18.16    0.03    0.03       0    19.70    0.03    0.03       0
+        1024           256     float     sum      -1    18.59    0.06    0.06       0    18.80    0.05    0.05       0
+        2048           512     float     sum      -1    18.94    0.11    0.11       0    18.42    0.11    0.11       0
+        4096          1024     float     sum      -1    19.46    0.21    0.21       0    19.28    0.21    0.21       0
+        8192          2048     float     sum      -1    22.77    0.36    0.36       0    20.83    0.39    0.39       0
+       16384          4096     float     sum      -1    41.18    0.40    0.40       0    40.95    0.40    0.40       0
+       32768          8192     float     sum      -1    46.18    0.71    0.71       0    46.50    0.70    0.70       0
+       65536         16384     float     sum      -1    54.91    1.19    1.19       0    54.98    1.19    1.19       0
+      131072         32768     float     sum      -1    72.73    1.80    1.80       0    72.47    1.81    1.81       0
+      262144         65536     float     sum      -1   110.25    2.38    2.38       0   110.54    2.37    2.37       0
+      524288        131072     float     sum      -1   180.65    2.90    2.90       0   180.78    2.90    2.90       0
+     1048576        262144     float     sum      -1   321.79    3.26    3.26       0   321.22    3.26    3.26       0
+     2097152        524288     float     sum      -1   574.10    3.65    3.65       0   573.58    3.66    3.66       0
+     4194304       1048576     float     sum      -1  1041.69    4.03    4.03       0  1039.35    4.04    4.04       0
+     8388608       2097152     float     sum      -1  1977.61    4.24    4.24       0  1978.12    4.24    4.24       0
+    16777216       4194304     float     sum      -1  3806.51    4.41    4.41       0  3803.91    4.41    4.41       0
+    33554432       8388608     float     sum      -1  7460.43    4.50    4.50       0  7450.15    4.50    4.50       0
+    67108864      16777216     float     sum      -1  14861.7    4.52    4.52       0  14854.0    4.52    4.52       0
+   134217728      33554432     float     sum      -1  29787.3    4.51    4.51       0  29806.9    4.50    4.50       0
+   268435456      67108864     float     sum      -1  59752.9    4.49    4.49       0  59722.0    4.49    4.49       0
+   536870912     134217728     float     sum      -1   119552    4.49    4.49       0   119530    4.49    4.49       0
+  1073741824     268435456     float     sum      -1   239292    4.49    4.49       0   239185    4.49    4.49       0
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 2.02778 
+#
+# Collective test concluded: all_reduce_perf
+#
+
