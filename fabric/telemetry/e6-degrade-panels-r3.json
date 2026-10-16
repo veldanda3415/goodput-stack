@@ -1,0 +1,993 @@
+{
+  "label": "EMULATED Linux/veth telemetry; not switch ASIC statistics",
+  "exported_at": "2026-10-16T13:51:20-04:00",
+  "window_unix": [
+    1792172877.807436,
+    1792173057.807436
+  ],
+  "window_local": [
+    "2026-10-16T13:47:57-04:00",
+    "2026-10-16T13:50:57-04:00"
+  ],
+  "prometheus": "http://127.0.0.1:9098",
+  "panels": [
+    {
+      "title": "Leaf uplink TX bytes/s",
+      "queries": [
+        {
+          "legend": "{{node}} {{interface}}",
+          "expression": "rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m])",
+          "series": [
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 18430147.84,
+              "max": 62902826.96,
+              "last": 62902826.96
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 18378884.900000002,
+              "max": 62868364.26,
+              "last": 62289245.6
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 1914.42,
+              "max": 3463.9,
+              "last": 3449.2400000000002
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 1471.14,
+              "max": 2517.18,
+              "last": 2475.92
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 18462822.86,
+              "max": 62899897.92,
+              "last": 62899897.92
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 18334581.5,
+              "max": 62852880.46,
+              "last": 62289360.620000005
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 1044.54,
+              "max": 1066.9,
+              "last": 1060.02
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 1909.6000000000001,
+              "max": 3478.62,
+              "last": 3426.6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Leaf uplink max/mean imbalance",
+      "queries": [
+        {
+          "legend": "{{node}}",
+          "expression": "max by (node) (rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m])) / avg by (node) (rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m]))",
+          "series": [
+            {
+              "labels": {
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 1.0000016311417097,
+              "max": 1.0018887360989583,
+              "last": 1.000023282802521
+            },
+            {
+              "labels": {
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 1.000000399479526,
+              "max": 1.001206734322423,
+              "last": 1.0000009232724905
+            },
+            {
+              "labels": {
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 1.2903969425515134,
+              "max": 1.5308756049752625,
+              "last": 1.5298474694295738
+            },
+            {
+              "labels": {
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 1.1231326679804208,
+              "max": 1.1660029677184907,
+              "last": 1.161063410204455
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Leaf uplink discards/s",
+      "queries": [
+        {
+          "legend": "{{node}} {{interface}}",
+          "expression": "rate(fabric_interface_tx_dropped_total{node=~\"leaf[1-4]\"}[1m]) + rate(fabric_interface_rx_dropped_total{node=~\"leaf[1-4]\"}[1m])",
+          "series": [
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ECN-marked packets/s",
+      "queries": [
+        {
+          "legend": "{{node}} {{interface}}",
+          "expression": "rate(fabric_qdisc_ecn_marked_packets_total[1m])",
+          "series": []
+        }
+      ]
+    },
+    {
+      "title": "BGP neighbor established",
+      "queries": [
+        {
+          "legend": "{{node}} {{neighbor}}",
+          "expression": "fabric_bgp_neighbor_established",
+          "series": [
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "leaf1",
+                "node": "spine1"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "leaf1",
+                "node": "spine2"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "leaf2",
+                "node": "spine1"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "leaf2",
+                "node": "spine2"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "leaf3",
+                "node": "spine1"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "leaf3",
+                "node": "spine2"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "leaf4",
+                "node": "spine1"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "leaf4",
+                "node": "spine2"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "spine1",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "spine1",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "spine1",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "spine1",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "spine2",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "spine2",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "spine2",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bgp_neighbor_established",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "neighbor": "spine2",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "BFD peer up",
+      "queries": [
+        {
+          "legend": "{{node}} {{peer}}",
+          "expression": "fabric_bfd_peer_up",
+          "series": [
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1",
+                "peer": "fe80::a8c1:abff:fe3f:c098"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1",
+                "peer": "fe80::a8c1:abff:fed3:4e97"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2",
+                "peer": "fe80::a8c1:abff:fe27:b3ae"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2",
+                "peer": "fe80::a8c1:abff:fe47:f18c"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3",
+                "peer": "fe80::a8c1:abff:fe05:15ab"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3",
+                "peer": "fe80::a8c1:abff:fea1:35ae"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4",
+                "peer": "fe80::a8c1:abff:fead:a68"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4",
+                "peer": "fe80::a8c1:abff:fefa:c315"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "spine1",
+                "peer": "fe80::a8c1:abff:fe94:da6e"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "spine1",
+                "peer": "fe80::a8c1:abff:fea1:fe3a"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "spine1",
+                "peer": "fe80::a8c1:abff:fea4:2578"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "spine1",
+                "peer": "fe80::a8c1:abff:feed:4f79"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "spine2",
+                "peer": "fe80::a8c1:abff:fe1d:2eca"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "spine2",
+                "peer": "fe80::a8c1:abff:fe3b:15b1"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "spine2",
+                "peer": "fe80::a8c1:abff:fe59:437f"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            },
+            {
+              "labels": {
+                "__name__": "fabric_bfd_peer_up",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux",
+                "node": "spine2",
+                "peer": "fe80::a8c1:abff:feb1:c77"
+              },
+              "points": 19,
+              "min": 1.0,
+              "max": 1.0,
+              "last": 1.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Root qdisc drops per MB sent",
+      "queries": [
+        {
+          "legend": "{{node}} {{interface}}",
+          "expression": "rate(fabric_qdisc_drops_total{node=~\"leaf[1-4]\"}[1m]) / (rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m]) / 1e6)",
+          "series": [
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 1.694735858062841,
+              "max": 3.261220678212902,
+              "last": 3.261220678212902
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 2.318538274285987,
+              "max": 4.638276409137332,
+              "last": 2.318538274285987
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 2.364752147115601,
+              "max": 4.938439902729373,
+              "last": 3.0181289044610264
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 1.422809116786559,
+              "max": 4.300376876766934,
+              "last": 1.445832789156666
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 0.0,
+              "max": 0.0,
+              "last": 0.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Uplink share of leaf TX",
+      "queries": [
+        {
+          "legend": "{{node}} {{interface}}",
+          "expression": "rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m]) / on (node) group_left sum by (node) (rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m]))",
+          "series": [
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 0.49905563195052083,
+              "max": 0.5000116414012605,
+              "last": 0.5000116414012605
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 0.4999969578687844,
+              "max": 0.5006033671612115,
+              "last": 0.4999995383637549
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 0.6451984712757567,
+              "max": 0.7654378024876313,
+              "last": 0.7649237347147869
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth1",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 0.41699851614075467,
+              "max": 0.43843366600978956,
+              "last": 0.41946829489777243
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf1"
+              },
+              "points": 19,
+              "min": 0.49998835859873947,
+              "max": 0.5009443680494792,
+              "last": 0.49998835859873947
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf2"
+              },
+              "points": 19,
+              "min": 0.4993966328387885,
+              "max": 0.5000030421312157,
+              "last": 0.5000004616362452
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf3"
+              },
+              "points": 19,
+              "min": 0.23456219751236862,
+              "max": 0.3548015287242432,
+              "last": 0.23507626528521308
+            },
+            {
+              "labels": {
+                "instance": "127.0.0.1:9109",
+                "interface": "eth2",
+                "job": "fabric-emulated-linux",
+                "node": "leaf4"
+              },
+              "points": 19,
+              "min": 0.5615663339902104,
+              "max": 0.5830014838592453,
+              "last": 0.5805317051022275
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Host TCP retransmit ratio",
+      "queries": [
+        {
+          "legend": "{{host}}",
+          "expression": "rate(fabric_host_tcp_retrans_segments_total[1m]) / rate(fabric_host_tcp_out_segments_total[1m])",
+          "series": [
+            {
+              "labels": {
+                "host": "host1",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux"
+              },
+              "points": 19,
+              "min": 0.0050863655897426035,
+              "max": 0.020559555481494674,
+              "last": 0.020559555481494674
+            },
+            {
+              "labels": {
+                "host": "host2",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux"
+              },
+              "points": 19,
+              "min": 0.006955148895179287,
+              "max": 0.01880829501735948,
+              "last": 0.01880829501735948
+            },
+            {
+              "labels": {
+                "host": "host3",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux"
+              },
+              "points": 19,
+              "min": 0.004126378692224835,
+              "max": 0.020526329348722176,
+              "last": 0.012958159869959797
+            },
+            {
+              "labels": {
+                "host": "host4",
+                "instance": "127.0.0.1:9109",
+                "job": "fabric-emulated-linux"
+              },
+              "points": 19,
+              "min": 0.0033982778330633023,
+              "max": 0.015897245065084817,
+              "last": 0.009353302097762415
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
