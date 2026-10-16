@@ -2,7 +2,8 @@
   "intent": "fabric/intent/fabric.yaml",
   "images": {
     "frr": "quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb",
-    "host": "docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8"
+    "host": "localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2",
+    "registry": "docker.io/library/registry:3.1.1@sha256:3d527cee870ddd0fc8a31f99b2fdfb6451801a8dd4f5a92c1ec36dae24c14274"
   },
   "rendered_nodes": [
     "host1",
@@ -14,7 +15,9 @@
     "leaf3",
     "leaf4",
     "spine1",
-    "spine2"
+    "spine1-tap",
+    "spine2",
+    "spine2-tap"
   ],
   "links": 16
 }

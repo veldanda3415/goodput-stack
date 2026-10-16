@@ -10,10 +10,12 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from fabric.intent.schema.validate import INTENT_PATH, load_intent
+from fabric.render.qos import host_qos_script, sonic_config
 
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "frr"
+LINUX_TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "linux"
 
 
 def router_peer_groups(intent: dict[str, Any], name: str) -> list[dict[str, Any]]:
@@ -79,6 +81,14 @@ def render(intent: dict[str, Any], output: Path) -> None:
         keep_trailing_newline=True,
         autoescape=False,
     )
+    linux_env = Environment(
+        loader=FileSystemLoader(LINUX_TEMPLATE_DIR),
+        undefined=StrictUndefined,
+        keep_trailing_newline=True,
+        autoescape=False,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
     frr_template = env.get_template("frr.conf.j2")
     daemons_template = env.get_template("daemons.j2")
     hosts = {host["name"]: host for host in intent["hosts"]}
@@ -106,6 +116,11 @@ def render(intent: dict[str, Any], output: Path) -> None:
             encoding="utf-8",
         )
         (node_dir / "daemons").write_text(daemons_template.render(), encoding="utf-8")
+        sonic_dir = output / "sonic" / node["name"]
+        sonic_dir.mkdir(parents=True, exist_ok=True)
+        (sonic_dir / "config_db.qos.json").write_text(
+            json.dumps(sonic_config(intent, node["name"]), indent=2) + "\n", encoding="utf-8"
+        )
         topology["topology"]["nodes"][node["name"]] = {
             "kind": "linux",
             "image": intent["images"]["frr"],
@@ -125,14 +140,27 @@ def render(intent: dict[str, Any], output: Path) -> None:
     for host_name, host in hosts.items():
         setup_dir = output / "hosts"
         setup_dir.mkdir(parents=True, exist_ok=True)
-        (setup_dir / f"{host_name}-setup.sh").write_text(host_setup(host), encoding="utf-8")
+        (setup_dir / f"{host_name}-setup.sh").write_text(host_setup(host, intent["rdma"]), encoding="utf-8")
+        (setup_dir / f"{host_name}-qos.sh").write_text(host_qos_script(linux_env, intent, host), encoding="utf-8")
         topology["topology"]["nodes"][host_name] = {
             "kind": "linux",
             "image": intent["images"]["host"],
             "privileged": True,
             "cmd": "sleep infinity",
-            "binds": [f"./hosts/{host_name}-setup.sh:/usr/local/bin/host-setup.sh:ro"],
-            "exec": ["sh /usr/local/bin/host-setup.sh"],
+            "binds": [
+                f"./hosts/{host_name}-setup.sh:/usr/local/bin/host-setup.sh:ro",
+                f"./hosts/{host_name}-qos.sh:/usr/local/bin/host-qos.sh:ro",
+            ],
+            "exec": ["sh /usr/local/bin/host-setup.sh", "sh /usr/local/bin/host-qos.sh"],
+        }
+
+    for router in intent["capture_taps"]:
+        topology["topology"]["nodes"][f"{router}-tap"] = {
+            "kind": "linux",
+            "image": intent["images"]["host"],
+            "privileged": True,
+            "network-mode": f"container:{router}",
+            "cmd": "sleep infinity",
         }
 
     for link in intent["links"]:
@@ -173,7 +201,12 @@ def advertised_prefixes(intent: dict[str, Any], node_name: str) -> list[str]:
     return sorted(prefixes)
 
 
-def host_setup(host: dict[str, Any]) -> str:
+def rdma_device(host_name: str, rail: str) -> str:
+    """Global rxe device name; shared RDMA netns mode makes names host-wide."""
+    return f"rxe_{host_name}_{rail.lower()}"
+
+
+def host_setup(host: dict[str, Any], rdma: dict[str, Any]) -> str:
     lines = [
         "#!/bin/sh",
         "set -eu",
@@ -189,6 +222,19 @@ def host_setup(host: dict[str, Any]) -> str:
             f"ip route replace default via {nic['gateway']} dev {nic['interface']} table {table}",
             f"ip rule add priority {table} from {address.split('/')[0]} table {table}",
         ])
+    if rdma["enabled"]:
+        for nic in host["nics"]:
+            device = rdma_device(host["name"], nic["rail"])
+            lines.append(
+                f"rdma link show {device}/1 >/dev/null 2>&1 || "
+                f"rdma link add {device} type {rdma['provider']} netdev {nic['interface']}"
+            )
+        # The container's /dev was populated at creation, before these devices
+        # existed; add the missing uverbs character devices from sysfs.
+        lines.append(
+            "for v in /sys/class/infiniband_verbs/uverbs*; do n=${v##*/}; "
+            "[ -e /dev/infiniband/$n ] || mknod /dev/infiniband/$n c $(tr : ' ' < $v/dev); done"
+        )
     return "\n".join(lines) + "\n"
 
 

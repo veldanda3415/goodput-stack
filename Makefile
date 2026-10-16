@@ -230,6 +230,23 @@ fabric-e1: fabric-render ## Run E1 ECMP hash-policy experiment (EMULATED)
 fabric-e2: fabric-render ## Run E2 BFD convergence experiment (EMULATED)
 > $(FABRIC_PY) -m fabric.experiments.e2
 
+# ---- RoCE on the fabric lab (fabric/README.md; SOFT-ROCE + INTENT-ONLY QoS) ---------------------
+.PHONY: roce-registry roce-image roce-e3 fabric-headroom
+ROCE_REGISTRY := $(shell awk '$$1 == "registry:" {print $$2}' fabric/intent/fabric.yaml)
+ROCE_IMAGE := $(firstword $(subst @, ,$(shell awk '$$1 == "host:" && /localhost:5000/ {print $$2}' fabric/intent/fabric.yaml)))
+
+roce-registry: ## Start the localhost:5000 registry that serves the lab host image (rootless podman)
+> podman start goodput-registry 2>/dev/null || podman run -d --name goodput-registry -p 127.0.0.1:5000:5000 $(ROCE_REGISTRY)
+
+roce-image: roce-registry ## Build + push the RoCE host image; put the printed digest in intent images.host
+> podman build -t $(ROCE_IMAGE) fabric/images/roce-host && podman push --tls-verify=false --digestfile /dev/stdout $(ROCE_IMAGE)
+
+roce-e3: ## E3: SOFT-ROCE devices + GIDs and host QoS classification (verbs traffic blocked; see E3 doc)
+> $(FABRIC_PY) -m fabric.experiments.e3.run devices qos
+
+fabric-headroom: ## PFC headroom table (INTENT-ONLY arithmetic)
+> $(FABRIC_PY) -m fabric.tools.headroom
+
 # ---- scheduling (SIMULATED GPUs on k3d `gpusim`; kubeconfig ~/.kube/gpusim.yaml, never the k3s one) ----
 .PHONY: gpusim-up gpusim-down gpusim-status gpusim-operator gpusim-kueue gpusim-health gpusim-health-run
 gpusim-up: ## Create k3d cluster gpusim (1 server + 3 agents, k3s v1.36.2+k3s1; 2 agents = GPU pool t4)

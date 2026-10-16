@@ -1,0 +1,37 @@
+# Lab host image for the EMULATED fabric: RDMA verbs tooling for SOFT-ROCE
+# (rdma_rxe) plus traffic and capture tools. The rxe device itself is created
+# at runtime from the host kernel module; this image only carries userspace.
+#
+# Base: Debian 13 (trixie) dated tag 20260918-slim, the release before the
+# newest dated tag (20261005) at selection time, pinned by digest.
+# Packages: installed from snapshot.debian.org at the same timestamp as the
+# base image, each pinned to an exact version, so rebuilds are reproducible.
+FROM docker.io/library/debian:trixie-20260918-slim@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c
+
+ARG SNAPSHOT=20260918T000000Z
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN rm -f /etc/apt/sources.list.d/debian.sources \
+ && printf '%s\n' \
+    "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie main" \
+    "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie-updates main" \
+    "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/${SNAPSHOT} trixie-security main" \
+    > /etc/apt/sources.list.d/snapshot.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+    rdma-core=56.1-1 \
+    ibverbs-utils=56.1-1 \
+    ibverbs-providers=56.1-1 \
+    rdmacm-utils=56.1-1 \
+    perftest=25.01.0+0.80-1 \
+    iproute2=6.15.0-1 \
+    iperf3=3.18-2+deb13u2 \
+    tcpdump=4.99.5-2 \
+    tshark=4.4.18-0+deb13u1 \
+    sysstat=12.7.5-2 \
+    procps=2:4.0.4-9 \
+    iputils-ping=3:20240905-3 \
+    traceroute=1:2.1.6-1 \
+ && rm -rf /var/lib/apt/lists/*
+
+CMD ["sleep", "infinity"]

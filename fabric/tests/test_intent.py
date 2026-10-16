@@ -84,7 +84,8 @@ def test_renderer_is_byte_deterministic(tmp_path: Path) -> None:
     }
     assert first == second
     topology = yaml.safe_load((output / "topology.clab.yml").read_text(encoding="utf-8"))
-    assert len(topology["topology"]["nodes"]) == 10
+    assert len(topology["topology"]["nodes"]) == 12
+    assert topology["topology"]["nodes"]["spine1-tap"]["network-mode"] == "container:spine1"
     assert len(topology["topology"]["links"]) == 16
     assert topology["mgmt"]["ipv4-subnet"] == "10.253.0.0/24"
     assert all(node["privileged"] for node in topology["topology"]["nodes"].values())

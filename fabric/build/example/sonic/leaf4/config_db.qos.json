@@ -1,0 +1,293 @@
+{
+  "PORT": {
+    "Ethernet0": {
+      "mtu": "9100",
+      "speed": "400000"
+    },
+    "Ethernet8": {
+      "mtu": "9100",
+      "speed": "400000"
+    },
+    "Ethernet16": {
+      "mtu": "9100",
+      "speed": "400000"
+    },
+    "Ethernet24": {
+      "mtu": "9100",
+      "speed": "400000"
+    }
+  },
+  "CABLE_LENGTH": {
+    "ROCE": {
+      "Ethernet0": "10m",
+      "Ethernet8": "10m",
+      "Ethernet16": "3m",
+      "Ethernet24": "3m"
+    }
+  },
+  "DSCP_TO_TC_MAP": {
+    "ROCE": {
+      "0": "0",
+      "1": "0",
+      "2": "0",
+      "3": "0",
+      "4": "0",
+      "5": "0",
+      "6": "0",
+      "7": "0",
+      "8": "0",
+      "9": "0",
+      "10": "0",
+      "11": "0",
+      "12": "0",
+      "13": "0",
+      "14": "0",
+      "15": "0",
+      "16": "0",
+      "17": "0",
+      "18": "0",
+      "19": "0",
+      "20": "0",
+      "21": "0",
+      "22": "0",
+      "23": "0",
+      "24": "0",
+      "25": "0",
+      "26": "3",
+      "27": "0",
+      "28": "0",
+      "29": "0",
+      "30": "0",
+      "31": "0",
+      "32": "0",
+      "33": "0",
+      "34": "0",
+      "35": "0",
+      "36": "0",
+      "37": "0",
+      "38": "0",
+      "39": "0",
+      "40": "0",
+      "41": "0",
+      "42": "0",
+      "43": "0",
+      "44": "0",
+      "45": "0",
+      "46": "0",
+      "47": "0",
+      "48": "6",
+      "49": "0",
+      "50": "0",
+      "51": "0",
+      "52": "0",
+      "53": "0",
+      "54": "0",
+      "55": "0",
+      "56": "0",
+      "57": "0",
+      "58": "0",
+      "59": "0",
+      "60": "0",
+      "61": "0",
+      "62": "0",
+      "63": "0"
+    }
+  },
+  "TC_TO_QUEUE_MAP": {
+    "ROCE": {
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7"
+    }
+  },
+  "TC_TO_PRIORITY_GROUP_MAP": {
+    "ROCE": {
+      "0": "0",
+      "1": "0",
+      "2": "0",
+      "3": "3",
+      "4": "0",
+      "5": "0",
+      "6": "0",
+      "7": "0"
+    }
+  },
+  "MAP_PFC_PRIORITY_TO_QUEUE": {
+    "ROCE": {
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7"
+    }
+  },
+  "PORT_QOS_MAP": {
+    "Ethernet0": {
+      "dscp_to_tc_map": "ROCE",
+      "tc_to_queue_map": "ROCE",
+      "tc_to_pg_map": "ROCE",
+      "pfc_to_queue_map": "ROCE",
+      "pfc_enable": "3",
+      "pfcwd_sw_enable": "3"
+    },
+    "Ethernet8": {
+      "dscp_to_tc_map": "ROCE",
+      "tc_to_queue_map": "ROCE",
+      "tc_to_pg_map": "ROCE",
+      "pfc_to_queue_map": "ROCE",
+      "pfc_enable": "3",
+      "pfcwd_sw_enable": "3"
+    },
+    "Ethernet16": {
+      "dscp_to_tc_map": "ROCE",
+      "tc_to_queue_map": "ROCE",
+      "tc_to_pg_map": "ROCE",
+      "pfc_to_queue_map": "ROCE",
+      "pfc_enable": "3",
+      "pfcwd_sw_enable": "3"
+    },
+    "Ethernet24": {
+      "dscp_to_tc_map": "ROCE",
+      "tc_to_queue_map": "ROCE",
+      "tc_to_pg_map": "ROCE",
+      "pfc_to_queue_map": "ROCE",
+      "pfc_enable": "3",
+      "pfcwd_sw_enable": "3"
+    }
+  },
+  "SCHEDULER": {
+    "scheduler.roce": {
+      "type": "DWRR",
+      "weight": "50"
+    },
+    "scheduler.cnp": {
+      "type": "STRICT"
+    },
+    "scheduler.default": {
+      "type": "DWRR",
+      "weight": "50"
+    }
+  },
+  "WRED_PROFILE": {
+    "ROCE_LOSSLESS": {
+      "ecn": "ecn_all",
+      "wred_green_enable": "true",
+      "wred_yellow_enable": "true",
+      "wred_red_enable": "true",
+      "green_min_threshold": "150000",
+      "green_max_threshold": "1500000",
+      "green_drop_probability": "100",
+      "yellow_min_threshold": "150000",
+      "yellow_max_threshold": "1500000",
+      "yellow_drop_probability": "100",
+      "red_min_threshold": "150000",
+      "red_max_threshold": "1500000",
+      "red_drop_probability": "100"
+    }
+  },
+  "QUEUE": {
+    "Ethernet0|3": {
+      "scheduler": "scheduler.roce",
+      "wred_profile": "ROCE_LOSSLESS"
+    },
+    "Ethernet0|6": {
+      "scheduler": "scheduler.cnp"
+    },
+    "Ethernet0|0": {
+      "scheduler": "scheduler.default"
+    },
+    "Ethernet8|3": {
+      "scheduler": "scheduler.roce",
+      "wred_profile": "ROCE_LOSSLESS"
+    },
+    "Ethernet8|6": {
+      "scheduler": "scheduler.cnp"
+    },
+    "Ethernet8|0": {
+      "scheduler": "scheduler.default"
+    },
+    "Ethernet16|3": {
+      "scheduler": "scheduler.roce",
+      "wred_profile": "ROCE_LOSSLESS"
+    },
+    "Ethernet16|6": {
+      "scheduler": "scheduler.cnp"
+    },
+    "Ethernet16|0": {
+      "scheduler": "scheduler.default"
+    },
+    "Ethernet24|3": {
+      "scheduler": "scheduler.roce",
+      "wred_profile": "ROCE_LOSSLESS"
+    },
+    "Ethernet24|6": {
+      "scheduler": "scheduler.cnp"
+    },
+    "Ethernet24|0": {
+      "scheduler": "scheduler.default"
+    }
+  },
+  "BUFFER_PROFILE": {
+    "pg_lossless_400000_10m_profile": {
+      "pool": "ingress_lossless_pool",
+      "xoff": "76420",
+      "xon": "2288",
+      "size": "1248",
+      "static_th": "3000000"
+    },
+    "pg_lossless_400000_3m_profile": {
+      "pool": "ingress_lossless_pool",
+      "xoff": "72780",
+      "xon": "2288",
+      "size": "1248",
+      "static_th": "3000000"
+    }
+  },
+  "BUFFER_PG": {
+    "Ethernet0|3": {
+      "profile": "pg_lossless_400000_10m_profile"
+    },
+    "Ethernet8|3": {
+      "profile": "pg_lossless_400000_10m_profile"
+    },
+    "Ethernet16|3": {
+      "profile": "pg_lossless_400000_3m_profile"
+    },
+    "Ethernet24|3": {
+      "profile": "pg_lossless_400000_3m_profile"
+    }
+  },
+  "PFC_WD": {
+    "GLOBAL": {
+      "POLL_INTERVAL": "200"
+    },
+    "Ethernet0": {
+      "action": "drop",
+      "detection_time": "200",
+      "restoration_time": "200"
+    },
+    "Ethernet8": {
+      "action": "drop",
+      "detection_time": "200",
+      "restoration_time": "200"
+    },
+    "Ethernet16": {
+      "action": "drop",
+      "detection_time": "200",
+      "restoration_time": "200"
+    },
+    "Ethernet24": {
+      "action": "drop",
+      "detection_time": "200",
+      "restoration_time": "200"
+    }
+  }
+}
