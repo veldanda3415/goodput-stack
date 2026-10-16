@@ -458,7 +458,7 @@ dropped; SOFT-ROCE would show CE but no CNP or rate reaction. Measurements:
 |---|---|---|
 | TCP ECN on | CE, ECE/CWR, useful throughput | 103/1200, 129/1200, 103/1200 sampled packets CE; ECE 146/193/124, CWR 24/33/21; RX 0.402/0.396/0.394 Gbit/s |
 | TCP ECN off | Not-ECT drops; no ECN response; lower or less stable throughput | 1200/1200 packets Not-ECT per repeat; no ECE/CWR; RX 0.435/0.445/0.442 Gbit/s, higher than predicted |
-| SOFT-ROCE | CE likely; no CNP/DCQCN response | 17/1200 sampled packets CE, zero BTH opcode `0x81` CNPs; reported 0.46 Gbit/s under the shaper |
+| SOFT-ROCE, `--tclass 106` (DSCP 26 + ECT(0)) | CE likely; no CNP/DCQCN response | 17/1200 sampled packets CE, all UDP 4791 RDMA WRITE data in the forward direction; the sample covers only the first 20 ms (RED `marked` +11,615 over the run); zero BTH opcode `0x81` CNPs; reported 0.46 Gbit/s under the shaper |
 
 No conclusion about real DCQCN response or PFC headroom follows from these
 EMULATED/SOFT-ROCE data. The measurements and qdisc/capture evidence are in
@@ -476,9 +476,16 @@ Measured mean max/mean uplink-load imbalance for TCP was:
 | All-to-all | L3 | 1.530 | 1.541 | 1.515 |
 | All-to-all | L4 | 1.668 | 1.296 | 1.119 |
 
-L4 did not guarantee even distribution. E5's job times and the
-counter-derived perfect-split estimates are explicitly distinguished; the
-ideal estimate is not a second run or a measured speedup. Supplemental
+L4 did not guarantee even distribution. Measured job time did **not**
+improve with better spreading: ring stayed about 0.9 s in every cell, and
+all-to-all got slower as flows rose (L4 1.77 → 1.81 → 1.92 s). Job time was
+more than 98% serial `containerlab exec` client-launch offset; the slowest
+flow's own transfer took 0.3–37 ms while four host containers drove
+29–48 Gbit/s. The unshaped uplinks were not the bottleneck; hosts, veths, CPU
+and orchestration were. F4's "ideal job time / penalty" column is therefore
+relabelled an *imbalance-implied bound (model)*: it is imbalance − 1
+restated, not independent evidence. E5's [shaped rerun](experiments/E5-collective-entropy.md#shaped-uplinks-rerun)
+makes the uplinks the bottleneck and measures an even-split baseline. Supplemental
 SOFT-ROCE QP runs kept the fixed pair on spine2 with L3 and observed both
 spines with L4 at 4/16 QPs. This is Linux hash behavior, not ASIC ECMP.
 Meta's low-flow-entropy report and Llama 3's 16 flows per GPU pair (sources

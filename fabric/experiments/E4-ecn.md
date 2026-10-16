@@ -83,6 +83,46 @@ no CE because this single-QP load did not saturate that shaper. Lowering the
 rate to 500 Mbit/s was therefore predicted to expose CE before the final run.
 The combined pcap artifacts in `e4/` are 1,576,378 bytes.
 
+### Which packets were CE (added after F4 review)
+
+E3 recorded RoCE packets as DSCP 26 / Not-ECT, and RED cannot set CE on
+Not-ECT packets (tc-red(8), *PARAMETERS*, `ecn`: non-ECT packets are dropped,
+not marked). That is consistent with E4, because the two experiments used
+different traffic classes:
+
+- E3 used `--tclass 104`: 104 = `0b011010_00`, DSCP 26 with ECN `00` (Not-ECT).
+- E4 used `--tclass 106` on both client and server (`e4-results.json` →
+  `roce.command` and `roce.server_command`). 106 = `0b011010_10`, DSCP 26 with
+  ECN `10` (ECT(0)). ECT(0) packets are eligible for CE marking.
+
+The 17 CE packets are SOFT-ROCE data, not a side channel. The capture filter
+was `udp port 4791`, and decoding [`e4/roce-tclass106.pcap`](e4/roce-tclass106.pcap)
+per packet (stdlib decoder in `e3/bth_decode.py`) gives:
+
+| 5-tuple (UDP) | ECN | BTH opcode | Packets |
+|---|---|---|---:|
+| 10.210.0.18:49390 → 10.210.0.22:4791 | ECT(0) | 0x06/0x07/0x08 WRITE First/Middle/Last | 1,165 |
+| 10.210.0.18:49390 → 10.210.0.22:4791 | **CE** | 0x07 RDMA WRITE Middle | **17** |
+| 10.210.0.22 → 10.210.0.18:4791 | ECT(0) | 0x11 Acknowledge | 18 |
+
+All CE packets are forward-direction data, which crosses the RED bottleneck
+(`leaf1:eth2` egress, captured after it on `spine2:eth1`). The ACKs travel the
+reverse direction, which is not shaped, and none are CE. The CE packets occur
+in two bursts (packet indices 860–867, 878–887, then 1002 and 1004), about
+14 ms into the capture.
+
+Why only 17 of 1,200 while RED's `marked` counter rose by 11,615: the bounded
+sample (`-c 1200`, 256-byte snaplen) spans only 0.0199 s of the 3 s run, the
+first 20 ms. The queue was still building then. The sample cannot estimate
+the run's CE fraction; the qdisc counter is the run-level evidence. The 1 Gbit/s
+calibration capture
+([`e4/roce-tclass106-1g-calibration.pcap`](e4/roce-tclass106-1g-calibration.pcap))
+has the same tuples, with 1,182 ECT(0) data and 18 ECT(0) ACKs, and no CE.
+No repeat run was needed. Decode command:
+`python3 -I fabric/experiments/e3/bth_decode.py fabric/experiments/e4/roce-tclass106.pcap`
+for opcodes, plus a per-packet IPv4/UDP field dump using the same
+`pcap_records`/`l3_offset` helpers. **SOFT-ROCE over EMULATED fabric.**
+
 ### Failures and corrections
 
 - Initial E4 stopped before traffic because the VM's `fabric` user lacks direct

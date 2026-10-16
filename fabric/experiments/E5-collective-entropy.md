@@ -1,6 +1,8 @@
 # E5 — Collective-shaped traffic and ECMP entropy
 
-**Status:** complete. TCP uses the four existing
+**Status:** unshaped matrix complete (job-time interpretation corrected
+below); shaped-uplink rerun in [§ Shaped uplinks rerun](#shaped-uplinks-rerun).
+TCP uses the four existing
 rail-A hosts. The supplemental RDMA comparison uses the two VM endpoints
 because the other four host namespaces cannot send rdma_rxe packets on this
 WSL2 kernel (see [E3 §0](E3-soft-roce.md#0-feasibility-gate)).
@@ -41,11 +43,10 @@ job time.
 Every cell snapshots `ip -j -s link show` on all four leaves and records TX
 byte deltas for every fabric uplink. Per-leaf imbalance is
 `max(uplink bytes) / mean(uplink bytes)`, including idle ECMP members. The
-perfect-split job-time comparison is explicitly a counter-derived estimate:
-the same observed load is divided equally over the leaf's equal-speed ECMP
-members, and the observed job time is divided by the worst active-leaf
-max/mean ratio. It is not a second measured execution or a claim about ASIC
-capacity.
+"imbalance-implied bound" is a model: the observed job time divided by the
+worst active-leaf max/mean ratio. (F4 called it the "ideal" job time.) It
+restates the imbalance and is not a second measured execution or a claim about
+ASIC capacity.
 
 The supplementary SOFT-ROCE run sweeps parallel QPs between vmhost1 and
 vmhost2, with 256 × 65,536-byte write iterations per QP. Perftest reports
@@ -88,11 +89,14 @@ SOFT-ROCE cells, no recorded cell above 10 seconds (max TCP cell wall time
 `restored_hash_policy: 0`. This is an **EMULATED** Linux/veth result.
 
 Mean job time and imbalance are the arithmetic means of three repeats.
-`Job / ideal` compares the measured slowest-flow completion to the
-counter-derived perfect-split estimate; the estimate is not a measured
-second execution. `Penalty` is `100 × (max/mean imbalance − 1)`.
+The last two columns are a **MODEL**, not evidence: the
+"imbalance-implied bound" is measured job time ÷ max/mean imbalance, and
+"imbalance − 1" restates the measured imbalance as a percentage. Neither is
+an independent measurement of what better spreading would buy; the
+[correction below](#correction-job-time-did-not-measure-the-fabric) shows
+that unshaped job time did not depend on uplink load at all.
 
-| Transport / pattern | Hash | Flows/QPs | Prediction | Measured max/mean | Job / ideal (s) | Estimated penalty |
+| Transport / pattern | Hash | Flows/QPs | Prediction | Measured max/mean | Measured job (s) / imbalance-implied bound (model, s) | Imbalance − 1 (model) |
 |---|---|---:|---|---:|---:|---:|
 | TCP ring | L3 | 1 | One path per fixed IP pair | 1.998 | 0.892 / 0.446 | 99.8% |
 | TCP ring | L3 | 4 | Still one path per fixed IP pair | 1.998 | 0.906 / 0.453 | 99.8% |
@@ -112,9 +116,55 @@ L4 improved sharing for ring 4/16-flow and all-to-all 4/16-flow cases; the
 best mean was 1.119 for 16-flow all-to-all. L4 did not guarantee a balanced
 hash: the ring's 16-flow imbalance (1.248) was slightly worse than 4-flow
 (1.217), and all-to-all/1 had one repeat at 1.998. These are Linux
-hash-policy measurements, not switch ASIC behavior. The idealized job-time
-comparison assumes equal-capacity uplinks and proportional scaling with the
-worst active-leaf ratio; it must not be read as a measured performance gain.
+hash-policy measurements, not switch ASIC behavior. The imbalance-implied
+bound assumes equal-capacity uplinks and job time proportional to the worst
+active-leaf ratio; the correction below shows that assumption failed here, so
+it must not be read as a measured or achievable gain.
+
+### Correction: job time did not measure the fabric
+
+Added after F4 review; recomputed from the retained
+[`e5-results.json`](e5-results.json) only (no rerun). **EMULATED.**
+
+Better spreading did not shorten measured job time. Ring job time was about
+0.9 s in every cell, from imbalance 1.998 down to 1.217. All-to-all got
+*slower* as flows/pair rose (L4: 1.766 → 1.810 → 1.923 s) while its imbalance
+fell (1.668 → 1.296 → 1.119). The uplinks were therefore not the bottleneck.
+
+Splitting each cell's job time shows why. The runner launches each pair's
+iperf3 client with a separate, serial `containerlab exec`. The job-time origin
+is the first launch, so job time includes every later client's launch
+offset. Per cell (means of three repeats):
+
+| Pattern | Hash | Flows/pair | Max/mean | Measured job (s) | Last client launch offset (s) | Slowest flow's own time to 256 KiB (ms) | Aggregate received (Gbit/s) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| ring | L3 | 1 | 1.998 | 0.892 | 0.892 | 0.3 | 32.3 |
+| ring | L3 | 4 | 1.998 | 0.906 | 0.904 | 1.2 | 38.8 |
+| ring | L3 | 16 | 1.997 | 0.902 | 0.896 | 6.4 | 38.4 |
+| ring | L4 | 1 | 1.998 | 0.912 | 0.912 | 0.3 | 29.4 |
+| ring | L4 | 4 | 1.217 | 0.902 | 0.901 | 1.1 | 40.5 |
+| ring | L4 | 16 | 1.248 | 0.899 | 0.894 | 5.2 | 39.8 |
+| all-to-all | L3 | 1 | 1.530 | 1.713 | 1.713 | 0.9 | 42.9 |
+| all-to-all | L3 | 4 | 1.541 | 1.780 | 1.777 | 4.1 | 44.1 |
+| all-to-all | L3 | 16 | 1.515 | 2.044 | 2.021 | 37.0 | 46.7 |
+| all-to-all | L4 | 1 | 1.668 | 1.766 | 1.766 | 0.9 | 44.0 |
+| all-to-all | L4 | 4 | 1.296 | 1.810 | 1.807 | 4.3 | 45.8 |
+| all-to-all | L4 | 16 | 1.119 | 1.923 | 1.909 | 28.1 | 47.6 |
+
+Launch offset is more than 98% of every job time. Ring (4 clients) lands near
+0.9 s and all-to-all (12 clients) near 1.7–2.0 s. The network part (the slowest
+flow's time to 256 KiB after its own start) is 0.3–37 ms. It grows with the
+number of concurrent flows (192 TCP flows at all-to-all/16) and with the
+aggregate the four host containers drive, 29–48 Gbit/s on one WSL2 VM
+(16 vCPUs). That points at host/veth/CPU and orchestration costs, not at the
+uplinks. Per-host CPU was not recorded in these TCP cells. It is measured in
+the [shaped rerun](#shaped-uplinks-rerun), which also replaces the serial
+launch with a synchronized start.
+
+What remains valid from the unshaped matrix: the uplink byte splits
+(max/mean columns) are counter measurements of Linux hash behavior. What is
+not valid: any statement that the measured imbalance cost job time, or that
+the model column is an achievable speedup.
 
 Supplemental two-VM **SOFT-ROCE** `ib_write_bw` results (mean aggregate rate
 from three repeats):
