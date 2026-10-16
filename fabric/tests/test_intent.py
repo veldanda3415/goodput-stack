@@ -115,6 +115,10 @@ def test_renderer_is_byte_deterministic(tmp_path: Path) -> None:
     assert user_data.startswith("#cloud-config\n")
     assert "perftest=25.01.0+0.80-1" in user_data
     assert "netdev\n  - fabric" in user_data
+    vm_config = yaml.safe_load(user_data)
+    qos_script = vm_config["write_files"][0]["content"]
+    assert "flower ip_tos 0x68/0xfc classid 1:2" in qos_script
+    assert "tc qdisc add dev fabric root" in qos_script
     assert "__VM_SSH_PUBLIC_KEY__" in user_data
 
 

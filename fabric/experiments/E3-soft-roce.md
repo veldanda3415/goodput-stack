@@ -189,11 +189,69 @@ latency, losslessness, or congestion control (rxe has no DCQCN, and veth has
 no PFC). These are **SOFT-ROCE** results on an **EMULATED** fabric, not NIC
 performance.
 
-## 2. RoCE v2 on the wire — pending
+## 2. RoCE v2 on the wire — complete (SOFT-ROCE + EMULATED)
 
-The completed Task 1 verbs run proves that RoCE traffic crosses the fabric;
-the separate tap captures, packet decode, QP entropy sweep, and DSCP/ECN
-observation have not yet been run. Prepared for this task:
+**Prediction before the wire experiment:** one QP has one UDP source port
+and should use one source-leaf uplink. Four and sixteen QPs add flow hashes
+and might spread, but E1 found few-flow hash splits lumpy. With
+`fib_multipath_hash_policy=0` (L3), I expected same-IP RoCE flows to remain
+on one spine despite their distinct UDP ports. `--tclass 104` should produce
+DSCP 26 / Not-ECT (ECN bits 00); the VM guest tc egress classifier should
+count the traffic in band `1:2`. A correctly bound `iperf3 --tos 104`
+captured concurrently on both spine links should reveal whether the earlier
+zero-packet TCP attempt was a capture setup problem.
+
+Command: `./.venv/bin/python -m fabric.experiments.e3.run wire`. Three
+repeats per QP count completed. The driver used the generated rail-facing
+links, logged each tcpdump command/status, source UDP port per destination
+QP, uplink TX deltas and guest tc counters. There were **1,185,800 bytes**
+of pcap artifacts across the 22 saved files, under the 2 MiB cap; full files
+and decoded excerpts are in `fabric/experiments/e3/` and
+[`e3-results.json`](./e3-results.json).
+
+| Experiment | Prediction | Measured result |
+|---|---|---|
+| 1 QP × 3 | One source port, one spine | 1 distinct UDP source port per run; every observed QP landed on spine2 |
+| 4 QPs × 3 | 4 source ports; L3 hash keeps same IP pair together | 4 distinct ports/run; all 4 QPs landed on spine2 in every repeat |
+| 16 QPs × 3 | 16 ports; likely same spine with L3 hash | 16 distinct ports/run (extended capture); every QP landed on spine2 in all 3 repeats |
+| RoCE DSCP sample | DSCP 26 / Not-ECT; class `1:2` | 200/200 decoded UDP 4791 packets were DSCP 26 / Not-ECT; tc delta `1:2=236,544`, default `1:3=21` |
+| TCP `--tos 104` control | Capture on one active spine with DSCP 26 | 100 packets captured on spine2: 84 DSCP 26 / Not-ECT and 16 DSCP 0 / Not-ECT; tc delta `1:2=685,433`, default `1:3=16`; received 2.636 Gbit/s |
+
+The leaf1 link TX byte deltas (eth1 → spine1, eth2 → spine2) were:
+
+| QPs | Repeat 1 (bytes) | Repeat 2 (bytes) | Repeat 3 (bytes) |
+|---:|---|---|---|
+| 1 | 10,818 / 266,194,648 | 10,904 / 262,315,950 | 10,799 / 263,285,283 |
+| 4 | 10,713 / 333,455,401 | 10,799 / 335,048,481 | 10,904 / 328,053,008 |
+| 16 | 11,076 / 372,884,254 | 11,068 / 403,221,687 | 11,057 / 385,143,791 |
+
+All RoCE captures observed data only at spine2; the small eth1 byte deltas
+are leaf TX totals, not matching UDP 4791 frames. Leaf1 reported
+`net.ipv4.fib_multipath_hash_policy=0`, so the kernel uses the L3 hash: all
+QPs share the same IP pair and do not use their distinct UDP source ports
+for ECMP selection. This matches the L3 prediction and E1's low-entropy
+result. Exact UDP source ports and each QP/port/spine mapping are retained in
+the result JSON.
+
+The full DSCP sample pcap (`tclass104-1qp-spine2.pcap`) decoded 200 BTHs:
+4 RC RDMA WRITE First, 191 Middle, 3 Last, and 2 RC Acknowledge; DestQP
+`0x000112`, PSNs 9,779,518–9,779,715, 197 `AckReq=0` and 3 `AckReq=1`,
+FECN/BECN both clear. The first packet's captured ICRC was `733da022`.
+Wireshark/TShark 4.4.18 reported DSCP 26, ECN 0, UDP sport 58688, BTH
+opcode 6, DestQP `0x000112`, PSN 9779518, AckReq false, and ICRC
+`0x733da022`. The standalone decoder command was
+`./.venv/bin/python fabric/experiments/e3/bth_decode.py fabric/experiments/e3/tclass104-1qp-spine2.pcap --limit 4`.
+
+The prior quick TCP capture's exact command/filter was not retained, so its
+specific zero-packet cause cannot be proven. A controlled reproduction with
+source-bound iperf3 and a concurrent `tcpdump ... tcp and host 10.210.0.18
+and host 10.210.0.22` captured 100 frames, demonstrating the expected spine
+path and DSCP marking. During debugging, the E3 driver itself reproduced a
+separate stale-pcap failure: tcpdump refused a reused file path with
+`Permission denied`; unique remote filenames and checked return/status
+output fixed the harness. See Failure 7.
+
+Prepared for this task:
 
 - `fabric/experiments/e3/bth_decode.py` (stdlib only) parses classic pcap
   through Ethernet, IPv4, UDP 4791, and BTH. It decodes the opcode, SE,
@@ -204,7 +262,7 @@ observation have not yet been run. Prepared for this task:
   `fabric/tests/test_bth_decode.py` use synthetic frames.
 - `run.py wire` captures on both spines through the tap sidecars and runs
   `tshark -d udp.port==4791,infiniband` on the busiest spine. It also
-  compares 1 vs `-q 4` QPs using leaf uplink TX deltas, the method from
+  compares 1 vs `-q 4` vs `-q 16` QPs using leaf uplink TX deltas, the method from
   [E1](E1-ecmp-hash.md).
 - Expected entropy, from source rather than measurement: rxe fixes one UDP
   source port per QP, `qp->src_port = RXE_ROCE_V2_SPORT + (hash_32(qp_num(qp), 14) & 0x3fff)`
@@ -292,6 +350,11 @@ classes.
    Evidence: runner `ip -d link show br-fabric` reported the bridge `state
    DOWN`; bringing it up immediately made the gateway and cross-spine pings
    succeed. Fix: explicitly `ip link set br-fabric up` before QEMU starts.
+7. **Repeated E3 captures reported zero packets or reused an older pcap.**
+   Evidence: `tcpdump` reported `Permission denied` on the same `/tmp/*.pcap`
+   path, while the driver ignored the nested exit status and read that old
+   file. Fix: use a unique per-run remote path, retain and check tcpdump's
+   exit/status output, and remove that exact temporary file after transfer.
 
 ## Notes for DESIGN §5 (for F2, who owns `fabric/DESIGN.md`)
 

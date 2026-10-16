@@ -159,6 +159,12 @@ def test_vm_hosts_boot_with_active_rxe_and_reach_each_other_across_spines() -> N
         assert f"rxe_{name}_a/1 state ACTIVE" in output, (
             f"{name} has no active SOFT-ROCE device: {output!r}"
         )
+        classes = node_json(
+            name, "vm-exec /usr/sbin/tc -s -j class show dev fabric"
+        )
+        assert {entry["handle"] for entry in classes} == {"1:1", "1:2", "1:3"}, (
+            f"{name} has unexpected VM guest QoS bands: {classes!r}"
+        )
     result = node_result(
         "vmhost1",
         f"vm-exec ping -I {source['address'].split('/')[0]} -c 1 -W 2 "

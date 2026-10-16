@@ -24,6 +24,39 @@ packages:
 - iputils-ping=3:20240905-3
 - traceroute=1:2.1.6-1
 - openssh-server=1:10.0p1-7+deb13u4
+write_files:
+- path: /usr/local/sbin/fabric-qos
+  permissions: '0755'
+  content: '#!/bin/sh
+
+    # Rendered from fabric/intent/fabric.yaml qos (EMULATED host-side equivalent).
+
+    # Classifies egress traffic on each rail NIC by DSCP into prio bands that
+
+    # mirror the switch classes. veth has no PFC, no buffers and no ECN marking;
+
+    # this proves classification only. Linux prio bands are strict priority, so
+
+    # the DWRR weights in the intent are NOT reproduced here.
+
+    set -eu
+
+    tc qdisc del dev fabric root 2>/dev/null || true
+
+    tc qdisc add dev fabric root handle 1: prio bands 3 priomap 2 2 2 2 2 2 2 2 2
+    2 2 2 2 2 2 2
+
+    # cnp: DSCP 48 -> TC6 -> band 1:1
+
+    tc filter add dev fabric parent 1: protocol ip prio 1 flower ip_tos 0xc0/0xfc
+    classid 1:1
+
+    # roce: DSCP 26 -> TC3 -> band 1:2
+
+    tc filter add dev fabric parent 1: protocol ip prio 2 flower ip_tos 0x68/0xfc
+    classid 1:2
+
+    '
 ssh_pwauth: false
 users:
 - default
@@ -54,3 +87,5 @@ runcmd:
   - rxe
   - netdev
   - fabric
+- - sh
+  - /usr/local/sbin/fabric-qos

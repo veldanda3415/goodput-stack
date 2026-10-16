@@ -189,6 +189,11 @@ def render(intent: dict[str, Any], output: Path) -> None:
             yaml.safe_dump({"instance-id": vm_host["name"], "local-hostname": vm_host["name"]}),
             encoding="utf-8",
         )
+        vm_qos_script = host_qos_script(
+            linux_env,
+            intent,
+            {"nics": [{**nic, "interface": "fabric"}]},
+        )
         user_data = {
             "hostname": vm_host["name"],
             "manage_etc_hosts": True,
@@ -202,6 +207,11 @@ def render(intent: dict[str, Any], output: Path) -> None:
             ]],
             "package_update": True,
             "packages": VM_RDMA_PACKAGES,
+            "write_files": [{
+                "path": "/usr/local/sbin/fabric-qos",
+                "permissions": "0755",
+                "content": vm_qos_script,
+            }],
             "ssh_pwauth": False,
             "users": [
                 "default",
@@ -218,6 +228,7 @@ def render(intent: dict[str, Any], output: Path) -> None:
                 ["modprobe", "rdma_rxe"],
                 ["ip", "route", "replace", "10.210.0.0/16", "via", nic["gateway"], "dev", "fabric"],
                 ["rdma", "link", "add", f"rxe_{vm_host['name']}_a", "type", "rxe", "netdev", "fabric"],
+                ["sh", "/usr/local/sbin/fabric-qos"],
             ],
         }
         (vm_dir / "user-data").write_text(
