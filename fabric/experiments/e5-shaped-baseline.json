@@ -1,0 +1,1764 @@
+{
+  "started_at": "2026-10-16T16:16:14.523736+00:00",
+  "label": "EMULATED (veth + Linux forwarding), UNSHAPED",
+  "single_flow": [
+    {
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7901 -P 1 -t 5 --json",
+      "received_gbps": 8.216976968138033,
+      "retransmits": 1,
+      "cpu_utilization_percent": {
+        "host_total": 99.30983911572724,
+        "host_user": 0.23845665288663892,
+        "host_system": 99.07140245417636,
+        "remote_total": 39.243715743848014,
+        "remote_user": 0.9040394840424394,
+        "remote_system": 38.33965626424059
+      }
+    },
+    {
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7902 -P 1 -t 5 --json",
+      "received_gbps": 8.254182856146565,
+      "retransmits": 0,
+      "cpu_utilization_percent": {
+        "host_total": 99.3214299207725,
+        "host_user": 0.15886276092563795,
+        "host_system": 99.16254716956617,
+        "remote_total": 39.2905793199669,
+        "remote_user": 1.6756597559139552,
+        "remote_system": 37.6148995697833
+      }
+    },
+    {
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7903 -P 1 -t 5 --json",
+      "received_gbps": 8.20134350091395,
+      "retransmits": 0,
+      "cpu_utilization_percent": {
+        "host_total": 99.32306652901194,
+        "host_user": 0.4769876400575272,
+        "host_system": 98.8460589003679,
+        "remote_total": 41.34175269119236,
+        "remote_user": 0.9945491421871205,
+        "remote_system": 40.347203549005236
+      }
+    }
+  ],
+  "aggregate": [
+    {
+      "pattern": "ring",
+      "flows_per_pair": 16,
+      "pair_bytes": null,
+      "duration_seconds": 5,
+      "t0_epoch": 1792167396.6144583,
+      "start_skew_seconds": 0.0011858940124511719,
+      "job_time_seconds": 5.056255578994751,
+      "pairs": [
+        {
+          "source": "host1",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167396.614458 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7840 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.004071235656738281,
+          "end_offset_seconds": 5.045251131057739,
+          "iperf3_rc": 0,
+          "received_bytes": 6188040192,
+          "received_gbps": 9.879875499688463,
+          "iperf3_seconds": 5.010622,
+          "retransmits": 30924,
+          "cpu_utilization_percent": {
+            "host_total": 52.50466035433233,
+            "host_user": 0.39810450706407935,
+            "host_system": 52.106575765440425,
+            "remote_total": 131.82875648438767,
+            "remote_user": 1.3372811603354349,
+            "remote_system": 130.4915751107283
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167396.614458 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.10 -p 7841 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0029115676879882812,
+          "end_offset_seconds": 5.0478034019470215,
+          "iperf3_rc": 0,
+          "received_bytes": 6180175872,
+          "received_gbps": 9.869086022885487,
+          "iperf3_seconds": 5.009725,
+          "retransmits": 31177,
+          "cpu_utilization_percent": {
+            "host_total": 52.782432027875736,
+            "host_user": 0.5533219566696816,
+            "host_system": 52.22911007120605,
+            "remote_total": 130.74754854259922,
+            "remote_user": 1.3081425812536491,
+            "remote_system": 129.43944588329813
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167396.614458 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.6 -p 7842 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.002952098846435547,
+          "end_offset_seconds": 5.053931474685669,
+          "iperf3_rc": 0,
+          "received_bytes": 6112542720,
+          "received_gbps": 9.749239307461941,
+          "iperf3_seconds": 5.015811,
+          "retransmits": 29794,
+          "cpu_utilization_percent": {
+            "host_total": 54.64681072872808,
+            "host_user": 0.8917400345437942,
+            "host_system": 53.75507069418428,
+            "remote_total": 128.31217906748444,
+            "remote_user": 1.4609482097956639,
+            "remote_system": 126.85125079448119
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167396.614458 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.14 -p 7843 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.004097461700439453,
+          "end_offset_seconds": 5.056255578994751,
+          "iperf3_rc": 0,
+          "received_bytes": 6534594560,
+          "received_gbps": 10.43237711511709,
+          "iperf3_seconds": 5.011011,
+          "retransmits": 29483,
+          "cpu_utilization_percent": {
+            "host_total": 56.23196117750767,
+            "host_user": 0.605634213601086,
+            "host_system": 55.6263071233099,
+            "remote_total": 133.3708173253073,
+            "remote_user": 1.2309051156768631,
+            "remote_system": 132.13993216561553
+          }
+        }
+      ],
+      "cpu": {
+        "wall_seconds": 7.879983901977539,
+        "container_cpu_cores": {
+          "host1": 1.19041309178892,
+          "host2": 1.1872743797931007,
+          "host3": 1.1804977162028871,
+          "host4": 1.1834698034928273
+        },
+        "system_busy_percent": 58.20655236255333,
+        "note": "container = cgroup v2 usage_usec / wall; system = all 16 vCPUs of the WSL2 VM"
+      },
+      "link_deltas": {
+        "leaf1": {
+          "eth1": {
+            "tx_bytes": 13001859055,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 21851016,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf2": {
+          "eth1": {
+            "tx_bytes": 6568421858,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 6873807900,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf3": {
+          "eth1": {
+            "tx_bytes": 10990,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 11076,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf4": {
+          "eth1": {
+            "tx_bytes": 11076,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 10732,
+            "qdisc_drops": 0
+          }
+        },
+        "spine1": {
+          "eth1": {
+            "tx_bytes": 6568421877,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 13001858816,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 10646,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 10646,
+            "qdisc_drops": 0
+          }
+        },
+        "spine2": {
+          "eth1": {
+            "tx_bytes": 6873808005,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 21851207,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 10904,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 10990,
+            "qdisc_drops": 0
+          }
+        }
+      },
+      "max_link": "leaf1:eth1",
+      "max_link_tx_bytes": 13001859055,
+      "max_link_bound_seconds": 208.02974488,
+      "leaf_uplink_imbalance": {
+        "leaf1": 1.9966444253011044,
+        "leaf2": 1.0227184066555812,
+        "leaf3": 1.003897398712952,
+        "leaf4": 1.0157740278796772
+      },
+      "worst_leaf_imbalance": 1.9966444253011044,
+      "qdisc_drops_total": 0,
+      "per_host_sent_gbps": {
+        "host1": 9.879875499688463,
+        "host2": 9.749239307461941,
+        "host3": 9.869086022885487,
+        "host4": 10.43237711511709
+      },
+      "repeat": 1
+    },
+    {
+      "pattern": "all-to-all",
+      "flows_per_pair": 16,
+      "pair_bytes": null,
+      "duration_seconds": 5,
+      "t0_epoch": 1792167409.4941149,
+      "start_skew_seconds": 0.0011310577392578125,
+      "job_time_seconds": 5.243831396102905,
+      "pairs": [
+        {
+          "source": "host1",
+          "destination": "host2",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.2 -p 7860 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0043680667877197266,
+          "end_offset_seconds": 5.150679349899292,
+          "iperf3_rc": 0,
+          "received_bytes": 2522087424,
+          "received_gbps": 3.9646680839365964,
+          "iperf3_seconds": 5.089127,
+          "retransmits": 13755,
+          "cpu_utilization_percent": {
+            "host_total": 27.0570332831493,
+            "host_user": 0.4008676200657327,
+            "host_system": 26.6561851671764,
+            "remote_total": 40.39077137408593,
+            "remote_user": 0.6051483887828357,
+            "remote_system": 39.7857212332475
+          }
+        },
+        {
+          "source": "host1",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7861 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0033769607543945312,
+          "end_offset_seconds": 5.1960437297821045,
+          "iperf3_rc": 0,
+          "received_bytes": 1977483264,
+          "received_gbps": 3.1438138305927077,
+          "iperf3_seconds": 5.032062,
+          "retransmits": 14118,
+          "cpu_utilization_percent": {
+            "host_total": 17.853361597627654,
+            "host_user": 0.594843696907917,
+            "host_system": 17.258517900719735,
+            "remote_total": 36.44825603820478,
+            "remote_user": 0.30598644860379526,
+            "remote_system": 36.142309333262325
+          }
+        },
+        {
+          "source": "host1",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.2 -p 7862 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003737926483154297,
+          "end_offset_seconds": 5.136483907699585,
+          "iperf3_rc": 0,
+          "received_bytes": 2217738240,
+          "received_gbps": 3.514956060835095,
+          "iperf3_seconds": 5.047547,
+          "retransmits": 16844,
+          "cpu_utilization_percent": {
+            "host_total": 20.37968999907068,
+            "host_user": 0.3168289712449438,
+            "host_system": 20.062861027825736,
+            "remote_total": 40.13695373527297,
+            "remote_user": 0.8577785085851152,
+            "remote_system": 39.279175226687855
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host1",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.6 -p 7863 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003261089324951172,
+          "end_offset_seconds": 5.160405874252319,
+          "iperf3_rc": 0,
+          "received_bytes": 2499936256,
+          "received_gbps": 3.953065254912006,
+          "iperf3_seconds": 5.059236,
+          "retransmits": 12817,
+          "cpu_utilization_percent": {
+            "host_total": 27.598229824902337,
+            "host_user": 0.558223969460898,
+            "host_system": 27.040142847721143,
+            "remote_total": 42.56614229319637,
+            "remote_user": 0.363947657001718,
+            "remote_system": 42.20223416779266
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.6 -p 7864 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003818511962890625,
+          "end_offset_seconds": 5.1893837451934814,
+          "iperf3_rc": 0,
+          "received_bytes": 1977483264,
+          "received_gbps": 3.1541128348556744,
+          "iperf3_seconds": 5.015631,
+          "retransmits": 13416,
+          "cpu_utilization_percent": {
+            "host_total": 20.497834556018717,
+            "host_user": 0.35368434895025036,
+            "host_system": 20.144169545706387,
+            "remote_total": 37.72249315144966,
+            "remote_user": 0.6510608773321955,
+            "remote_system": 37.07147214922862
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.6 -p 7865 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.004143238067626953,
+          "end_offset_seconds": 5.1284143924713135,
+          "iperf3_rc": 0,
+          "received_bytes": 1864630272,
+          "received_gbps": 2.952599243137557,
+          "iperf3_seconds": 5.052173,
+          "retransmits": 13628,
+          "cpu_utilization_percent": {
+            "host_total": 19.75793071165998,
+            "host_user": 0.5559754884485173,
+            "host_system": 19.20195522321146,
+            "remote_total": 33.40402049914613,
+            "remote_user": 0.582070610105322,
+            "remote_system": 32.82196968197505
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.10 -p 7866 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003237009048461914,
+          "end_offset_seconds": 5.119429588317871,
+          "iperf3_rc": 0,
+          "received_bytes": 2166489088,
+          "received_gbps": 3.437687475901158,
+          "iperf3_seconds": 5.041736,
+          "retransmits": 15604,
+          "cpu_utilization_percent": {
+            "host_total": 20.141951403042587,
+            "host_user": 0.3473655620342146,
+            "host_system": 19.794566173611585,
+            "remote_total": 38.42519766250195,
+            "remote_user": 0.817307148774813,
+            "remote_system": 37.60787067954487
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.10 -p 7867 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0034928321838378906,
+          "end_offset_seconds": 5.184601783752441,
+          "iperf3_rc": 0,
+          "received_bytes": 1735655424,
+          "received_gbps": 2.7265272196311234,
+          "iperf3_seconds": 5.092648,
+          "retransmits": 12229,
+          "cpu_utilization_percent": {
+            "host_total": 17.359002204019383,
+            "host_user": 0.06788932308565827,
+            "host_system": 17.291132339037215,
+            "remote_total": 31.062730166509194,
+            "remote_user": 0.7671235243622095,
+            "remote_system": 30.29562627673937
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host4",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.10 -p 7868 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0036988258361816406,
+          "end_offset_seconds": 5.153324842453003,
+          "iperf3_rc": 0,
+          "received_bytes": 2271870976,
+          "received_gbps": 3.6144051867750915,
+          "iperf3_seconds": 5.028481,
+          "retransmits": 11717,
+          "cpu_utilization_percent": {
+            "host_total": 25.240596425825373,
+            "host_user": 0.42678951324990183,
+            "host_system": 24.81378742713908,
+            "remote_total": 38.62686412819753,
+            "remote_user": 0.4861698044542198,
+            "remote_system": 38.14069432374331
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.14 -p 7869 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.00408935546875,
+          "end_offset_seconds": 5.169082403182983,
+          "iperf3_rc": 0,
+          "received_bytes": 2060713984,
+          "received_gbps": 3.2484903836225616,
+          "iperf3_seconds": 5.074884,
+          "retransmits": 14672,
+          "cpu_utilization_percent": {
+            "host_total": 21.40886759373553,
+            "host_user": 0.2967511041743028,
+            "host_system": 21.112116489561224,
+            "remote_total": 37.289815517074565,
+            "remote_user": 0.737198680482935,
+            "remote_system": 36.55269565608062
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.14 -p 7870 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003990650177001953,
+          "end_offset_seconds": 5.142293214797974,
+          "iperf3_rc": 0,
+          "received_bytes": 1892679680,
+          "received_gbps": 2.9993741213450575,
+          "iperf3_seconds": 5.048199,
+          "retransmits": 13796,
+          "cpu_utilization_percent": {
+            "host_total": 19.464510282185564,
+            "host_user": 0.5449776940003616,
+            "host_system": 18.919512895416034,
+            "remote_total": 34.14053895584239,
+            "remote_user": 0.6715554604736663,
+            "remote_system": 33.46900330409565
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host3",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167409.494115 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.14 -p 7871 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0038764476776123047,
+          "end_offset_seconds": 5.243831396102905,
+          "iperf3_rc": 0,
+          "received_bytes": 2646081536,
+          "received_gbps": 4.23113846217807,
+          "iperf3_seconds": 5.003063,
+          "retransmits": 13815,
+          "cpu_utilization_percent": {
+            "host_total": 26.696535644816088,
+            "host_user": 0.1285099237050029,
+            "host_system": 26.568006594764356,
+            "remote_total": 45.15238313954778,
+            "remote_user": 0.8509535176509646,
+            "remote_system": 44.30140963473257
+          }
+        }
+      ],
+      "cpu": {
+        "wall_seconds": 8.842347383499146,
+        "container_cpu_cores": {
+          "host1": 1.0759688109239414,
+          "host2": 1.0213206525738476,
+          "host3": 1.0609698525876634,
+          "host4": 1.055241961813488
+        },
+        "system_busy_percent": 60.989479670173445,
+        "note": "container = cgroup v2 usage_usec / wall; system = all 16 vCPUs of the WSL2 VM"
+      },
+      "link_deltas": {
+        "leaf1": {
+          "eth1": {
+            "tx_bytes": 6288905454,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 2409569527,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf2": {
+          "eth1": {
+            "tx_bytes": 6277517983,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 2230126191,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf3": {
+          "eth1": {
+            "tx_bytes": 11850,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 11678,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf4": {
+          "eth1": {
+            "tx_bytes": 11936,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 11764,
+            "qdisc_drops": 0
+          }
+        },
+        "spine1": {
+          "eth1": {
+            "tx_bytes": 6277517717,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 6288905274,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 11498,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 11498,
+            "qdisc_drops": 0
+          }
+        },
+        "spine2": {
+          "eth1": {
+            "tx_bytes": 2230126250,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 2409569758,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 11823,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 11823,
+            "qdisc_drops": 0
+          }
+        }
+      },
+      "max_link": "leaf1:eth1",
+      "max_link_tx_bytes": 6288905454,
+      "max_link_bound_seconds": 100.622487264,
+      "leaf_uplink_imbalance": {
+        "leaf1": 1.4459788566931098,
+        "leaf2": 1.4757359039966826,
+        "leaf3": 1.0073104386263176,
+        "leaf4": 1.0072573839662446
+      },
+      "worst_leaf_imbalance": 1.4757359039966826,
+      "qdisc_drops_total": 0,
+      "per_host_sent_gbps": {
+        "host1": 10.6234379753644,
+        "host2": 10.059777332905238,
+        "host3": 9.778619882307373,
+        "host4": 10.47900296714569
+      },
+      "repeat": 1
+    },
+    {
+      "pattern": "ring",
+      "flows_per_pair": 16,
+      "pair_bytes": null,
+      "duration_seconds": 5,
+      "t0_epoch": 1792167422.6112723,
+      "start_skew_seconds": 0.00042438507080078125,
+      "job_time_seconds": 5.041549921035767,
+      "pairs": [
+        {
+          "source": "host1",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167422.611272 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7880 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0031135082244873047,
+          "end_offset_seconds": 5.039379596710205,
+          "iperf3_rc": 0,
+          "received_bytes": 6456999936,
+          "received_gbps": 10.296276985321189,
+          "iperf3_seconds": 5.016959,
+          "retransmits": 33645,
+          "cpu_utilization_percent": {
+            "host_total": 49.02319570760346,
+            "host_user": 0.4453375332645414,
+            "host_system": 48.57783828076556,
+            "remote_total": 140.4510144017017,
+            "remote_user": 1.2066064373338414,
+            "remote_system": 139.24446776051087
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167422.611272 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.10 -p 7881 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0026891231536865234,
+          "end_offset_seconds": 5.041549921035767,
+          "iperf3_rc": 0,
+          "received_bytes": 6197870592,
+          "received_gbps": 9.879530875075243,
+          "iperf3_seconds": 5.018757,
+          "retransmits": 32052,
+          "cpu_utilization_percent": {
+            "host_total": 47.51043123186024,
+            "host_user": 0.6343295163075787,
+            "host_system": 46.8756441181222,
+            "remote_total": 132.76589334737125,
+            "remote_user": 1.7566158271362982,
+            "remote_system": 131.00933729550383
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167422.611272 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.6 -p 7882 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0026891231536865234,
+          "end_offset_seconds": 5.040942668914795,
+          "iperf3_rc": 0,
+          "received_bytes": 6717046784,
+          "received_gbps": 10.724189963085463,
+          "iperf3_seconds": 5.010763,
+          "retransmits": 30031,
+          "cpu_utilization_percent": {
+            "host_total": 50.44118461796616,
+            "host_user": 0.846258181286263,
+            "host_system": 49.594946365518,
+            "remote_total": 138.601889340886,
+            "remote_user": 1.1995374834758508,
+            "remote_system": 137.4023718141121
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167422.611272 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.14 -p 7883 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0028350353240966797,
+          "end_offset_seconds": 5.039164304733276,
+          "iperf3_rc": 0,
+          "received_bytes": 6383730688,
+          "received_gbps": 10.177726217738632,
+          "iperf3_seconds": 5.017805,
+          "retransmits": 34508,
+          "cpu_utilization_percent": {
+            "host_total": 48.04224137193764,
+            "host_user": 0.6521652223497558,
+            "host_system": 47.38965847744183,
+            "remote_total": 133.57158942575006,
+            "remote_user": 1.0799047400779218,
+            "remote_system": 132.49174447223413
+          }
+        }
+      ],
+      "cpu": {
+        "wall_seconds": 7.950336694717407,
+        "container_cpu_cores": {
+          "host1": 1.1573787819720844,
+          "host2": 1.1613701852570653,
+          "host3": 1.1908239064001702,
+          "host4": 1.1816274405387204
+        },
+        "system_busy_percent": 56.81295135306722,
+        "note": "container = cgroup v2 usage_usec / wall; system = all 16 vCPUs of the WSL2 VM"
+      },
+      "link_deltas": {
+        "leaf1": {
+          "eth1": {
+            "tx_bytes": 13910525999,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 22211604,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf2": {
+          "eth1": {
+            "tx_bytes": 6601257768,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 6761793284,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf3": {
+          "eth1": {
+            "tx_bytes": 11057,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 10885,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf4": {
+          "eth1": {
+            "tx_bytes": 11057,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 10713,
+            "qdisc_drops": 0
+          }
+        },
+        "spine1": {
+          "eth1": {
+            "tx_bytes": 6601257338,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 13910525722,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 10713,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 10799,
+            "qdisc_drops": 0
+          }
+        },
+        "spine2": {
+          "eth1": {
+            "tx_bytes": 6761793733,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 22211948,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 11162,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 11162,
+            "qdisc_drops": 0
+          }
+        }
+      },
+      "max_link": "leaf1:eth1",
+      "max_link_tx_bytes": 13910525999,
+      "max_link_bound_seconds": 222.568415984,
+      "leaf_uplink_imbalance": {
+        "leaf1": 1.9968115951605638,
+        "leaf2": 1.0120133879138307,
+        "leaf3": 1.0078388478716616,
+        "leaf4": 1.015801561782269
+      },
+      "worst_leaf_imbalance": 1.9968115951605638,
+      "qdisc_drops_total": 0,
+      "per_host_sent_gbps": {
+        "host1": 10.296276985321189,
+        "host2": 10.724189963085463,
+        "host3": 9.879530875075243,
+        "host4": 10.177726217738632
+      },
+      "repeat": 2
+    },
+    {
+      "pattern": "all-to-all",
+      "flows_per_pair": 16,
+      "pair_bytes": null,
+      "duration_seconds": 5,
+      "t0_epoch": 1792167435.7140195,
+      "start_skew_seconds": 0.0009839534759521484,
+      "job_time_seconds": 5.153998374938965,
+      "pairs": [
+        {
+          "source": "host1",
+          "destination": "host2",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.2 -p 7900 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0028908252716064453,
+          "end_offset_seconds": 5.115554332733154,
+          "iperf3_rc": 0,
+          "received_bytes": 2394685440,
+          "received_gbps": 3.7804097586850345,
+          "iperf3_seconds": 5.067568,
+          "retransmits": 12908,
+          "cpu_utilization_percent": {
+            "host_total": 25.95403686588297,
+            "host_user": 0.40003923533554764,
+            "host_system": 25.554017287529156,
+            "remote_total": 39.6094265224346,
+            "remote_user": 1.025480831656331,
+            "remote_system": 38.58400489070313
+          }
+        },
+        {
+          "source": "host1",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7901 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003231525421142578,
+          "end_offset_seconds": 5.12468695640564,
+          "iperf3_rc": 0,
+          "received_bytes": 1976434688,
+          "received_gbps": 3.1258623250565356,
+          "iperf3_seconds": 5.058277,
+          "retransmits": 14124,
+          "cpu_utilization_percent": {
+            "host_total": 18.262042794329183,
+            "host_user": 0.13815757730763753,
+            "host_system": 18.123904830533373,
+            "remote_total": 36.96173283316675,
+            "remote_user": 0.6113205669484876,
+            "remote_system": 36.35017532026208
+          }
+        },
+        {
+          "source": "host1",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.2 -p 7902 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0027756690979003906,
+          "end_offset_seconds": 5.122419357299805,
+          "iperf3_rc": 0,
+          "received_bytes": 1892810752,
+          "received_gbps": 2.993903249927735,
+          "iperf3_seconds": 5.057774,
+          "retransmits": 13241,
+          "cpu_utilization_percent": {
+            "host_total": 17.45698309001618,
+            "host_user": 0.2630926734409853,
+            "host_system": 17.193851107943274,
+            "remote_total": 35.90160920449154,
+            "remote_user": 1.03265854815752,
+            "remote_system": 34.8690692709157
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host1",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.6 -p 7903 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0027451515197753906,
+          "end_offset_seconds": 5.11262321472168,
+          "iperf3_rc": 0,
+          "received_bytes": 2470576128,
+          "received_gbps": 3.8938988645903123,
+          "iperf3_seconds": 5.075789,
+          "retransmits": 12493,
+          "cpu_utilization_percent": {
+            "host_total": 25.633585094455036,
+            "host_user": 0.16919398589612114,
+            "host_system": 25.464371496412646,
+            "remote_total": 40.620692861685356,
+            "remote_user": 0.7141230400427434,
+            "remote_system": 39.9065895226755
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.6 -p 7904 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0030679702758789062,
+          "end_offset_seconds": 5.129485845565796,
+          "iperf3_rc": 0,
+          "received_bytes": 1861484544,
+          "received_gbps": 2.931146873289437,
+          "iperf3_seconds": 5.080563,
+          "retransmits": 13978,
+          "cpu_utilization_percent": {
+            "host_total": 15.789541745767172,
+            "host_user": 0.7474128281246357,
+            "host_system": 15.042109324164107,
+            "remote_total": 32.35986026770214,
+            "remote_user": 0.47646209914946586,
+            "remote_system": 31.88341785137579
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.6 -p 7905 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0027976036071777344,
+          "end_offset_seconds": 5.133625030517578,
+          "iperf3_rc": 0,
+          "received_bytes": 2151022592,
+          "received_gbps": 3.408554759833908,
+          "iperf3_seconds": 5.048527,
+          "retransmits": 14972,
+          "cpu_utilization_percent": {
+            "host_total": 18.895634270818253,
+            "host_user": 0.451102073728265,
+            "host_system": 18.444591370951866,
+            "remote_total": 38.92856895262525,
+            "remote_user": 0.5529877242588255,
+            "remote_system": 38.37560103593588
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.10 -p 7906 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.002877473831176758,
+          "end_offset_seconds": 5.106372356414795,
+          "iperf3_rc": 0,
+          "received_bytes": 1806565376,
+          "received_gbps": 2.84960704134265,
+          "iperf3_seconds": 5.07176,
+          "retransmits": 13502,
+          "cpu_utilization_percent": {
+            "host_total": 16.862120348914672,
+            "host_user": 0.43730965801601923,
+            "host_system": 16.424810690898653,
+            "remote_total": 32.879851366173654,
+            "remote_user": 0.2883398435227936,
+            "remote_system": 32.59159039022295
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.10 -p 7907 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003263235092163086,
+          "end_offset_seconds": 5.1421425342559814,
+          "iperf3_rc": 0,
+          "received_bytes": 1865285632,
+          "received_gbps": 2.971233240539654,
+          "iperf3_seconds": 5.022253,
+          "retransmits": 13879,
+          "cpu_utilization_percent": {
+            "host_total": 16.643873290813882,
+            "host_user": 0.20029162773191242,
+            "host_system": 16.44358166308197,
+            "remote_total": 34.7939166587021,
+            "remote_user": 0.26199464780655646,
+            "remote_system": 34.53196183376342
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host4",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.10 -p 7908 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003729104995727539,
+          "end_offset_seconds": 5.1226067543029785,
+          "iperf3_rc": 0,
+          "received_bytes": 2476343296,
+          "received_gbps": 3.9135291528170617,
+          "iperf3_seconds": 5.062118,
+          "retransmits": 12488,
+          "cpu_utilization_percent": {
+            "host_total": 27.16062778515974,
+            "host_user": 0,
+            "host_system": 27.160608020864768,
+            "remote_total": 42.528756976019935,
+            "remote_user": 0.4212626104690821,
+            "remote_system": 42.10755362875514
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.14 -p 7909 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003017425537109375,
+          "end_offset_seconds": 5.153998374938965,
+          "iperf3_rc": 0,
+          "received_bytes": 2023751680,
+          "received_gbps": 3.221572667396279,
+          "iperf3_seconds": 5.0255,
+          "retransmits": 14537,
+          "cpu_utilization_percent": {
+            "host_total": 18.022635320741024,
+            "host_user": 0.13481748729795384,
+            "host_system": 17.887798365213854,
+            "remote_total": 36.2745698889,
+            "remote_user": 0.5568730422587563,
+            "remote_system": 35.71769684664123
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.14 -p 7910 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003293752670288086,
+          "end_offset_seconds": 5.105079412460327,
+          "iperf3_rc": 0,
+          "received_bytes": 2139750400,
+          "received_gbps": 3.4061326294232654,
+          "iperf3_seconds": 5.025642,
+          "retransmits": 13980,
+          "cpu_utilization_percent": {
+            "host_total": 21.388755155766688,
+            "host_user": 0.147798479951155,
+            "host_system": 21.24097647998007,
+            "remote_total": 39.32276209500504,
+            "remote_user": 0.9229056784506837,
+            "remote_system": 38.3999559061924
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host3",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167435.714020 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.14 -p 7911 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.003047466278076172,
+          "end_offset_seconds": 5.095006942749023,
+          "iperf3_rc": 0,
+          "received_bytes": 2440298496,
+          "received_gbps": 3.8677149628778458,
+          "iperf3_seconds": 5.047525,
+          "retransmits": 12459,
+          "cpu_utilization_percent": {
+            "host_total": 25.022738162385323,
+            "host_user": 0.301997542876761,
+            "host_system": 24.720740619508565,
+            "remote_total": 43.045609469204734,
+            "remote_user": 0.5905275856582988,
+            "remote_system": 42.455141320665035
+          }
+        }
+      ],
+      "cpu": {
+        "wall_seconds": 8.880283117294312,
+        "container_cpu_cores": {
+          "host1": 0.9921627366633423,
+          "host2": 1.004628330219072,
+          "host3": 0.9999114761000378,
+          "host4": 1.0494138392785146
+        },
+        "system_busy_percent": 59.7782329260541,
+        "note": "container = cgroup v2 usage_usec / wall; system = all 16 vCPUs of the WSL2 VM"
+      },
+      "link_deltas": {
+        "leaf1": {
+          "eth1": {
+            "tx_bytes": 6477210632,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 2041195263,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf2": {
+          "eth1": {
+            "tx_bytes": 6287588037,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 2195446646,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf3": {
+          "eth1": {
+            "tx_bytes": 11936,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 11678,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf4": {
+          "eth1": {
+            "tx_bytes": 12108,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 11506,
+            "qdisc_drops": 0
+          }
+        },
+        "spine1": {
+          "eth1": {
+            "tx_bytes": 6287587865,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 6477210374,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 11936,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 11592,
+            "qdisc_drops": 0
+          }
+        },
+        "spine2": {
+          "eth1": {
+            "tx_bytes": 2195447076,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 2041195521,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 11936,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 11936,
+            "qdisc_drops": 0
+          }
+        }
+      },
+      "max_link": "leaf1:eth1",
+      "max_link_tx_bytes": 6477210632,
+      "max_link_bound_seconds": 103.635370112,
+      "leaf_uplink_imbalance": {
+        "leaf1": 1.5207565152071214,
+        "leaf2": 1.4823912130408532,
+        "leaf3": 1.0109257220293046,
+        "leaf4": 1.0254933514017108
+      },
+      "worst_leaf_imbalance": 1.5207565152071214,
+      "qdisc_drops_total": 0,
+      "per_host_sent_gbps": {
+        "host1": 9.900175333669305,
+        "host2": 10.233600497713656,
+        "host3": 9.734369434699365,
+        "host4": 10.49542025969739
+      },
+      "repeat": 2
+    },
+    {
+      "pattern": "ring",
+      "flows_per_pair": 16,
+      "pair_bytes": null,
+      "duration_seconds": 5,
+      "t0_epoch": 1792167449.0894866,
+      "start_skew_seconds": 7.62939453125e-06,
+      "job_time_seconds": 5.0418736934661865,
+      "pairs": [
+        {
+          "source": "host1",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167449.089487 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7920 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0025467872619628906,
+          "end_offset_seconds": 5.034891128540039,
+          "iperf3_rc": 0,
+          "received_bytes": 6235750400,
+          "received_gbps": 9.949898119559927,
+          "iperf3_seconds": 5.01372,
+          "retransmits": 32095,
+          "cpu_utilization_percent": {
+            "host_total": 48.37319579251285,
+            "host_user": 0.582142478714395,
+            "host_system": 47.791073231085946,
+            "remote_total": 135.41005938698274,
+            "remote_user": 1.340799505357793,
+            "remote_system": 134.06933966262608
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167449.089487 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.10 -p 7921 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0025451183319091797,
+          "end_offset_seconds": 5.0418736934661865,
+          "iperf3_rc": 0,
+          "received_bytes": 6177554432,
+          "received_gbps": 9.839496461137417,
+          "iperf3_seconds": 5.022659,
+          "retransmits": 32100,
+          "cpu_utilization_percent": {
+            "host_total": 48.25757279135573,
+            "host_user": 0.7340301438903398,
+            "host_system": 47.5235426474654,
+            "remote_total": 131.82826141058186,
+            "remote_user": 1.1706535264546314,
+            "remote_system": 130.65764770295155
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167449.089487 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.6 -p 7922 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0025453567504882812,
+          "end_offset_seconds": 5.040311813354492,
+          "iperf3_rc": 0,
+          "received_bytes": 6505365504,
+          "received_gbps": 10.380130791873318,
+          "iperf3_seconds": 5.013706,
+          "retransmits": 30399,
+          "cpu_utilization_percent": {
+            "host_total": 50.967555808903775,
+            "host_user": 0.9783023420284485,
+            "host_system": 49.989253466875326,
+            "remote_total": 137.7729035979465,
+            "remote_user": 1.9327162400939342,
+            "remote_system": 135.84016741258637
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167449.089487 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.14 -p 7923 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0025527477264404297,
+          "end_offset_seconds": 5.037597894668579,
+          "iperf3_rc": 0,
+          "received_bytes": 6170345472,
+          "received_gbps": 9.848314084575044,
+          "iperf3_seconds": 5.012306,
+          "retransmits": 31206,
+          "cpu_utilization_percent": {
+            "host_total": 49.74444888738785,
+            "host_user": 0.9523276598185155,
+            "host_system": 48.79212122756933,
+            "remote_total": 134.9301869495433,
+            "remote_user": 1.6008371381287887,
+            "remote_system": 133.3293498114145
+          }
+        }
+      ],
+      "cpu": {
+        "wall_seconds": 8.01890754699707,
+        "container_cpu_cores": {
+          "host1": 1.1513219158459231,
+          "host2": 1.1497953986827987,
+          "host3": 1.1537374568515373,
+          "host4": 1.1775620238365432
+        },
+        "system_busy_percent": 56.300141576215196,
+        "note": "container = cgroup v2 usage_usec / wall; system = all 16 vCPUs of the WSL2 VM"
+      },
+      "link_deltas": {
+        "leaf1": {
+          "eth1": {
+            "tx_bytes": 13470132413,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 21049790,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf2": {
+          "eth1": {
+            "tx_bytes": 6575479664,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 6520233480,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf3": {
+          "eth1": {
+            "tx_bytes": 11057,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 10799,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf4": {
+          "eth1": {
+            "tx_bytes": 11057,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 10885,
+            "qdisc_drops": 0
+          }
+        },
+        "spine1": {
+          "eth1": {
+            "tx_bytes": 6575479215,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 13470132128,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 11315,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 10971,
+            "qdisc_drops": 0
+          }
+        },
+        "spine2": {
+          "eth1": {
+            "tx_bytes": 6520233711,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 21050107,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 11315,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 11221,
+            "qdisc_drops": 0
+          }
+        }
+      },
+      "max_link": "leaf1:eth1",
+      "max_link_tx_bytes": 13470132413,
+      "max_link_bound_seconds": 215.522118608,
+      "leaf_uplink_imbalance": {
+        "leaf1": 1.996879474358397,
+        "leaf2": 1.004218646467933,
+        "leaf3": 1.0118045387994143,
+        "leaf4": 1.0078388478716616
+      },
+      "worst_leaf_imbalance": 1.996879474358397,
+      "qdisc_drops_total": 0,
+      "per_host_sent_gbps": {
+        "host1": 9.949898119559927,
+        "host2": 10.380130791873318,
+        "host3": 9.839496461137417,
+        "host4": 9.848314084575044
+      },
+      "repeat": 3
+    },
+    {
+      "pattern": "all-to-all",
+      "flows_per_pair": 16,
+      "pair_bytes": null,
+      "duration_seconds": 5,
+      "t0_epoch": 1792167462.5162458,
+      "start_skew_seconds": 0.0004360675811767578,
+      "job_time_seconds": 5.201080322265625,
+      "pairs": [
+        {
+          "source": "host1",
+          "destination": "host2",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.2 -p 7940 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0027582645416259766,
+          "end_offset_seconds": 5.091888666152954,
+          "iperf3_rc": 0,
+          "received_bytes": 2767716352,
+          "received_gbps": 4.388008952106862,
+          "iperf3_seconds": 5.045963,
+          "retransmits": 13708,
+          "cpu_utilization_percent": {
+            "host_total": 29.162503383949,
+            "host_user": 0.456220313538257,
+            "host_system": 28.70626338198016,
+            "remote_total": 49.325900635593555,
+            "remote_user": 1.0527365085002116,
+            "remote_system": 48.2732433979285
+          }
+        },
+        {
+          "source": "host1",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.2 -p 7941 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0026063919067382812,
+          "end_offset_seconds": 5.093350172042847,
+          "iperf3_rc": 0,
+          "received_bytes": 1699217408,
+          "received_gbps": 2.692004404246454,
+          "iperf3_seconds": 5.049672,
+          "retransmits": 12697,
+          "cpu_utilization_percent": {
+            "host_total": 15.269546162939927,
+            "host_user": 0.177862167886867,
+            "host_system": 15.091664232589963,
+            "remote_total": 33.11642185572588,
+            "remote_user": 0.57270967124841,
+            "remote_system": 32.5437715941944
+          }
+        },
+        {
+          "source": "host1",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.2 -p 7942 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0029420852661132812,
+          "end_offset_seconds": 5.096097469329834,
+          "iperf3_rc": 0,
+          "received_bytes": 1774059520,
+          "received_gbps": 2.8016805887279963,
+          "iperf3_seconds": 5.065701,
+          "retransmits": 13117,
+          "cpu_utilization_percent": {
+            "host_total": 16.63989053286475,
+            "host_user": 0.562023173168739,
+            "host_system": 16.077906736363367,
+            "remote_total": 34.29051283099028,
+            "remote_user": 0.195190473567858,
+            "remote_system": 34.095480278517535
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host1",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.6 -p 7943 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.002844095230102539,
+          "end_offset_seconds": 5.132436513900757,
+          "iperf3_rc": 0,
+          "received_bytes": 2437545984,
+          "received_gbps": 3.843242017392017,
+          "iperf3_seconds": 5.073937,
+          "retransmits": 12460,
+          "cpu_utilization_percent": {
+            "host_total": 26.310503502214406,
+            "host_user": 0.37796039199673337,
+            "host_system": 25.93252347897101,
+            "remote_total": 43.9657765106499,
+            "remote_user": 0.45913019896561685,
+            "remote_system": 43.50666602022648
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host3",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.6 -p 7944 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0027565956115722656,
+          "end_offset_seconds": 5.101992845535278,
+          "iperf3_rc": 0,
+          "received_bytes": 1764098048,
+          "received_gbps": 2.7811615126139513,
+          "iperf3_seconds": 5.074421,
+          "retransmits": 14134,
+          "cpu_utilization_percent": {
+            "host_total": 17.078708434871473,
+            "host_user": 0.02091030579356969,
+            "host_system": 17.057817781620944,
+            "remote_total": 33.8255582953937,
+            "remote_user": 0.385337773565876,
+            "remote_system": 33.44027964084801
+          }
+        },
+        {
+          "source": "host2",
+          "destination": "host4",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.6 -p 7945 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0027740001678466797,
+          "end_offset_seconds": 5.126572847366333,
+          "iperf3_rc": 0,
+          "received_bytes": 1808924672,
+          "received_gbps": 2.86749818911296,
+          "iperf3_seconds": 5.046698,
+          "retransmits": 12888,
+          "cpu_utilization_percent": {
+            "host_total": 19.76915783929762,
+            "host_user": 0.5564265918910448,
+            "host_system": 19.212750848174217,
+            "remote_total": 34.9699997543237,
+            "remote_user": 1.1958095549058783,
+            "remote_system": 33.77422982462675
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.10 -p 7946 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0028297901153564453,
+          "end_offset_seconds": 5.120609760284424,
+          "iperf3_rc": 0,
+          "received_bytes": 1815347200,
+          "received_gbps": 2.854368303860541,
+          "iperf3_seconds": 5.087913,
+          "retransmits": 12521,
+          "cpu_utilization_percent": {
+            "host_total": 17.960174617597882,
+            "host_user": 0.17640436802606177,
+            "host_system": 17.78375065779394,
+            "remote_total": 32.45716668949852,
+            "remote_user": 0.617462417360647,
+            "remote_system": 31.83976323531753
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.10 -p 7947 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0025060176849365234,
+          "end_offset_seconds": 5.104002237319946,
+          "iperf3_rc": 0,
+          "received_bytes": 2020605952,
+          "received_gbps": 3.185393128511183,
+          "iperf3_seconds": 5.074679,
+          "retransmits": 13857,
+          "cpu_utilization_percent": {
+            "host_total": 19.784753623997013,
+            "host_user": 0.24427489314201284,
+            "host_system": 19.540498376575858,
+            "remote_total": 39.47551474680022,
+            "remote_user": 0.5844254115688565,
+            "remote_system": 38.89112874621063
+          }
+        },
+        {
+          "source": "host3",
+          "destination": "host4",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.14 -B 10.210.0.10 -p 7948 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.002734661102294922,
+          "end_offset_seconds": 5.1153247356414795,
+          "iperf3_rc": 0,
+          "received_bytes": 2233466880,
+          "received_gbps": 3.5338121177852,
+          "iperf3_seconds": 5.056221,
+          "retransmits": 13550,
+          "cpu_utilization_percent": {
+            "host_total": 26.68026503786467,
+            "host_user": 0.3643747169063666,
+            "host_system": 26.3158903209583,
+            "remote_total": 39.78400520703852,
+            "remote_user": 0.5804518897764402,
+            "remote_system": 39.20359287240125
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host1",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.2 -B 10.210.0.14 -p 7949 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.0027136802673339844,
+          "end_offset_seconds": 5.177875757217407,
+          "iperf3_rc": 0,
+          "received_bytes": 1922957312,
+          "received_gbps": 3.0684322037752283,
+          "iperf3_seconds": 5.013524,
+          "retransmits": 12883,
+          "cpu_utilization_percent": {
+            "host_total": 18.16664960907092,
+            "host_user": 0.27497619690047975,
+            "host_system": 17.89165402853891,
+            "remote_total": 38.287608377923235,
+            "remote_user": 0.6048569179151805,
+            "remote_system": 37.68277139662158
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host2",
+          "same_leaf": false,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.6 -B 10.210.0.14 -p 7950 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.002547025680541992,
+          "end_offset_seconds": 5.201080322265625,
+          "iperf3_rc": 0,
+          "received_bytes": 2044592128,
+          "received_gbps": 3.25031268125201,
+          "iperf3_seconds": 5.032358,
+          "retransmits": 13632,
+          "cpu_utilization_percent": {
+            "host_total": 19.08687417751577,
+            "host_user": 0.48285158305157033,
+            "host_system": 18.604003329718623,
+            "remote_total": 41.73667091215807,
+            "remote_user": 0.6016543507676657,
+            "remote_system": 41.1348377341395
+          }
+        },
+        {
+          "source": "host4",
+          "destination": "host3",
+          "same_leaf": true,
+          "command": "sh /tmp/e5sync.sh 1792167462.516246 timeout 30 iperf3 -c 10.210.0.10 -B 10.210.0.14 -p 7951 -P 16 -t 5 --json",
+          "start_offset_seconds": 0.002518892288208008,
+          "end_offset_seconds": 5.185042858123779,
+          "iperf3_rc": 0,
+          "received_bytes": 2371223552,
+          "received_gbps": 3.7731810391261558,
+          "iperf3_seconds": 5.027532,
+          "retransmits": 11323,
+          "cpu_utilization_percent": {
+            "host_total": 26.178389156354665,
+            "host_user": 0.6559093029690022,
+            "host_system": 25.522460519286827,
+            "remote_total": 41.4076478473772,
+            "remote_user": 0.6191550214605932,
+            "remote_system": 40.7884928259166
+          }
+        }
+      ],
+      "cpu": {
+        "wall_seconds": 8.945901155471802,
+        "container_cpu_cores": {
+          "host1": 1.0078074688412444,
+          "host2": 1.1110282605705601,
+          "host3": 0.9912281441402017,
+          "host4": 0.9947506512026374
+        },
+        "system_busy_percent": 59.63412069811453,
+        "note": "container = cgroup v2 usage_usec / wall; system = all 16 vCPUs of the WSL2 VM"
+      },
+      "link_deltas": {
+        "leaf1": {
+          "eth1": {
+            "tx_bytes": 5726219340,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 1928668275,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf2": {
+          "eth1": {
+            "tx_bytes": 6346789266,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 2072430165,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf3": {
+          "eth1": {
+            "tx_bytes": 11850,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 11936,
+            "qdisc_drops": 0
+          }
+        },
+        "leaf4": {
+          "eth1": {
+            "tx_bytes": 12194,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 11764,
+            "qdisc_drops": 0
+          }
+        },
+        "spine1": {
+          "eth1": {
+            "tx_bytes": 6346788922,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 5726219015,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 12194,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 11764,
+            "qdisc_drops": 0
+          }
+        },
+        "spine2": {
+          "eth1": {
+            "tx_bytes": 2072430509,
+            "qdisc_drops": 0
+          },
+          "eth2": {
+            "tx_bytes": 1928668474,
+            "qdisc_drops": 0
+          },
+          "eth3": {
+            "tx_bytes": 12194,
+            "qdisc_drops": 0
+          },
+          "eth4": {
+            "tx_bytes": 12194,
+            "qdisc_drops": 0
+          }
+        }
+      },
+      "max_link": "leaf2:eth1",
+      "max_link_tx_bytes": 6346789266,
+      "max_link_bound_seconds": 101.548628256,
+      "leaf_uplink_imbalance": {
+        "leaf1": 1.4960949469145146,
+        "leaf2": 1.5076906637284675,
+        "leaf3": 1.003615572185319,
+        "leaf4": 1.0179480757993156
+      },
+      "worst_leaf_imbalance": 1.5076906637284675,
+      "qdisc_drops_total": 0,
+      "per_host_sent_gbps": {
+        "host1": 9.881693945081313,
+        "host2": 9.491901719118928,
+        "host3": 9.573573550156924,
+        "host4": 10.091925924153394
+      },
+      "repeat": 3
+    }
+  ],
+  "completed_at": "2026-10-16T16:17:51.129968+00:00"
+}

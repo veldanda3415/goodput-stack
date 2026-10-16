@@ -1,0 +1,50 @@
+[
+ {
+  "File_Name": "configs/leaf1.cfg",
+  "Status": "PARTIALLY_UNRECOGNIZED",
+  "File_Format": "CUMULUS_CONCATENATED",
+  "Nodes": [
+   "leaf1"
+  ]
+ },
+ {
+  "File_Name": "configs/leaf2.cfg",
+  "Status": "PARTIALLY_UNRECOGNIZED",
+  "File_Format": "CUMULUS_CONCATENATED",
+  "Nodes": [
+   "leaf2"
+  ]
+ },
+ {
+  "File_Name": "configs/leaf3.cfg",
+  "Status": "PARTIALLY_UNRECOGNIZED",
+  "File_Format": "CUMULUS_CONCATENATED",
+  "Nodes": [
+   "leaf3"
+  ]
+ },
+ {
+  "File_Name": "configs/leaf4.cfg",
+  "Status": "PARTIALLY_UNRECOGNIZED",
+  "File_Format": "CUMULUS_CONCATENATED",
+  "Nodes": [
+   "leaf4"
+  ]
+ },
+ {
+  "File_Name": "configs/spine1.cfg",
+  "Status": "PARTIALLY_UNRECOGNIZED",
+  "File_Format": "CUMULUS_CONCATENATED",
+  "Nodes": [
+   "spine1"
+  ]
+ },
+ {
+  "File_Name": "configs/spine2.cfg",
+  "Status": "PARTIALLY_UNRECOGNIZED",
+  "File_Format": "CUMULUS_CONCATENATED",
+  "Nodes": [
+   "spine2"
+  ]
+ }
+]

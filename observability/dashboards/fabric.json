@@ -117,6 +117,59 @@
         "legendFormat": "{{node}} {{peer}}",
         "datasource": {"type": "prometheus", "uid": "prometheus"}
       }]
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "EMULATED silent degradation signals",
+      "collapsed": false,
+      "gridPos": {"x": 0, "y": 26, "w": 24, "h": 1},
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Root qdisc drops per MB sent",
+      "description": "Root qdisc (TBF/netem/RED) drops divided by MB transmitted on each leaf uplink. A lossy link shows a ratio far above its ECMP sibling. EMULATED Linux qdisc counters.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 27, "w": 8, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "rate(fabric_qdisc_drops_total{node=~\"leaf[1-4]\"}[1m]) / (rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m]) / 1e6)",
+        "legendFormat": "{{node}} {{interface}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Uplink share of leaf TX",
+      "description": "Each uplink's fraction of its leaf's uplink TX bytes. Under a many-flow L4 hash both members sit near 0.5; a degraded member loses share without any link or BGP event. EMULATED.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 8, "y": 27, "w": 8, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m]) / on (node) group_left sum by (node) (rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m]))",
+        "legendFormat": "{{node}} {{interface}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Host TCP retransmit ratio",
+      "description": "Retransmitted / sent TCP segments per host network namespace (nstat). EMULATED hosts.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 16, "y": 27, "w": 8, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "rate(fabric_host_tcp_retrans_segments_total[1m]) / rate(fabric_host_tcp_out_segments_total[1m])",
+        "legendFormat": "{{host}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
     }
   ]
 }

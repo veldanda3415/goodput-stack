@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
@@ -35,6 +36,11 @@ def json_output(node: str, command: str) -> Any:
         raise RuntimeError(
             f"invalid JSON from {node} for {command}: {result!r}"
         ) from error
+
+
+def node_output(node: str, command: str) -> str:
+    result = node_result(node, command)["stdout"]
+    return result if isinstance(result, str) else json.dumps(result)
 
 
 def state_records(value: Any, state_fields: tuple[str, ...]) -> list[tuple[str, str]]:
@@ -80,6 +86,25 @@ def qdisc_counters(value: Any) -> dict[str, int]:
     return counters
 
 
+def root_qdisc_drops(value: Any) -> int:
+    """Drops of the root qdisc only (TBF/netem/RED), from `tc -s -j qdisc show dev X`."""
+    return sum(
+        int(item.get("drops", 0))
+        for item in (value if isinstance(value, list) else [value])
+        if isinstance(item, dict) and item.get("root")
+    )
+
+
+def host_tcp_counters(text: str) -> dict[str, int]:
+    """Parse `nstat -az TcpRetransSegs TcpOutSegs` (per host network namespace)."""
+    counters: dict[str, int] = {}
+    for line in text.splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and fields[0].startswith("Tcp") and fields[1].isdigit():
+            counters[fields[0]] = int(fields[1])
+    return counters
+
+
 def topology() -> tuple[dict[str, list[str]], list[str]]:
     intent = load_intent()
     leaves = [
@@ -118,15 +143,36 @@ def collect_metrics() -> str:
         "# TYPE fabric_qdisc_early_drops_total counter",
         "# HELP fabric_qdisc_probability_drops_total Linux qdisc probability drops when available.",
         "# TYPE fabric_qdisc_probability_drops_total counter",
+        "# HELP fabric_qdisc_drops_total Root qdisc drops (TBF/netem/RED) on leaf uplinks.",
+        "# TYPE fabric_qdisc_drops_total counter",
+        "# HELP fabric_host_tcp_retrans_segments_total Host-container TCP retransmitted segments (nstat).",
+        "# TYPE fabric_host_tcp_retrans_segments_total counter",
+        "# HELP fabric_host_tcp_out_segments_total Host-container TCP sent segments (nstat).",
+        "# TYPE fabric_host_tcp_out_segments_total counter",
         "# HELP fabric_bgp_neighbor_established BGP neighbor established state on FRR nodes.",
         "# TYPE fabric_bgp_neighbor_established gauge",
         "# HELP fabric_bfd_peer_up BFD peer state on FRR nodes.",
         "# TYPE fabric_bfd_peer_up gauge",
     ]
 
+    hosts = [host["name"] for host in load_intent()["hosts"]]
+    jobs = {
+        **{(leaf, "links"): (json_output, leaf, "ip -j -s link show") for leaf in uplinks},
+        **{(leaf, "qdiscs"): (json_output, leaf, "tc -s -j qdisc show") for leaf in uplinks},
+        **{(host, "nstat"): (node_output, host, "nstat -az TcpRetransSegs TcpOutSegs") for host in hosts},
+        **{(router, "bgp"): (json_output, router, "vtysh -c 'show bgp summary json'") for router in routers},
+        **{(router, "bfd"): (json_output, router, "vtysh -c 'show bfd peers json'") for router in routers},
+    }
+    # Each exec costs ~0.2 s; run them concurrently so a scrape stays well
+    # under Prometheus's 8 s scrape timeout while the lab is loaded.
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {key: pool.submit(func, node, command) for key, (func, node, command) in jobs.items()}
+        fetched = {key: future.result() for key, future in futures.items()}
+
     for leaf, interfaces in uplinks.items():
-        links = json_output(leaf, "ip -j -s link show")
+        links = fetched[(leaf, "links")]
         by_name = {link.get("ifname"): link for link in links}
+        qdiscs = fetched[(leaf, "qdiscs")]
         for interface in interfaces:
             link = by_name.get(interface)
             if not link or "stats64" not in link:
@@ -155,9 +201,7 @@ def collect_metrics() -> str:
                 lines.append(metric_line(
                     error_name, int(stats["errors"]), node=leaf, interface=interface
                 ))
-            qdisc = json_output(
-                leaf, f"tc -s -j qdisc show dev {interface}"
-            )
+            qdisc = [q for q in qdiscs if q.get("dev") == interface]
             for counter, value in qdisc_counters(qdisc).items():
                 name = {
                     "marked": "fabric_qdisc_ecn_marked_packets_total",
@@ -165,9 +209,21 @@ def collect_metrics() -> str:
                     "pdrop": "fabric_qdisc_probability_drops_total",
                 }[counter]
                 lines.append(metric_line(name, value, node=leaf, interface=interface))
+            lines.append(metric_line(
+                "fabric_qdisc_drops_total", root_qdisc_drops(qdisc), node=leaf, interface=interface
+            ))
+
+    for host in hosts:
+        counters = host_tcp_counters(fetched[(host, "nstat")])
+        lines.append(metric_line(
+            "fabric_host_tcp_retrans_segments_total", counters.get("TcpRetransSegs", 0), host=host
+        ))
+        lines.append(metric_line(
+            "fabric_host_tcp_out_segments_total", counters.get("TcpOutSegs", 0), host=host
+        ))
 
     for router in routers:
-        bgp = json_output(router, "vtysh -c 'show bgp summary json'")
+        bgp = fetched[(router, "bgp")]
         for neighbor, state in state_records(bgp, ("state", "peerState")):
             lines.append(metric_line(
                 "fabric_bgp_neighbor_established",
@@ -175,7 +231,7 @@ def collect_metrics() -> str:
                 node=router,
                 neighbor=neighbor,
             ))
-        bfd = json_output(router, "vtysh -c 'show bfd peers json'")
+        bfd = fetched[(router, "bfd")]
         for peer, state in state_records(bfd, ("status", "state")):
             lines.append(metric_line(
                 "fabric_bfd_peer_up",

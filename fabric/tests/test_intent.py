@@ -100,11 +100,18 @@ def test_renderer_is_byte_deterministic(tmp_path: Path) -> None:
     }
     assert first == second
     topology = yaml.safe_load((output / "topology.clab.yml").read_text(encoding="utf-8"))
-    assert len(topology["topology"]["nodes"]) == 14
+    tenant_endpoints = {ep["name"] for vrf in intent["tenants"]["vrfs"] for ep in vrf["endpoints"]}
+    assert len(topology["topology"]["nodes"]) == 14 + len(tenant_endpoints)
     assert topology["topology"]["nodes"]["spine1-tap"]["network-mode"] == "container:spine1"
-    assert len(topology["topology"]["links"]) == 18
+    assert len(topology["topology"]["links"]) == 18 + len(tenant_endpoints)
+    assert all(link["mtu"] == intent["fabric_mtu"] for link in topology["topology"]["links"])
     assert topology["mgmt"]["ipv4-subnet"] == "10.253.0.0/24"
-    assert all(node["privileged"] for node in topology["topology"]["nodes"].values())
+    assert all(
+        node["privileged"] for name, node in topology["topology"]["nodes"].items() if name not in tenant_endpoints
+    )
+    assert all(
+        "privileged" not in topology["topology"]["nodes"][name] for name in tenant_endpoints
+    )
     assert topology["topology"]["nodes"]["vmhost1"]["image"] == load_intent()["images"]["vmrunner"]
     assert "/dev/kvm:/dev/kvm" in topology["topology"]["nodes"]["vmhost1"]["binds"]
     network = yaml.safe_load((output / "vms/vmhost1/network-config").read_text(encoding="utf-8"))

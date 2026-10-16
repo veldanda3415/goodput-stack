@@ -11,6 +11,8 @@
         "loopbacks": {"type": "string"},
         "hosts": {"type": "string"},
         "management": {"type": "string"},
+        "tenants": {"type": "string"},
+        "fabric_p2p": {"type": "string"},
         "excluded": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
@@ -95,7 +97,7 @@
         "required": ["name", "kind", "a", "b"],
         "properties": {
           "name": {"type": "string"},
-          "kind": {"enum": ["fabric", "host"]},
+          "kind": {"enum": ["fabric", "host", "tenant"]},
           "a": {
             "type": "object",
             "required": ["node", "interface"],
@@ -139,7 +141,7 @@
     "images": {
       "type": "object",
       "required": ["frr", "host", "vmrunner", "registry"],
-      "properties": {"frr": {"type": "string"}, "host": {"type": "string"}, "vmrunner": {"type": "string"}, "registry": {"type": "string"}},
+      "properties": {"frr": {"type": "string"}, "host": {"type": "string"}, "vmrunner": {"type": "string"}, "tenant": {"type": "string"}, "registry": {"type": "string"}},
       "additionalProperties": false
     },
     "capture_taps": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
@@ -149,6 +151,69 @@
       "properties": {
         "enabled": {"type": "boolean"},
         "provider": {"enum": ["rxe"]}
+      },
+      "additionalProperties": false
+    },
+    "fabric_mtu": {"type": "integer", "minimum": 1500, "maximum": 9500},
+    "tenants": {
+      "type": "object",
+      "required": ["mtu", "gateway_mac", "vxlan_udp_port", "vrfs"],
+      "properties": {
+        "mtu": {"type": "integer", "minimum": 1280, "maximum": 9450},
+        "gateway_mac": {"type": "string", "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$"},
+        "vxlan_udp_port": {"type": "integer"},
+        "vrfs": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "table", "l3vni", "route_target", "segments", "endpoints"],
+            "properties": {
+              "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,14}$"},
+              "table": {"type": "integer", "minimum": 1000, "maximum": 1999},
+              "l3vni": {"type": "integer", "minimum": 1, "maximum": 16777215},
+              "route_target": {"type": "string", "pattern": "^[0-9]+:[0-9]+$"},
+              "segments": {
+                "type": "array", "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["leaf", "l2vni", "subnet", "route_target"],
+                  "properties": {
+                    "leaf": {"type": "string"},
+                    "l2vni": {"type": "integer", "minimum": 1, "maximum": 16777215},
+                    "subnet": {"type": "string"},
+                    "route_target": {"type": "string", "pattern": "^[0-9]+:[0-9]+$"}
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "endpoints": {
+                "type": "array", "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["name", "leaf", "address"],
+                  "properties": {
+                    "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+                    "leaf": {"type": "string"},
+                    "address": {"type": "string"}
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "lab_shaping": {
+      "type": "object",
+      "required": ["uplink_rate_mbit", "burst_bytes", "limit_bytes", "pin_rail"],
+      "properties": {
+        "uplink_rate_mbit": {"type": "integer", "minimum": 10, "maximum": 100000},
+        "burst_bytes": {"type": "integer", "minimum": 1500},
+        "limit_bytes": {"type": "integer", "minimum": 1500},
+        "pin_rail": {"type": "string"}
       },
       "additionalProperties": false
     },

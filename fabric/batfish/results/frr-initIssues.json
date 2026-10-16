@@ -1,0 +1,539 @@
+[
+ {
+  "Nodes": [
+   "leaf1",
+   "leaf2",
+   "leaf4"
+  ],
+  "Source_Lines": null,
+  "Type": "Convert warning (redflag)",
+  "Details": "vni 50002 for vrf tenant-b does not exist",
+  "Line_Text": null,
+  "Parser_Context": null
+ },
+ {
+  "Nodes": [
+   "leaf1",
+   "leaf3"
+  ],
+  "Source_Lines": null,
+  "Type": "Convert warning (redflag)",
+  "Details": "vni 50001 for vrf tenant-a does not exist",
+  "Line_Text": null,
+  "Parser_Context": null
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf3.cfg:[111]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "vni 10103",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[53]",
+   "configs/leaf2.cfg:[53]",
+   "configs/leaf3.cfg:[45]",
+   "configs/leaf4.cfg:[45]",
+   "configs/spine1.cfg:[35]",
+   "configs/spine2.cfg:[35]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "bfd",
+  "Parser_Context": "[s_interface statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[133]",
+   "configs/spine2.cfg:[133]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor PEER_LEAF2 route-map FABRIC-OUT out",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[87]",
+   "configs/spine2.cfg:[87]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor PEER_LEAF3 capability extended-nexthop",
+  "Parser_Context": "[bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[139, 143]",
+   "configs/leaf2.cfg:[124]",
+   "configs/leaf3.cfg:[114]",
+   "configs/leaf4.cfg:[114]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "exit-vni",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf2.cfg:[122]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target import 65000:10202",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[134]",
+   "configs/spine2.cfg:[134]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor PEER_LEAF2 attribute-unchanged next-hop",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[141]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target import 65000:10201",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[136]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "vni 10101",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf2.cfg:[123]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target export 65000:10202",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf4.cfg:[112]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target import 65000:10204",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[142]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target export 65000:10201",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[136]",
+   "configs/spine2.cfg:[136]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor PEER_LEAF3 route-map FABRIC-IN in",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[80]",
+   "configs/leaf3.cfg:[68]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target export 65000:50001",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[129]",
+   "configs/spine2.cfg:[129]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor PEER_LEAF1 route-map FABRIC-OUT out",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[140]",
+   "configs/spine2.cfg:[140]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor PEER_LEAF4 route-map FABRIC-IN in",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[130]",
+   "configs/spine2.cfg:[130]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor PEER_LEAF1 attribute-unchanged next-hop",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf3.cfg:[113]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target export 65000:10103",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[30]",
+   "configs/leaf2.cfg:[30]",
+   "configs/leaf3.cfg:[26]",
+   "configs/leaf4.cfg:[26]",
+   "configs/spine1.cfg:[24]",
+   "configs/spine2.cfg:[24]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "log stdout",
+  "Parser_Context": "[s_log statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[105]",
+   "configs/leaf2.cfg:[90]",
+   "configs/leaf3.cfg:[82]",
+   "configs/leaf4.cfg:[82]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor FABRIC capability extended-nexthop",
+  "Parser_Context": "[bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[133]",
+   "configs/leaf2.cfg:[118]",
+   "configs/leaf3.cfg:[108]",
+   "configs/leaf4.cfg:[108]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor FABRIC route-map FABRIC-IN in",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[72]",
+   "configs/spine2.cfg:[72]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor PEER_LEAF2 capability extended-nexthop",
+  "Parser_Context": "[bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[138]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target export 65000:10101",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[128]",
+   "configs/spine2.cfg:[128]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor PEER_LEAF1 route-map FABRIC-IN in",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[57]",
+   "configs/leaf2.cfg:[57]",
+   "configs/leaf3.cfg:[49]",
+   "configs/leaf4.cfg:[49]",
+   "configs/spine1.cfg:[39]",
+   "configs/spine2.cfg:[39]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "detect-multiplier 3",
+  "Parser_Context": "[s_interface statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[134]",
+   "configs/leaf2.cfg:[119]",
+   "configs/leaf3.cfg:[109]",
+   "configs/leaf4.cfg:[109]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor FABRIC route-map FABRIC-OUT out",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[91]",
+   "configs/leaf2.cfg:[76]",
+   "configs/leaf4.cfg:[68]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target export 65000:50002",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[54]",
+   "configs/leaf2.cfg:[54]",
+   "configs/leaf3.cfg:[46]",
+   "configs/leaf4.cfg:[46]",
+   "configs/spine1.cfg:[36]",
+   "configs/spine2.cfg:[36]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "profile FABRIC",
+  "Parser_Context": "[s_interface statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[132]",
+   "configs/spine2.cfg:[132]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor PEER_LEAF2 route-map FABRIC-IN in",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf4.cfg:[113]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target export 65000:10204",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[90]",
+   "configs/leaf2.cfg:[75]",
+   "configs/leaf4.cfg:[67]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target import 65000:50002",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[56]",
+   "configs/leaf2.cfg:[56]",
+   "configs/leaf3.cfg:[48]",
+   "configs/leaf4.cfg:[48]",
+   "configs/spine1.cfg:[38]",
+   "configs/spine2.cfg:[38]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "receive-interval 100",
+  "Parser_Context": "[s_interface statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[142]",
+   "configs/spine2.cfg:[142]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor PEER_LEAF4 attribute-unchanged next-hop",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[79]",
+   "configs/leaf3.cfg:[67]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target import 65000:50001",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[55]",
+   "configs/leaf2.cfg:[55]",
+   "configs/leaf3.cfg:[47]",
+   "configs/leaf4.cfg:[47]",
+   "configs/spine1.cfg:[37]",
+   "configs/spine2.cfg:[37]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "transmit-interval 100",
+  "Parser_Context": "[s_interface statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[102]",
+   "configs/spine2.cfg:[102]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor PEER_LEAF4 capability extended-nexthop",
+  "Parser_Context": "[bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[141]",
+   "configs/spine2.cfg:[141]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor PEER_LEAF4 route-map FABRIC-OUT out",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[137]",
+   "configs/spine2.cfg:[137]"
+  ],
+  "Type": "Parse warning",
+  "Details": "Routes maps on neighbors in address-family  'l2vpn evpn' are not supported",
+  "Line_Text": "neighbor PEER_LEAF3 route-map FABRIC-OUT out",
+  "Parser_Context": "[rbafln_route_map rbafl_neighbor rbafl_inner rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[137]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target import 65000:10101",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[57]",
+   "configs/spine2.cfg:[57]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor PEER_LEAF1 capability extended-nexthop",
+  "Parser_Context": "[bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf3.cfg:[112]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "route-target import 65000:10103",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/spine1.cfg:[138]",
+   "configs/spine2.cfg:[138]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "neighbor PEER_LEAF3 attribute-unchanged next-hop",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf4.cfg:[111]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "vni 10204",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf1.cfg:[140]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "vni 10201",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ },
+ {
+  "Nodes": null,
+  "Source_Lines": [
+   "configs/leaf2.cfg:[121]"
+  ],
+  "Type": "Parse warning",
+  "Details": "This syntax is unrecognized",
+  "Line_Text": "vni 10202",
+  "Parser_Context": "[rbaf_l2vpn_evpn rbaf rb_address_family bgp_inner s_router_bgp statement frr_configuration]"
+ }
+]

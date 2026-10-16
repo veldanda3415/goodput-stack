@@ -28,8 +28,20 @@ make fabric-e4      # E4 EMULATED RED/ECN bottleneck experiment
 make fabric-e5      # E5 collective-shaped traffic / ECMP entropy sweep
 make telemetry-up   # local Prometheus + EMULATED Linux fabric exporter
 make telemetry-down # stop those local telemetry services
+make fabric-shape-on      # EMULATED: TBF 500 Mbit/s on both ends of every leaf-spine veth
+make fabric-shape-off     # remove shaping and any even-split pins
+make fabric-shape-status  # shaped ports and pin rules
+make fabric-e5-shaped     # E5 rerun with shaped uplinks + measured even-split baseline
+make fabric-e6            # E6 failure drills under collective load (shaped)
+make fabric-e7            # E7 EVPN-VXLAN tenant evidence + trap drills
+make fabric-batfish       # render NX-OS (+FRR) and validate OFFLINE with Batfish
 make fabric-down    # destroy the lab
 ```
+
+Result labels used throughout: **EMULATED** (veth + kernel forwarding),
+**SOFT-ROCE** (rdma_rxe), **VM** (QEMU guest), **INTENT-ONLY** (rendered,
+never run), **OFFLINE-VALIDATED** (checked by Batfish, never deployed).
+Emulated throughput is never switch or NIC performance.
 
 `make fabric-up` leaves the lab running. `make fabric-down` removes it.
 Generated files are in ignored `fabric/build/`; `fabric/build/example/` is the
@@ -59,6 +71,8 @@ the extended-next-hop capability. BFD is configured on fabric links.
 | Router loopbacks | `10.200.0.0/24` | one `/32` per router |
 | Host-facing networks | `10.210.0.0/16` | eight `/30`s across rails A and B |
 | Containerlab management | `10.253.0.0/24` | isolated lab management network |
+| Front-end tenants | `10.220.0.0/16` | EVPN-VXLAN tenant VRF subnets, one /24 per tenant per leaf (E7) |
+| Fabric /31 pool | `10.201.0.0/24` | numbered NX-OS render only; the lab runs unnumbered |
 | Excluded ranges | `10.42.0.0/16`, `10.43.0.0/16`, `10.89.0.0/24` | k3s pod/service and Podman bridge ranges |
 
 Fabric links use IPv6 link-local addresses and need no IPv4 point-to-point
@@ -89,6 +103,24 @@ outputs.
   EMULATED bottleneck, TCP ECN on/off, and SOFT-ROCE packet marking.
 - [E5 — collective traffic and ECMP entropy](experiments/E5-collective-entropy.md):
   ring/all-to-all TCP sweeps and supplemental SOFT-ROCE QP measurements.
+- [E5 shaped rerun](experiments/E5-collective-entropy.md#shaped-uplinks-rerun):
+  uplinks shaped to 500 Mbit/s (`lab_shaping` in intent, 1/20 of measured
+  per-host throughput); synchronized start, receiver last-byte timing, and
+  a measured even-split baseline (per-pair pins rendered from intent). Job
+  time tracked the busiest link (r = 0.998). Ring with an L3 hash took ≈ 2×
+  the even split; L4 at 16 flows/pair came within +0.03 s.
+- [E6 — failure drills](experiments/E6-failure-drills.md): link down, silent
+  loss, flap, spine loss, leaf loss, and 1% silent degradation under a shaped
+  ring collective, with per-rail/per-tenant blast radius, FIB reconvergence
+  timestamps, and telemetry-based detection of the degraded link (partial:
+  2/3 runs).
+- [E7 — EVPN-VXLAN tenancy](experiments/E7-evpn-tenancy.md): two tenant VRFs
+  (symmetric IRB, explicit RTs, anycast gateway MAC) on the front end;
+  reachability, isolation (including two tenants on one leaf), VNI captures,
+  and drills for the RT, next-hop, and MTU traps.
+- [Batfish offline validation](batfish/README.md): NX-OS render (numbered)
+  and the lab's FRR render (unnumbered), with negative tests caught before deploy.
+- [Runbooks](runbooks/README.md): nine runbooks, six measured in this lab.
 - [Fabric telemetry](telemetry/README.md): the local Python/Prometheus
   fallback, dashboard, exported panel evidence, and the incomplete gNMI
   attempt.
@@ -171,11 +203,37 @@ containerlab attempt failed before a gNMI subscription could run. The
 dashboard and E5 panel export use the Python exporter fallback; none of its
 metrics should be described as gNMI data.
 
+## Shaped profile, tenants, NX-OS (F5)
+
+- **Shaped profile.** `lab_shaping` in intent renders
+  `fabric/build/shaping/<router>-shape-{on,off}.sh` (TBF `rate 500mbit burst
+  125000 limit 625000` on both ends of every leaf↔spine veth) and per-pattern
+  even-split pins (`<leaf>-pin-{ring,all-to-all}.sh`, both directions of a
+  host pair on the same spine). `make fabric-shape-on/off` applies them at
+  runtime without touching BGP/BFD. Use it whenever the fabric, not the host
+  containers, must be the bottleneck (E5 shaped, E6).
+- **Tenants.** `tenants:` in intent renders FRR EVPN on leaves and spines, plus
+  a two-stage Linux script per leaf (`tenants/<leaf>-tenant-devices.sh` runs
+  before FRR starts; `-ports.sh` enslaves the containerlab ports and checks
+  the L3VNI route targets). It also adds five pinned netshoot endpoints (ta1,
+  ta3, tb1, tb2, tb4). Fabric links get an explicit `mtu: 9500`; tenant MTU
+  9000.
+- **NX-OS.** `python -m fabric.render.nxos` renders all six switches from the
+  same intent (numbered and unnumbered variants) into `build/nxos/`.
+  `make fabric-batfish` validates them offline (pinned Batfish, started and
+  stopped by the target). See [ADR 0006](../docs/adr/0006-multi-nos-render-batfish.md).
+
+`make fabric-test` covers intent/render checks, shaping and NX-OS render
+golden tests, and the running lab, including tenant reachability and
+isolation and per-VNI route targets (65 checks).
+
 ## Production path
 
 Keep the intent model as the design source of truth. A production deployment
 could populate it from NetBox or Nautobot, render device configuration with
 Nornir or Ansible, run Batfish pre-checks, and use a staged canary rollout.
-Those integrations are future work; the current renderer targets FRR only.
+Batfish pre-checks now exist for the NX-OS and FRR renders
+([ADR 0006](../docs/adr/0006-multi-nos-render-batfish.md)); NetBox/Nautobot,
+Nornir/Ansible, and canary rollout remain future work.
 See [ADR 0004](../docs/adr/0004-fabric-intent-render.md) for the decision and
 protocol rationale.

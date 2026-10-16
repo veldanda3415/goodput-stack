@@ -1,0 +1,50 @@
+[
+ {
+  "File_Name": "configs/leaf1.cfg",
+  "Status": "PASSED",
+  "File_Format": "CISCO_NX",
+  "Nodes": [
+   "leaf1"
+  ]
+ },
+ {
+  "File_Name": "configs/leaf2.cfg",
+  "Status": "PASSED",
+  "File_Format": "CISCO_NX",
+  "Nodes": [
+   "leaf2"
+  ]
+ },
+ {
+  "File_Name": "configs/leaf3.cfg",
+  "Status": "PASSED",
+  "File_Format": "CISCO_NX",
+  "Nodes": [
+   "leaf3"
+  ]
+ },
+ {
+  "File_Name": "configs/leaf4.cfg",
+  "Status": "PASSED",
+  "File_Format": "CISCO_NX",
+  "Nodes": [
+   "leaf4"
+  ]
+ },
+ {
+  "File_Name": "configs/spine1.cfg",
+  "Status": "PASSED",
+  "File_Format": "CISCO_NX",
+  "Nodes": [
+   "spine1"
+  ]
+ },
+ {
+  "File_Name": "configs/spine2.cfg",
+  "Status": "PASSED",
+  "File_Format": "CISCO_NX",
+  "Nodes": [
+   "spine2"
+  ]
+ }
+]

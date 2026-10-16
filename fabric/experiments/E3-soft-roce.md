@@ -220,7 +220,7 @@ and decoded excerpts are in `fabric/experiments/e3/` and
 | 4 QPs × 3 | 4 source ports; L3 hash keeps same IP pair together | 4 distinct ports/run; all 4 QPs landed on spine2 in every repeat |
 | 16 QPs × 3 | 16 ports; likely same spine with L3 hash | 16 distinct ports/run (extended capture); every QP landed on spine2 in all 3 repeats |
 | RoCE DSCP sample | DSCP 26 / Not-ECT; class `1:2` | 200/200 decoded UDP 4791 packets were DSCP 26 / Not-ECT; tc delta `1:2=236,544`, default `1:3=21` |
-| TCP `--tos 104` control | Capture on one active spine with DSCP 26 | 100 packets captured on spine2: 84 DSCP 26 / Not-ECT and 16 DSCP 0 / Not-ECT; tc delta `1:2=685,433`, default `1:3=16`; received 2.636 Gbit/s |
+| TCP `--tos 104` control | Capture on one active spine with DSCP 26 | 100 packets captured on spine2: 84 DSCP 26 / Not-ECT and 16 DSCP 0 / Not-ECT; tc delta `1:2=685,433`, default `1:3=16`; received 2.636 Gbit/s. The 16 DSCP 0 packets are not data: 14 are iperf3's control connection (10.210.0.18:45285 ↔ :5201, both directions; `--tos` applies to data streams), and 2 are the data connection's server SYN-ACK and first server ACK (5201 → 38043), sent before the server socket reflected the TOS. All 75 client-data packets on port 38043 were DSCP 26 (decoded from `e3/tcp-dscp-spine2.pcap`). |
 
 The leaf1 link TX byte deltas (eth1 → spine1, eth2 → spine2) were:
 

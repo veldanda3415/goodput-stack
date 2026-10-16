@@ -326,7 +326,10 @@ def run_tcp_cell(
         )
     job_time = max(flow["finish_offset_seconds"] for flow in flow_results)
     imbalance = uplink_summary["worst_active_leaf_imbalance"]
-    ideal_job_time = job_time / imbalance if imbalance else None
+    # MODEL, not evidence: job_time / imbalance restates the imbalance. It
+    # only bounds job time if uplinks are the bottleneck, which unshaped E5
+    # disproved (job time is dominated by serial client launch offsets).
+    model_bound = job_time / imbalance if imbalance else None
     return {
         "transport": "TCP",
         "pattern": pattern,
@@ -344,20 +347,24 @@ def run_tcp_cell(
         ),
         "uplink_delta_tx_bytes": deltas,
         "uplink_summary": uplink_summary,
-        "perfect_split_estimate": {
+        "imbalance_implied_bound_model": {
+            "label": "MODEL (imbalance-implied bound), not a measurement",
             "method": (
-                "same total observed uplink load split equally over each active "
-                "leaf's equal-speed ECMP uplinks; duration assumed proportional "
-                "to max/mean load"
+                "job time divided by worst active-leaf max/mean uplink bytes; "
+                "valid only if job time scales with max uplink load, i.e. the "
+                "uplinks are the bottleneck"
             ),
-            "ideal_job_time_seconds": ideal_job_time,
-            "penalty_seconds": (
-                job_time - ideal_job_time if ideal_job_time is not None else None
-            ),
-            "penalty_percent": (
+            "model_job_time_seconds": model_bound,
+            "imbalance_minus_one_percent": (
                 100 * (imbalance - 1) if imbalance is not None else None
             ),
         },
+        "last_client_launch_offset_seconds": max(
+            client["launch_offset_seconds"] for client in clients
+        ),
+        "slowest_flow_time_to_target_seconds": max(
+            flow["time_to_target_bytes_seconds"] for flow in flow_results
+        ),
         "counter_before_tx_bytes": before,
         "counter_after_tx_bytes": after,
         "wall_seconds": time.monotonic() - cell_started,
@@ -550,10 +557,10 @@ def run(resume: bool = False) -> None:
             "repeats": REPEATS,
             "counter_command": UPLINK_COUNTER_COMMAND,
             "active_gateway_probe_check": "pgrep -af probe_ (via fabric.experiments.e1.active_gateway_probes)",
-            "perfect_split_definition": (
-                "counter-derived equal split across active leaf ECMP uplinks; "
-                "ideal job time = observed slowest-flow completion / worst "
-                "active-leaf max/mean byte ratio"
+            "imbalance_implied_bound_definition": (
+                "MODEL: observed slowest-flow completion / worst active-leaf "
+                "max/mean byte ratio; restates imbalance, not independent "
+                "evidence (see E5 'Correction')"
             ),
             "rdma_size_bytes": RDMA_SIZE_BYTES,
             "rdma_iterations_per_qp": RDMA_ITERATIONS,

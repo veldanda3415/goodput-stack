@@ -37,9 +37,17 @@ def validate_semantics(intent: dict[str, Any]) -> None:
     host_names = set(hosts) | set(vm_hosts)
     if len(host_names) != len(hosts) + len(vm_hosts):
         raise ValueError("container and VM host names must not overlap")
+    tenant_endpoints = {
+        endpoint["name"]: endpoint
+        for vrf in intent.get("tenants", {}).get("vrfs", [])
+        for endpoint in vrf["endpoints"]
+    }
     all_names = set(nodes) | host_names
     if len(all_names) != len(nodes) + len(hosts) + len(vm_hosts):
         raise ValueError("node and host names must not overlap")
+    if all_names & set(tenant_endpoints):
+        raise ValueError("tenant endpoint names must not overlap nodes or hosts")
+    all_names |= set(tenant_endpoints)
 
     spines = [node for node in nodes.values() if node["role"] == "spine"]
     leaves = [node for node in nodes.values() if node["role"] == "leaf"]
@@ -59,7 +67,9 @@ def validate_semantics(intent: dict[str, Any]) -> None:
 
     all_networks: list[tuple[str, ipaddress.IPv4Network]] = []
     plan = intent["address_plan"]
-    for label in ("loopbacks", "hosts", "management", "excluded"):
+    for label in ("loopbacks", "hosts", "management", "tenants", "fabric_p2p", "excluded"):
+        if label not in plan:
+            continue
         values = plan[label] if isinstance(plan[label], list) else [plan[label]]
         all_networks.extend((f"address_plan.{label}", ipaddress.ip_network(value, strict=False)) for value in values)
     for index, (left_name, left) in enumerate(all_networks):
@@ -100,6 +110,8 @@ def validate_semantics(intent: dict[str, Any]) -> None:
             raise ValueError(f"fabric link {link['name']} must connect router nodes")
         if link["kind"] == "host" and not any(endpoint["node"] in host_names for endpoint in (link["a"], link["b"])):
             raise ValueError(f"host link {link['name']} must include a host")
+        if link["kind"] == "tenant" and not any(endpoint["node"] in tenant_endpoints for endpoint in (link["a"], link["b"])):
+            raise ValueError(f"tenant link {link['name']} must include a tenant endpoint")
 
     subnet_networks: list[tuple[str, ipaddress.IPv4Network]] = []
     vm_macs: set[str] = set()
@@ -171,7 +183,73 @@ def validate_semantics(intent: dict[str, Any]) -> None:
     for tap in intent["capture_taps"]:
         if tap not in nodes:
             raise ValueError(f"capture tap {tap} is not a router node")
+    shaping = intent.get("lab_shaping")
+    if shaping:
+        if shaping["pin_rail"] not in intent["rails"]:
+            raise ValueError(f"lab_shaping.pin_rail {shaping['pin_rail']} is not a declared rail")
+        if shaping["limit_bytes"] < shaping["burst_bytes"]:
+            raise ValueError("lab_shaping.limit_bytes must be at least burst_bytes")
+    validate_tenants(intent)
     validate_qos(intent)
+
+
+def validate_tenants(intent: dict[str, Any]) -> None:
+    """EVPN-VXLAN front-end tenancy: VNI/RT/subnet uniqueness, MTU, links."""
+    tenancy = intent.get("tenants")
+    if not tenancy:
+        return
+    plan = intent["address_plan"]
+    if "tenants" not in plan:
+        raise ValueError("tenants need address_plan.tenants")
+    tenant_range = ipaddress.ip_network(plan["tenants"])
+    overhead = 50  # outer Ethernet 14 + IPv4 20 + UDP 8 + VXLAN 8 (RFC 7348 section 5)
+    if tenancy["mtu"] + overhead > intent.get("fabric_mtu", 1500):
+        raise ValueError(
+            f"tenants.mtu {tenancy['mtu']} + {overhead} B VXLAN overhead exceeds fabric_mtu "
+            f"{intent.get('fabric_mtu', 1500)}"
+        )
+    leaves = {node["name"] for node in intent["nodes"] if node["role"] == "leaf"}
+    vnis: list[int] = []
+    tables: list[int] = []
+    rts: list[str] = []
+    subnets: list[ipaddress.IPv4Network] = []
+    tenant_links = {
+        endpoint["node"]: link
+        for link in intent["links"] if link["kind"] == "tenant"
+        for endpoint in (link["a"], link["b"])
+    }
+    for vrf in tenancy["vrfs"]:
+        vnis.append(vrf["l3vni"])
+        tables.append(vrf["table"])
+        rts.append(vrf["route_target"])
+        segment_leaves = [segment["leaf"] for segment in vrf["segments"]]
+        if len(set(segment_leaves)) != len(segment_leaves):
+            raise ValueError(f"{vrf['name']} has more than one segment on a leaf")
+        for segment in vrf["segments"]:
+            if segment["leaf"] not in leaves:
+                raise ValueError(f"{vrf['name']} segment references non-leaf {segment['leaf']}")
+            vnis.append(segment["l2vni"])
+            rts.append(segment["route_target"])
+            subnet = ipaddress.ip_network(segment["subnet"])
+            if not subnet.subnet_of(tenant_range):
+                raise ValueError(f"{vrf['name']} subnet {subnet} is outside address_plan.tenants {tenant_range}")
+            subnets.append(subnet)
+        for endpoint in vrf["endpoints"]:
+            segment = next((seg for seg in vrf["segments"] if seg["leaf"] == endpoint["leaf"]), None)
+            if segment is None:
+                raise ValueError(f"{endpoint['name']} is on {endpoint['leaf']} where {vrf['name']} has no segment")
+            address = ipaddress.ip_interface(endpoint["address"])
+            if address.network != ipaddress.ip_network(segment["subnet"]) or address.ip == address.network.network_address + 1:
+                raise ValueError(f"{endpoint['name']} address {address} must be a host in {segment['subnet']} other than the gateway")
+            link = tenant_links.get(endpoint["name"])
+            if link is None or not any(ep["node"] == endpoint["leaf"] for ep in (link["a"], link["b"])):
+                raise ValueError(f"{endpoint['name']} needs a tenant link to {endpoint['leaf']}")
+    for label, values in (("VNI", vnis), ("VRF table", tables), ("route target", rts)):
+        if len(set(values)) != len(values):
+            raise ValueError(f"tenant {label}s must be unique")
+    for index, left in enumerate(subnets):
+        if any(left.overlaps(right) for right in subnets[index + 1:]):
+            raise ValueError(f"tenant subnet {left} overlaps another tenant subnet")
 
 
 def validate_qos(intent: dict[str, Any]) -> None:
