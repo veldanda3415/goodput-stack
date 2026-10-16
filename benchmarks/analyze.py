@@ -92,7 +92,8 @@ def style(ax, title: str, xlabel: str, ylabel: str) -> None:
     ax.tick_params(colors=MUTED)
 
 
-def line_chart(path: Path, title: str, ylabel: str, series: list[tuple[str, list, list, str, str]], logx=True, logy=False) -> None:
+def line_chart(path: Path, title: str, ylabel: str, series: list[tuple[str, list, list, str, str]], logx=True, logy=False,
+               xlabel: str = "concurrent clients (closed loop)", xticks: bool = True) -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -103,11 +104,12 @@ def line_chart(path: Path, title: str, ylabel: str, series: list[tuple[str, list
             ax.annotate(name, (xs[-1], ys[-1]), textcoords="offset points", xytext=(6, 0), color=INK, fontsize=8, va="center")
     if logx:
         ax.set_xscale("log", base=2)
-        xs_all = sorted({x for s in series for x in s[1]})
-        ax.set_xticks(xs_all, [str(x) for x in xs_all])
+        if xticks:
+            xs_all = sorted({x for s in series for x in s[1]})
+            ax.set_xticks(xs_all, [str(x) for x in xs_all])
     if logy:
         ax.set_yscale("log")
-    style(ax, title, "concurrent clients (closed loop)", ylabel)
+    style(ax, title, xlabel, ylabel)
     if len(series) >= 2:
         ax.legend(frameon=False, fontsize=8, labelcolor=INK)
     fig.tight_layout()
@@ -373,6 +375,106 @@ def section_quant(rows: dict, out: list[str], base: Path, price: tuple[float, st
         out += ["![decode](charts/quant_decode.png)", ""]
 
 
+NCCL_LABEL = ("2 × Tesla T4 in one Kaggle VM, GPU↔GPU over PCIe — GPU collective communication inside one box; "
+              "not the scale-out fabric, not NVLink")
+GIB = 2**30
+
+
+def nccl_run(marker: str = "allreduce-default-r1") -> tuple[str, dict[str, dict]] | None:
+    """Rows of the latest nccl run with data under `marker` (the sweep, or "p2pcheck-default" for the P2P
+    follow-up). All rows come from one session; runs are never merged."""
+    for f in sorted(T4.glob("*_nccl/results/nccl/nccl.jsonl"), reverse=True):
+        rows = {(r := json.loads(l))["key"]: r | {"_src": str(f.relative_to(REPO))}
+                for l in f.read_text().splitlines() if l.strip()}
+        if rows.get(marker, {}).get("points"):
+            return str(f.relative_to(REPO)), rows
+    return None
+
+
+def nccl_table(rows: dict[str, dict]) -> list[str]:
+    out = ["| run | env | rc | busbw @ 1 GiB (GB/s) | algbw @ 1 GiB | time @ 8 B (µs) | avg busbw | #wrong | transport | algo/proto @ 8 B → 1 GiB |",
+           "|---|---|---:|---:|---:|---:|---:|---:|---|---|"]
+    for k, r in rows.items():
+        if not r.get("binary"):
+            continue
+        env = " ".join(f"{a}={b}" for a, b in (r.get("env_extra") or {}).items()) or "default"
+        coll = next(iter(r.get("algo_by_size") or {}), None)
+        ab = (r.get("algo_by_size") or {}).get(coll, {})
+        algo = f"{ab.get('8', '?')} → {ab.get(str(GIB), '?')}" if ab else "—"
+        out.append(f"| `{k}` | {env} | {r.get('rc')} | {fmt(nccl_at(r, GIB), 2)} | {fmt(nccl_at(r, GIB, 'algbw_gbs'), 2)} | "
+                   f"{fmt(nccl_at(r, 8, 'time_us'), 1)} | {fmt(r.get('avg_busbw_gbs'), 2)} | {r.get('wrong_total')} | "
+                   f"{', '.join(r.get('transports') or []) or '—'} | {algo} |")
+    return out
+
+
+def nccl_at(r: dict, size: int, field: str = "busbw_gbs", half: str = "oop"):
+    return next((p[half][field] for p in r.get("points", []) if p["size_b"] == size), None)
+
+
+def nccl_facts(rows: dict) -> dict:
+    """Headline numbers and the session caveat for one nccl run."""
+    reps = [r for k, r in sorted(rows.items()) if k.startswith("allreduce-default-r") and r.get("points")]
+    bus = [nccl_at(r, GIB) for r in reps]
+    small = [nccl_at(r, 8, "time_us") for r in reps]
+    p2p_off = nccl_at(rows.get("allreduce-p2p-disabled", {}), GIB)
+    sock = nccl_at(rows.get("allreduce-p2p-shm-disabled", {}), GIB)
+    med = sorted(bus)[len(bus) // 2] if bus and None not in bus else None
+    spread = (max(bus) - min(bus)) / med * 100 if med else None
+    wrong = sum(r.get("wrong_total") or 0 for r in rows.values())
+    notes = []
+    if spread is not None and spread > 10:
+        notes.append(f"unstable session: 1 GiB busbw spread {spread:.1f} % over {len(bus)} repeats")
+    if wrong:
+        notes.append(f"correctness check: {wrong} wrong values")
+    return {"reps": reps, "bus_1g": bus, "bus_1g_med": med, "spread_pct": spread, "small_8b_us": small,
+            "p2p_off_1g": p2p_off, "sock_1g": sock, "wrong": wrong, "note": "; ".join(notes)}
+
+
+def section_nccl(out: list[str], base: Path) -> None:
+    got = nccl_run()
+    if not got:
+        out += ["## NCCL — 2 × T4 collectives (PCIe, one box)", "", "No full nccl run yet.", ""]
+        return
+    src, rows = got
+    pr, bd = rows.get("probe", {}), rows.get("build", {})
+    f = nccl_facts(rows)
+    r1 = f["reps"][0]
+    pcie = (r1.get("pcie_during") or [{}])[0]
+    t = pr.get("torch") or {}
+    out += ["## NCCL — 2 × T4 collectives (PCIe, one box)", "", f"**{NCCL_LABEL}.** nccl-tests rows from one session: "
+            f"[{Path(src).parts[3]}]({Path(*(['..'] * len(base.relative_to(REPO).parts))) / src}).", "",
+            f"- Topology: `nvidia-smi topo -m` GPU0↔GPU1 = **{pr.get('topo_gpu0_gpu1')}**; `topo -p2p r` = "
+            f"**{pr.get('smi_p2p_read_gpu0_gpu1')}**; torch `can_device_access_peer(0,1)` = **{t.get('p2p_0_1')}**; "
+            f"PCIe under load Gen{pcie.get('pcie.link.gen.current')} x{pcie.get('pcie.link.width.current')} "
+            f"(idle Gen{(pr.get('pcie_idle') or [{}])[0].get('pcie.link.gen.current')}).",
+            f"- Versions: NCCL **{r1.get('nccl_version_log')}** (`{bd.get('nccl_wheel')}`, library code "
+            f"{r1.get('nccl_library_code')} printed by nccl-tests); nccl-tests {bd.get('nccl_tests_tag')} "
+            f"(`{(bd.get('nccl_tests_commit') or '')[:12]}`), nvcc {bd.get('nvcc')}, driver {r1.get('driver')} "
+            f"(CUDA {r1.get('cuda_driver')}), torch {t.get('torch')} (its NCCL {t.get('nccl')}).",
+            f"- Transport NCCL chose (default run): **{', '.join(r1.get('transports') or [])}**; graph "
+            f"`{(r1.get('graph_pattern') or [''])[0]}`; {', '.join(map(str, r1.get('coll_channels') or []))} coll channels.", ""]
+    out += nccl_table(rows)
+    if (pc := nccl_run("p2pcheck-default")):
+        psrc, prow = pc
+        pp = prow.get("probe", {})
+        out += ["", f"P2P follow-up, one session ([{Path(psrc).parts[3]}]({Path(*(['..'] * len(base.relative_to(REPO).parts))) / psrc})): "
+                f"`topo -p2p r` = {pp.get('smi_p2p_read_gpu0_gpu1')}, torch P2P = {(pp.get('torch') or {}).get('p2p_0_1')}. "
+                "NCCL 2.28.9 uses P2P only up to PXB by default; `NCCL_P2P_LEVEL=PHB` allows it on this PHB path.", ""]
+        out += nccl_table(prow)
+    out += ["", "busbw = algbw × 2(N−1)/N for all-reduce, (N−1)/N for all-gather / reduce-scatter / all-to-all, 1 for "
+            "send/recv (nccl-tests PERFORMANCE.md); at N = 2 all-reduce busbw = algbw. Out-of-place columns. "
+            "Model check against fabric/design/collectives.py: [fabric/design/nccl_check.md](../../../fabric/design/nccl_check.md).", ""]
+    series = []
+    for (k, name), color in zip((("allreduce-default-r1", "default (r1)"), ("allreduce-ring", "NCCL_ALGO=Ring"),
+                                 ("allreduce-tree", "NCCL_ALGO=Tree"), ("allreduce-p2p-shm-disabled", "P2P+SHM disabled (Socket)")), SERIES):
+        if (r := rows.get(k)) and r.get("points"):
+            series.append((name, [p["size_b"] for p in r["points"]], [p["oop"]["busbw_gbs"] for p in r["points"]], color, "-"))
+    if series:
+        line_chart(CHARTS / "nccl-allreduce-busbw.png", "2×T4 all-reduce bus bandwidth (PCIe, one box)", "busbw (GB/s)",
+                   series, xlabel="message size (bytes)", xticks=False)
+        out += ["![all-reduce busbw](charts/nccl-allreduce-busbw.png)", ""]
+
+
 def section_runs(out: list[str]) -> None:
     f = T4 / "runs.jsonl"
     if not f.exists():
@@ -453,6 +555,26 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
                                  f"{m[metric]:.3f}" + (f" ± {se:.3f}" if se is not None else ""), r["model"], r))
         if (r := q.get(f"{v}-ppl")) and r.get("ppl"):
             rows.append((f"{v} perplexity (wikitext-2, {r.get('ppl_chunks')}×{r.get('ppl_ctx')})", f"{r['ppl']}", r["model"], r))
+    if (got := nccl_run()):
+        _, nr = got
+        f = nccl_facts(nr)
+        if f["reps"]:
+            r1 = f["reps"][0]
+            r1["_session_note"] = f["note"]
+            bus = ", ".join(fmt(b, 2) for b in f["bus_1g"])
+            rows.append(("2×T4 all-reduce busbw @ 1 GiB (PCIe, one box)", f"{fmt(f['bus_1g_med'], 2)} GB/s (median of {len(f['bus_1g'])}: {bus})", "nccl-tests all_reduce_perf", r1))
+            rows.append(("2×T4 all-reduce small-message time @ 8 B", f"{fmt(sorted(f['small_8b_us'])[len(f['small_8b_us']) // 2], 1)} µs (median of {len(f['small_8b_us'])})", "nccl-tests all_reduce_perf", r1))
+            if (pc := nccl_run("p2pcheck-default")):
+                pr_ = pc[1]
+                d, ph = pr_.get("p2pcheck-default", {}), pr_.get("p2pcheck-p2p-level-phb", {})
+                bd, bp = nccl_at(d, GIB), nccl_at(ph, GIB)
+                if bd and bp:
+                    wrong = (d.get("wrong_total") or 0) + (ph.get("wrong_total") or 0)
+                    ph["_session_note"] = f"correctness check: {wrong} wrong values" if wrong else ""
+                    rows.append(("2×T4 all-reduce P2P ÷ SHM @ 1 GiB (NCCL_P2P_LEVEL=PHB vs default, one session)", f"{bp / bd:.2f}× ({fmt(bp, 2)} GB/s {', '.join(ph.get('transports') or [])} vs {fmt(bd, 2)} GB/s {', '.join(d.get('transports') or [])})", "nccl-tests all_reduce_perf", ph))
+            if (r := nr.get("allreduce-p2p-disabled")) and f["p2p_off_1g"] and f["bus_1g_med"]:
+                r["_session_note"] = f["note"]
+                rows.append(("2×T4 all-reduce default ÷ NCCL_P2P_DISABLE=1 @ 1 GiB", f"{f['bus_1g_med'] / f['p2p_off_1g']:.2f}× ({fmt(f['bus_1g_med'], 2)} vs {fmt(f['p2p_off_1g'], 2)} GB/s; transport {', '.join(r1.get('transports') or [])} vs {', '.join(r.get('transports') or [])})", "nccl-tests all_reduce_perf", r))
     out = ["# RESULTS", "", "One row per headline number. Every number is from a recorded run; the link is the raw JSONL row "
            "(`key` column) with full provenance (git sha, GPU/driver/CUDA, engine version, model revision, flags, client config). "
            "Context, caveats and what is emulated: [benchmarks/results/t4/README.md](benchmarks/results/t4/README.md). "
@@ -461,8 +583,10 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
            "absolute speed from rows without a caveat.", "",
            "| result | value | caveat | model | hardware | engine | key | raw JSONL |", "|---|---|---|---|---|---|---|---|"]
     for name, val, model, r in rows:
-        eng = r.get("engine") or (f"vLLM {r['vllm_version']}" if r.get("vllm_version") else "—")
-        out.append(f"| {name} | {val} | {caveat(r)} | `{model}` | {r.get('gpu')} (Kaggle), driver {r.get('driver')} | {eng} | `{r['key']}` | [{Path(r['_src']).parts[3]}]({r['_src']}) |")
+        eng = r.get("engine") or (f"vLLM {r['vllm_version']}" if r.get("vllm_version") else None) or \
+            (f"NCCL {r['nccl_version_log']}" if r.get("nccl_version_log") else "—")
+        hw = f"{'2 × ' if r.get('stage') == 'nccl' else ''}{r.get('gpu')} (Kaggle), driver {r.get('driver')}"
+        out.append(f"| {name} | {val} | {caveat(r)} | `{model}` | {hw} | {eng} | `{r['key']}` | [{Path(r['_src']).parts[3]}]({r['_src']}) |")
     return out + [""]
 
 
@@ -502,6 +626,7 @@ def main() -> None:
     for m in models("sweep"):
         section_sweep(load("sweep", m), out, T4)
     section_quant(load("quant"), out, T4, price)
+    section_nccl(out, T4)
     section_runs(out)
     (T4 / "summary.md").write_text("\n".join(out) + "\n")
     (REPO / "RESULTS.md").write_text(results_md(price))

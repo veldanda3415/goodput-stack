@@ -1,0 +1,21 @@
+$ rm -rf /tmp/nccl-tests && git clone --depth 1 --branch v2.21.0 https://github.com/NVIDIA/nccl-tests.git /tmp/nccl-tests && git -C /tmp/nccl-tests rev-parse HEAD
+# rc=0
+a3d4589e8f32f8363c334c52eedad75b44ed8b2d
+Cloning into '/tmp/nccl-tests'...
+Note: switching to 'a3d4589e8f32f8363c334c52eedad75b44ed8b2d'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+

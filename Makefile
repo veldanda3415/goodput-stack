@@ -153,7 +153,7 @@ probe-p8: ## P8: size-blind routing on the scratch p8-pool (SIMULATED) [ARGS="--
 
 # ---- T4 engine track on Kaggle (benchmarks/kaggle/, results in benchmarks/results/t4/) ----------
 STAGE ?= smoke
-t4-run: ## Push one T4 notebook stage to Kaggle, wait, download: make t4-run STAGE=baseline [ARGS="--resume <dir>"]
+t4-run: ## Push one T4 notebook stage to Kaggle, wait, download: make t4-run STAGE=baseline [ARGS="--resume <dir>"]; 2xT4 NCCL: make t4-run STAGE=nccl ARGS="--machine-shape NvidiaTeslaT4"
 > $(PY) -m benchmarks.kaggle.run_kaggle --stage $(STAGE) $(ARGS)
 
 # ---- observability + autoscaling (observability/README.md, autoscaling/README.md) -------------

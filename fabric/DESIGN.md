@@ -250,6 +250,20 @@ TTFT. A 32k-token 70B prompt needs about 270 ms on one NIC. Spreading it
 across a node's 8 rails, or keeping prefill and decode within one NVLink
 domain, avoids that.
 
+**Measured check (2×T4, PCIe).** One real data point for the
+alpha-beta model: NCCL 2.28.9 all-reduce between the two GPUs of one
+Kaggle T4 x2 VM. This is PCIe inside one box, not the scale-out fabric
+and not NVLink. The shape holds. Time is flat at ~17 µs up to a few
+KiB, then linear in size, bending at ~64 KiB. With α and B fitted from
+the curve, the model is within 3 % (median) over 28 sizes; the worst
+error is 28 %, at the LL→Simple protocol switch. With the default
+inputs, the model is 3× too fast. NCCL routed the traffic through host
+shared memory (busbw 3.89 GB/s, 25 % of PCIe 3.0 x16) because the GPUs
+sit on a PHB path. So the efficiency and α inputs above are
+assumptions to calibrate per system. Details, including busbw = algbw
+at N = 2 and what N = 2 cannot test:
+[design/nccl_check.md](design/nccl_check.md).
+
 ## 3. Topology choice for the backend
 
 ### 3.1 Options

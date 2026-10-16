@@ -1,0 +1,16 @@
+{
+  "stage": "nccl",
+  "run_id": "20261016-152535_nccl",
+  "git_sha": "70ea96b-dirty",
+  "runtime_s": 125.4,
+  "args": {
+    "stage": "nccl",
+    "nccl_tests_tag": "v2.21.0",
+    "max_bytes": "1G",
+    "iters": 50,
+    "warmup": 10,
+    "repeats": 3,
+    "cuda_home": null,
+    "smoke": true
+  }
+}

@@ -1,0 +1,4 @@
+$ LD_LIBRARY_PATH=/tmp/nccl-home/lib ldd /tmp/nccl-tests/build/all_reduce_perf | grep -i -E 'nccl|cudart'
+# rc=0
+	libcudart.so.12 => /usr/local/cuda/targets/x86_64-linux/lib/libcudart.so.12 (0x00007e9862a00000)
+	libnccl.so.2 => /tmp/nccl-home/lib/libnccl.so.2 (0x00007e984c000000)

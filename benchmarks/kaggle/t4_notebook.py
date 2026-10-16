@@ -2,6 +2,7 @@
 
     python -m benchmarks.kaggle.t4_notebook --stage smoke
     python -m benchmarks.kaggle.t4_notebook --stage baseline --vllm-versions 0.31.0,0.30.0
+    python -m benchmarks.kaggle.t4_notebook --stage nccl [--smoke]      # needs Kaggle "GPU T4 x2"
 
 Every stage writes /kaggle/working/results/<stage>/ (override: GOODPUT_RESULTS):
     <stage>.jsonl   result rows; each carries provenance (time, git sha, GPU/driver/CUDA, vLLM version,
@@ -1053,8 +1054,330 @@ STAGE_ARGS["quant"] = [
     lambda p: p.add_argument("--lmeval-version", default="0.4.12"),
 ]
 
+# ---------------------------------------------------------------- nccl: 2 x T4 collectives over PCIe
+# GPU collective communication between the two GPUs of one Kaggle "GPU T4 x2" VM (PCIe; no NVLink on T4).
+# Not the scale-out fabric. nccl-tests built here against the NCCL that the image's PyTorch loads.
+
+NCCL_TESTS_REPO = "https://github.com/NVIDIA/nccl-tests.git"
+NCCL_ROW = re.compile(r"^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(-?\d+)\s+(.*)$")
+NCCL_INFO = re.compile(r"NCCL INFO (.*)$")
+# INIT/GRAPH/TUNING lines worth keeping as the "why" excerpt (transport, channels, graph, tuning model)
+NCCL_KEEP = re.compile(r"NCCL version|via |nChannels|Pattern|Ring \d|Trees|Channel \d|Connected all|P2P|SHM|"
+                       r"Algorithm|Protocol|Max NThreads|Broadcast|Reduce|AllGather|AllReduce|ReduceScatter|"
+                       r"latency|bandwidth|GPU/|CC/|Topology|=== System|NET|PCI|CPU/|comm 0x|Init COMPLETE|"
+                       r"NCCL_|Enabled|Disabled|Using|cudaDriverVersion|ncclCommInitRank|Bootstrap|NVLS|CollNet", re.I)
+
+
+def parse_nccl_tests(text: str) -> dict:
+    """nccl-tests stdout -> {points: [{size_b, count, type, redop, root, oop: {...}, ip: {...}}], avg_busbw, ...}.
+    Row layout (nccl-tests src/common.cu): size count type redop root | time algbw busbw #wrong (out-of-place)
+    | time algbw busbw #wrong (in-place). alltoall/sendrecv print redop 'none'; #wrong is 'N/A' with -c 0."""
+    def num(x: str):
+        try:
+            return float(x)
+        except ValueError:
+            return None
+    pts = []
+    for line in text.splitlines():
+        if "NCCL" in line or line.lstrip().startswith("#"):
+            continue
+        m = NCCL_ROW.match(line)
+        if not m:
+            continue
+        rest = m.group(6).split()
+        if len(rest) < 8:
+            continue
+        o, i = rest[-8:-4], rest[-4:]
+        half = lambda q: {"time_us": num(q[0]), "algbw_gbs": num(q[1]), "busbw_gbs": num(q[2]),
+                          "wrong": None if q[3] == "N/A" else int(float(q[3]))}
+        pts.append({"size_b": int(m.group(1)), "count": int(m.group(2)), "type": m.group(3), "redop": m.group(4),
+                    "root": int(m.group(5)), "oop": half(o), "ip": half(i)})
+    avg = re.search(r"#\s*Avg bus bandwidth\s*:\s*([\d.]+)", text)
+    oob = re.search(r"#\s*Out of bounds values\s*:\s*(\d+)\s*(\w+)", text)
+    lib = re.search(r"nccl-headers=(\d+) nccl-library=(\d+)", text)
+    ver = re.search(r"# nccl-tests version (\S+) \((\w+)\)", text)
+    return {"nccl_tests_version": ver.group(1) if ver else None, "nccl_tests_commit_short": ver.group(2) if ver else None,
+            "nccl_headers_code": int(lib.group(1)) if lib else None, "nccl_library_code": int(lib.group(2)) if lib else None,
+            "points": pts, "avg_busbw_gbs": float(avg.group(1)) if avg else None,
+            "out_of_bounds": int(oob.group(1)) if oob else None, "oob_status": oob.group(2) if oob else None,
+            "wrong_total": sum((p["oop"]["wrong"] or 0) + (p["ip"]["wrong"] or 0) for p in pts)}
+
+
+def parse_nccl_debug(text: str) -> dict:
+    """Facts from NCCL_DEBUG=INFO (subsys INIT,GRAPH,TUNING): version, transports, channels, graph, tuning table."""
+    info = [m.group(1).strip() for l in text.splitlines() if (m := NCCL_INFO.search(l))]
+    ver = next((re.search(r"NCCL version ([\w.+-]+)", l).group(1) for l in info if "NCCL version" in l), None)
+    via = sorted({re.sub(r"^Channel \d+/\d+ : ", "", l).strip() for l in info if " via " in l})
+    transports = sorted({m.group(1) for l in info if (m := re.search(r" via (\S+)", l))})
+    nch = sorted({int(m.group(1)) for l in info if (m := re.search(r"(\d+) coll channels", l))})
+    nch2 = sorted({int(m.group(1)) for l in info if (m := re.search(r"nChannels (\d+)", l))})
+    pattern = sorted({l for l in info if l.startswith("Pattern") or "Pattern " in l})
+    tuning = [l for l in info if re.match(r"(Algorithm|Protocol|Max NThreads|Broadcast|Reduce|AllGather|AllReduce|"
+                                          r"ReduceScatter|SendRecv)\s*\|", l.strip())]
+    # "AllReduce: 8 Bytes -> Algo RING proto LL channel{Lo..Hi}={0..0} ..." (TUNING, one per call): unique per size
+    choice: dict[str, dict] = {}
+    for l in info:
+        if (m := re.match(r"(\w+): (\d+) Bytes -> Algo (\w+) proto (\w+) channel\{Lo\.\.Hi\}=\{(\d+)\.\.(\d+)\}", l)):
+            c = choice.setdefault(m.group(1), {})
+            c.setdefault(m.group(2), f"{m.group(3)}/{m.group(4)}/ch{int(m.group(6)) - int(m.group(5)) + 1}")
+    excerpt, seen = [], set()
+    for l in info:
+        key = re.sub(r"0x[0-9a-f]+|\b\d{4,}\b", "#", l)   # drop pointers/pids so both ranks' copies dedupe
+        if NCCL_KEEP.search(l) and key not in seen:
+            seen.add(key)
+            excerpt.append(l)
+    return {"nccl_version_log": ver, "transports": transports, "channel_paths": via[:16],
+            "coll_channels": nch, "nchannels": nch2, "graph_pattern": pattern[:8], "tuning_table": tuning[:40],
+            "algo_by_size": choice, "info_lines": len(info),
+            "excerpt": excerpt[:400]}
+
+
+def nccl_probe(st: Stage) -> dict:
+    """Topology, PCIe link, P2P capability, versions. Every source command's raw output is in logs/."""
+    L = st.logs
+    facts: dict = {}
+    rc, lst = sh(["nvidia-smi", "-L"], out=L / "nvidia-smi-L.txt")
+    facts["nvidia_smi_L"] = lst.strip().splitlines()
+    facts["gpu_count_smi_L"] = sum(1 for l in lst.splitlines() if l.startswith("GPU "))
+    _, topo = sh(["nvidia-smi", "topo", "-m"], out=L / "topo-m.txt")
+    m = re.search(r"^GPU0\s+X\s+(\S+)", topo, re.M)
+    facts["topo_gpu0_gpu1"] = m.group(1) if m else None
+    _, p2p = sh(["nvidia-smi", "topo", "-p2p", "r"], out=L / "topo-p2p-r.txt")
+    m = re.search(r"^\s*GPU0\s+X\s+(\S+)", p2p, re.M)
+    facts["smi_p2p_read_gpu0_gpu1"] = m.group(1) if m else None
+    for kind in ("w", "n", "a"):
+        sh(["nvidia-smi", "topo", "-p2p", kind], out=L / f"topo-p2p-{kind}.txt")
+    sh(["nvidia-smi", "-q", "-d", "PCI"], out=L / "smi-q-pci.txt")
+    sh(["nvidia-smi"], out=L / "nvidia-smi.txt")
+    facts["pcie_idle"] = pcie_link()
+    py = ("import torch,json;print(json.dumps({'torch':torch.__version__,'cuda':torch.version.cuda,"
+          "'nccl':'.'.join(map(str,torch.cuda.nccl.version())),'n':torch.cuda.device_count(),"
+          "'p2p_0_1':torch.cuda.can_device_access_peer(0,1) if torch.cuda.device_count()>1 else None,"
+          "'p2p_1_0':torch.cuda.can_device_access_peer(1,0) if torch.cuda.device_count()>1 else None}))")
+    rc, o = sh([sys.executable, "-c", py], out=L / "torch-p2p.txt", timeout=180)
+    try:
+        facts["torch"] = json.loads(o.strip().splitlines()[-1])
+    except Exception:
+        facts["torch"] = {"error": o[-400:]}
+    _, nv = sh("command -v nvcc; nvcc --version; ls -d /usr/local/cuda*; cat /usr/local/cuda/version.json 2>/dev/null | head -20",
+               out=L / "nvcc.txt", timeout=60)
+    m = re.search(r"release ([\d.]+), V([\d.]+)", nv)
+    facts["nvcc"] = m.group(2) if m else None
+    for pkg in ("nvidia-nccl-cu12", "nvidia-nccl-cu13", "torch"):
+        rc, o = sh([sys.executable, "-m", "pip", "show", "-f", pkg], out=L / f"pip-show-{pkg}.txt", timeout=60)
+        m = re.search(r"^Version:\s*(\S+)", o, re.M)
+        facts[f"pkg_{pkg}"] = m.group(1) if rc == 0 and m else None
+    sh("ls -l /lib/x86_64-linux-gnu/libnccl* /usr/lib/x86_64-linux-gnu/libnccl* 2>&1; dpkg -l | grep -i nccl",
+       out=L / "system-nccl.txt", timeout=60)
+    sh("lscpu; free -g; nproc; cat /etc/os-release | head -3; uname -r", out=L / "host.txt")
+    sh("command -v git make gcc g++; gcc --version | head -1; make --version | head -1", out=L / "toolchain.txt")
+    return facts
+
+
+def pcie_link() -> list[dict]:
+    q = "index,pcie.link.gen.current,pcie.link.gen.max,pcie.link.gen.gpumax,pcie.link.gen.hostmax,pcie.link.width.current,pcie.link.width.max"
+    rc, o = sh(["nvidia-smi", f"--query-gpu={q}", "--format=csv,noheader"])
+    if rc:   # older drivers lack gpumax/hostmax
+        q = "index,pcie.link.gen.current,pcie.link.gen.max,pcie.link.width.current,pcie.link.width.max"
+        rc, o = sh(["nvidia-smi", f"--query-gpu={q}", "--format=csv,noheader"])
+    names = q.split(",")
+    return [dict(zip(names, (x.strip() for x in l.split(",")))) for l in o.strip().splitlines() if rc == 0]
+
+
+def nccl_home(st: Stage, wheel: str) -> dict:
+    """NCCL headers + lib from a pinned wheel installed into a private dir (pip --target), so the image's other
+    NCCL copies (nvidia-nccl-cu13 shares the nvidia/nccl/ path with -cu12; a system libnccl) cannot leak in.
+    nccl-tests links -lnccl and the wheel ships only libnccl.so.2, so NCCL_HOME gets the unversioned symlink."""
+    target = Path("/tmp/nccl-wheel")
+    rc, o = sh([sys.executable, "-m", "pip", "install", "--no-deps", "--target", str(target), wheel],
+               out=st.logs / "pip-install-nccl.txt", timeout=600)
+    roots = [target / "nvidia" / "nccl"]
+    for root in roots:
+        h, lib = root / "include" / "nccl.h", root / "lib" / "libnccl.so.2"
+        if h.exists() and lib.exists():
+            home = Path("/tmp/nccl-home")
+            (home / "lib").mkdir(parents=True, exist_ok=True)
+            if not (home / "include").exists():
+                (home / "include").symlink_to(root / "include")
+            for name in ("libnccl.so", "libnccl.so.2"):
+                if not (home / "lib" / name).exists():
+                    (home / "lib" / name).symlink_to(lib)
+            hv = {k: int(v) for k, v in re.findall(r"#define NCCL_(MAJOR|MINOR|PATCH)\s+(\d+)", h.read_text())}
+            code = re.search(r"#define NCCL_VERSION_CODE\s+(\d+)", h.read_text())
+            return {"nccl_wheel": wheel, "nccl_home": str(home), "nccl_wheel_dir": str(root), "nccl_lib": str(lib.resolve()),
+                    "nccl_h_version": f"{hv.get('MAJOR')}.{hv.get('MINOR')}.{hv.get('PATCH')}",
+                    "nccl_code": int(code.group(1)) if code else None}
+    return {"nccl_wheel": wheel, "nccl_home": None, "pip_rc": rc, "pip_tail": o[-800:], "searched": [str(r) for r in roots]}
+
+
+def build_nccl_tests(st: Stage, tag: str, home: dict, cuda_home: str) -> dict:
+    src = Path("/tmp/nccl-tests")
+    rc, _ = sh(f"rm -rf {src} && git clone --depth 1 --branch {tag} {NCCL_TESTS_REPO} {src}",
+               out=st.logs / "nccl-tests-clone.txt", timeout=300)
+    _, o = sh(["git", "-C", str(src), "rev-parse", "HEAD"], out=st.logs / "nccl-tests-commit.txt")
+    commit = o.strip() if rc == 0 else None
+    cmd = (f"make -C {src} -j$(nproc) MPI=0 CUDA_HOME={cuda_home} NCCL_HOME={home['nccl_home']} "
+           "NVCC_GENCODE='-gencode=arch=compute_75,code=sm_75'")
+    t0 = time.time()
+    rc_b, out = sh(cmd, out=st.logs / "nccl-tests-build.txt", timeout=1500)
+    bins = sorted(p.name for p in (src / "build").glob("*_perf")) if (src / "build").is_dir() else []
+    _, ldd = sh(f"LD_LIBRARY_PATH={home['nccl_home']}/lib ldd {src}/build/all_reduce_perf | grep -i -E 'nccl|cudart'",
+                out=st.logs / "nccl-tests-ldd.txt")
+    return {"nccl_tests_tag": tag, "nccl_tests_commit": commit, "clone_rc": rc, "build_cmd": cmd, "build_rc": rc_b,
+            "build_s": round(time.time() - t0, 1), "binaries": bins, "ldd": ldd.strip().splitlines(),
+            "build_tail": out[-1500:] if rc_b else None, "bin_dir": str(src / "build")}
+
+
+def nccl_run(st: Stage, key: str, binary: str, bin_dir: str, test_args: list[str], extra_env: dict,
+             subsys: str = "INIT,GRAPH,TUNING", home: dict | None = None) -> dict:
+    """One nccl-tests invocation: raw log, NVML samplers on both GPUs, `nvidia-smi dmon -s t`, parsed rows."""
+    from benchmarks.gpu_sampler import GpuSampler, summarize as gpu_summary
+    dbg_f = st.logs / f"{key}.nccl_debug.txt"   # NCCL_DEBUG_FILE: INFO lines no longer split the result rows
+    env = dict(os.environ, NCCL_DEBUG="INFO", NCCL_DEBUG_SUBSYS=subsys, NCCL_DEBUG_FILE=str(dbg_f), **extra_env)
+    if home and home.get("nccl_home"):
+        env["LD_LIBRARY_PATH"] = f"{home['nccl_home']}/lib:" + env.get("LD_LIBRARY_PATH", "")
+    cmd = [f"{bin_dir}/{binary}", *test_args]
+    shown = " ".join(f"{k}={v}" for k, v in {"NCCL_DEBUG": "INFO", "NCCL_DEBUG_SUBSYS": subsys,
+                                              "NCCL_DEBUG_FILE": str(dbg_f), **extra_env}.items())
+    log(f"{key}: {shown} {shlex.join(cmd)}")
+    dmon_f = st.logs / f"{key}.dmon.txt"
+    dmon = subprocess.Popen(["nvidia-smi", "dmon", "-s", "ut", "-d", "1", "-o", "T"], stdout=open(dmon_f, "w"),
+                            stderr=subprocess.STDOUT)
+    pcie_load = []
+    t0 = time.time()
+    with GpuSampler(st.logs / f"{key}.gpu0.csv", 0.5, 0), GpuSampler(st.logs / f"{key}.gpu1.csv", 0.5, 1):
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
+        time.sleep(3)
+        if p.poll() is None:
+            pcie_load = pcie_link()   # link gen can drop at idle; read it while traffic flows
+        try:
+            out, _ = p.communicate(timeout=1200)
+            rc = p.returncode
+        except subprocess.TimeoutExpired:
+            p.kill()
+            out, rc = (p.communicate()[0] or "") + "\nTIMEOUT", 124
+    wall = round(time.time() - t0, 1)
+    dmon.terminate()
+    (st.logs / f"{key}.log").write_text(f"$ {shown} {shlex.join(cmd)}\n# rc={rc} wall_s={wall}\n{out}")
+    import gzip
+    dbg_text = dbg_f.read_text(errors="replace") if dbg_f.exists() else ""
+    if dbg_f.exists():   # one TUNING line per call: large and repetitive; keep it whole, compressed
+        with gzip.open(f"{dbg_f}.gz", "wt") as g:
+            g.write(dbg_text)
+        dbg_f.unlink()
+    res, dbg = parse_nccl_tests(out), parse_nccl_debug(dbg_text + "\n" + out)
+    (st.logs / f"{key}.nccl_debug_excerpt.txt").write_text("\n".join(dbg.pop("excerpt")) + "\n")
+    return st.write(key, {"binary": binary, "cmd": f"{shown} {shlex.join(cmd)}", "env_extra": extra_env, "rc": rc,
+                          "wall_s": wall, "pcie_during": pcie_load, "dmon": dmon_summary(dmon_f), **res, **dbg,
+                          "gpu0": gpu_summary(st.logs / f"{key}.gpu0.csv"),
+                          "gpu1": gpu_summary(st.logs / f"{key}.gpu1.csv")})
+
+
+def dmon_summary(path: Path) -> dict:
+    """Max/mean of rxpci/txpci (MB/s) per GPU from `nvidia-smi dmon -s ut` (column names from its header)."""
+    cols, per = None, {}
+    for line in path.read_text().splitlines() if path.exists() else []:
+        if line.startswith("#") and "gpu" in line and cols is None:
+            cols = line.lstrip("#").split()
+            continue
+        if line.startswith("#") or not cols:
+            continue
+        v = line.split()
+        if len(v) != len(cols):
+            continue
+        row = dict(zip(cols, v))
+        g = per.setdefault(row.get("gpu"), {})
+        for c in ("rxpci", "txpci", "sm"):
+            try:
+                g.setdefault(c, []).append(float(row[c]))
+            except (KeyError, ValueError):
+                pass
+    return {f"gpu{g}_{c}_{f}": round(fn(x), 1) for g, d in per.items() for c, x in d.items()
+            for f, fn in (("max", max), ("mean", lambda y: sum(y) / len(y))) if x}
+
+
+def stage_nccl(a) -> None:
+    """2 x T4 NCCL collectives over PCIe: probe topology, build nccl-tests, sweep, keep NCCL's own reasoning."""
+    st = Stage("nccl")
+    done = st.done()
+    facts = nccl_probe(st)
+    facts["machine_gpu_count_ok"] = facts["gpu_count_smi_L"] >= 2
+    probe = st.write("probe", {**facts, "env": st.env})
+    if not facts["machine_gpu_count_ok"]:
+        log(f"ABORT: nvidia-smi -L shows {facts['gpu_count_smi_L']} GPU(s); the nccl stage needs 2")
+        sys.exit(3)
+    home = nccl_home(st, a.nccl_wheel)
+    if not home.get("nccl_home"):
+        st.write("build", {"error": "pinned NCCL wheel not usable", **home})
+        raise RuntimeError(f"no NCCL headers/lib from {a.nccl_wheel}: {home}")
+    cuda_home = a.cuda_home or (str(Path(shutil_which("nvcc")).resolve().parents[1]) if shutil_which("nvcc") else
+                                "/usr/local/cuda")
+    b = build_nccl_tests(st, a.nccl_tests_tag, home, cuda_home)
+    st.write("build", {**b, "cuda_home": cuda_home, "nvcc": probe.get("nvcc"), **home})
+    if b["build_rc"] or "all_reduce_perf" not in b["binaries"]:
+        raise RuntimeError(f"nccl-tests build failed (rc {b['build_rc']}); see logs/nccl-tests-build.txt")
+    bd = b["bin_dir"]
+    base = ["-g", "2", "-b", "8", "-e", a.max_bytes, "-f", "2", "-n", str(a.iters), "-w", str(a.warmup), "-c", "1"]
+    plan: list[tuple[str, str, list[str], dict, str]] = []
+    if a.plan == "p2pcheck":
+        # NCCL 2.28.9 uses P2P only up to PXB by default (src/graph/paths.cc); GPU0-GPU1 here is PHB, so the default
+        # is SHM. NCCL_P2P_LEVEL=PHB allows P2P/IPC. Paired with default and P2P-off runs in the same session, since
+        # CUDA P2P availability differed between sessions (smoke: NS; sweep: OK).
+        plan += [("p2pcheck-default", "all_reduce_perf", base, {}, "INIT,GRAPH,TUNING"),
+                 ("p2pcheck-p2p-level-phb", "all_reduce_perf", base, {"NCCL_P2P_LEVEL": "PHB"}, "INIT,GRAPH,TUNING"),
+                 ("p2pcheck-p2p-disabled", "all_reduce_perf", base, {"NCCL_P2P_DISABLE": "1"}, "INIT,GRAPH,TUNING"),
+                 ("p2pcheck-tree", "all_reduce_perf", base, {"NCCL_ALGO": "Tree"}, "INIT,GRAPH,TUNING"),
+                 ("p2pcheck-ring", "all_reduce_perf", base, {"NCCL_ALGO": "Ring"}, "INIT,GRAPH,TUNING")]
+    elif a.smoke:
+        plan.append(("smoke-allreduce", "all_reduce_perf",
+                     ["-g", "2", "-b", "8", "-e", "16M", "-f", "4", "-n", "5", "-w", "2", "-c", "1"], {}, "INIT,GRAPH,TUNING"))
+    else:
+        plan += [(f"allreduce-default-r{i}", "all_reduce_perf", base, {}, "INIT,GRAPH,TUNING") for i in range(1, a.repeats + 1)]
+        plan += [("allreduce-ring", "all_reduce_perf", base, {"NCCL_ALGO": "Ring"}, "INIT,GRAPH,TUNING"),
+                 ("allreduce-tree", "all_reduce_perf", base, {"NCCL_ALGO": "Tree"}, "INIT,GRAPH,TUNING"),
+                 ("allreduce-p2p-disabled", "all_reduce_perf", base, {"NCCL_P2P_DISABLE": "1"}, "INIT,GRAPH,TUNING")]
+        plan += [(f"{n.replace('_perf', '').replace('_', '')}", n, base, {}, "INIT,GRAPH,TUNING")
+                 for n in ("all_gather_perf", "reduce_scatter_perf", "alltoall_perf", "sendrecv_perf")]
+        # contrast: no P2P and no SHM leaves NCCL's NET transport (Socket over the VM's eth0); fewer iterations, slow
+        sock = ["-g", "2", "-b", "8", "-e", a.max_bytes, "-f", "2", "-n", str(a.socket_iters), "-w", "2", "-c", "1"]
+        plan.append(("allreduce-p2p-shm-disabled", "all_reduce_perf", sock,
+                     {"NCCL_P2P_DISABLE": "1", "NCCL_SHM_DISABLE": "1"}, "INIT,GRAPH,TUNING"))
+    for key, binary, args, env_extra, subsys in plan:
+        if key in done:
+            log(f"skip {key} (already in {st.jsonl.name})")
+            continue
+        if binary not in b["binaries"]:
+            st.write(key, {"binary": binary, "rc": None, "error": "binary not built"})
+            continue
+        r = nccl_run(st, key, binary, bd, args, env_extra, subsys, home)
+        if home.get("nccl_code") and r.get("nccl_library_code") and r["nccl_library_code"] != home["nccl_code"]:
+            raise RuntimeError(f"{key}: nccl-tests loaded NCCL {r['nccl_library_code']}, pinned {home['nccl_code']}")
+    st.write("pcie-after", {"pcie": pcie_link()})
+
+
+def shutil_which(name: str) -> str | None:
+    import shutil
+    return shutil.which(name) or (f"/usr/local/cuda/bin/{name}" if Path(f"/usr/local/cuda/bin/{name}").exists() else None)
+
+
+STAGE_ARGS["nccl"] = [
+    lambda p: p.add_argument("--nccl-tests-tag", default="v2.21.0"),   # one before latest (v2.21.1) on 2026-10-16
+    # = torch.cuda.nccl.version() of the image's torch 2.11.0+cu128 (probe of smoke run 20261016-152535_nccl)
+    lambda p: p.add_argument("--nccl-wheel", default="nvidia-nccl-cu12==2.28.9"),
+    lambda p: p.add_argument("--max-bytes", default="1G"),
+    lambda p: p.add_argument("--iters", type=int, default=50),
+    lambda p: p.add_argument("--warmup", type=int, default=10),
+    lambda p: p.add_argument("--repeats", type=int, default=3),
+    lambda p: p.add_argument("--socket-iters", type=int, default=10),
+    lambda p: p.add_argument("--cuda-home", default=None, help="default: parent of the nvcc on PATH, else /usr/local/cuda"),
+    lambda p: p.add_argument("--smoke", action="store_true", help="probe + build + one short all-reduce only"),
+    lambda p: p.add_argument("--plan", choices=["sweep", "p2pcheck"], default="sweep",
+                             help="p2pcheck: default vs NCCL_P2P_LEVEL=PHB vs P2P off, Tree vs Ring, one session"),
+]
+
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
-          "quant": stage_quant}
+          "quant": stage_quant, "nccl": stage_nccl}
 
 
 def main() -> None:

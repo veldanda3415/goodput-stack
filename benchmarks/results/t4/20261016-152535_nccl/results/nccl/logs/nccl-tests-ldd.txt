@@ -1,0 +1,4 @@
+$ ldd /tmp/nccl-tests/build/all_reduce_perf | grep -i -E 'nccl|cudart'
+# rc=0
+	libcudart.so.12 => /usr/local/cuda/lib64/libcudart.so.12 (0x00007f85e3c00000)
+	libnccl.so.2 => /lib/x86_64-linux-gnu/libnccl.so.2 (0x00007f85ccdff000)

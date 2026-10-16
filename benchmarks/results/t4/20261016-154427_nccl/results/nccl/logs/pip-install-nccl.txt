@@ -1,0 +1,8 @@
+$ /usr/bin/python3 -m pip install --no-deps --target /tmp/nccl-wheel nvidia-nccl-cu12==2.28.9
+# rc=0
+Collecting nvidia-nccl-cu12==2.28.9
+  Downloading nvidia_nccl_cu12-2.28.9-py3-none-manylinux_2_18_x86_64.whl.metadata (2.0 kB)
+Downloading nvidia_nccl_cu12-2.28.9-py3-none-manylinux_2_18_x86_64.whl (296.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 296.8/296.8 MB 6.5 MB/s eta 0:00:00
+Installing collected packages: nvidia-nccl-cu12
+Successfully installed nvidia-nccl-cu12-2.28.9

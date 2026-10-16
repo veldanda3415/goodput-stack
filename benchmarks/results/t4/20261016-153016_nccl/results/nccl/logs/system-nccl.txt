@@ -1,0 +1,12 @@
+$ ls -l /lib/x86_64-linux-gnu/libnccl* /usr/lib/x86_64-linux-gnu/libnccl* 2>&1; dpkg -l | grep -i nccl
+# rc=0
+lrwxrwxrwx 1 root root        12 Jan 14  2025 /lib/x86_64-linux-gnu/libnccl.so -> libnccl.so.2
+lrwxrwxrwx 1 root root        17 Jan 14  2025 /lib/x86_64-linux-gnu/libnccl.so.2 -> libnccl.so.2.25.1
+-rw-r--r-- 1 root root 383583952 Jan 14  2025 /lib/x86_64-linux-gnu/libnccl.so.2.25.1
+-rw-r--r-- 1 root root 390175860 Jan 14  2025 /lib/x86_64-linux-gnu/libnccl_static.a
+lrwxrwxrwx 1 root root        12 Jan 14  2025 /usr/lib/x86_64-linux-gnu/libnccl.so -> libnccl.so.2
+lrwxrwxrwx 1 root root        17 Jan 14  2025 /usr/lib/x86_64-linux-gnu/libnccl.so.2 -> libnccl.so.2.25.1
+-rw-r--r-- 1 root root 383583952 Jan 14  2025 /usr/lib/x86_64-linux-gnu/libnccl.so.2.25.1
+-rw-r--r-- 1 root root 390175860 Jan 14  2025 /usr/lib/x86_64-linux-gnu/libnccl_static.a
+hi  libnccl-dev                        2.25.1-1+cuda12.8                    amd64        NVIDIA Collective Communication Library (NCCL) Development Files
+hi  libnccl2                           2.25.1-1+cuda12.8                    amd64        NVIDIA Collective Communication Library (NCCL) Runtime
