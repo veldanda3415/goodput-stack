@@ -1319,7 +1319,16 @@ def stage_nccl(a) -> None:
     bd = b["bin_dir"]
     base = ["-g", "2", "-b", "8", "-e", a.max_bytes, "-f", "2", "-n", str(a.iters), "-w", str(a.warmup), "-c", "1"]
     plan: list[tuple[str, str, list[str], dict, str]] = []
-    if a.smoke:
+    if a.plan == "p2pcheck":
+        # NCCL 2.28.9 uses P2P only up to PXB by default (src/graph/paths.cc); GPU0-GPU1 here is PHB, so the default
+        # is SHM. NCCL_P2P_LEVEL=PHB allows P2P/IPC. Paired with default and P2P-off runs in the same session, since
+        # CUDA P2P availability differed between sessions (smoke: NS; sweep: OK).
+        plan += [("p2pcheck-default", "all_reduce_perf", base, {}, "INIT,GRAPH,TUNING"),
+                 ("p2pcheck-p2p-level-phb", "all_reduce_perf", base, {"NCCL_P2P_LEVEL": "PHB"}, "INIT,GRAPH,TUNING"),
+                 ("p2pcheck-p2p-disabled", "all_reduce_perf", base, {"NCCL_P2P_DISABLE": "1"}, "INIT,GRAPH,TUNING"),
+                 ("p2pcheck-tree", "all_reduce_perf", base, {"NCCL_ALGO": "Tree"}, "INIT,GRAPH,TUNING"),
+                 ("p2pcheck-ring", "all_reduce_perf", base, {"NCCL_ALGO": "Ring"}, "INIT,GRAPH,TUNING")]
+    elif a.smoke:
         plan.append(("smoke-allreduce", "all_reduce_perf",
                      ["-g", "2", "-b", "8", "-e", "16M", "-f", "4", "-n", "5", "-w", "2", "-c", "1"], {}, "INIT,GRAPH,TUNING"))
     else:
@@ -1362,6 +1371,8 @@ STAGE_ARGS["nccl"] = [
     lambda p: p.add_argument("--socket-iters", type=int, default=10),
     lambda p: p.add_argument("--cuda-home", default=None, help="default: parent of the nvcc on PATH, else /usr/local/cuda"),
     lambda p: p.add_argument("--smoke", action="store_true", help="probe + build + one short all-reduce only"),
+    lambda p: p.add_argument("--plan", choices=["sweep", "p2pcheck"], default="sweep",
+                             help="p2pcheck: default vs NCCL_P2P_LEVEL=PHB vs P2P off, Tree vs Ring, one session"),
 ]
 
 
