@@ -32,9 +32,10 @@ Focused tests: `make fabric-test`; this runs pytest in `fabric/tests/`.
 
 The FRR image is pinned to
 [`quay.io/frrouting/frr:10.2.1`](https://quay.io/repository/frrouting/frr)
-with its digest, and the host tools image to
-[`nicolaka/netshoot:v0.13`](https://hub.docker.com/r/nicolaka/netshoot) with
-its digest. Both full references are in the intent. FRR configuration uses
+with its digest. The host image is the locally built RDMA tools image
+(`localhost:5000/goodput-roce-host:0.1.0`, also pinned by digest), described
+in the RDMA section below. It replaced `nicolaka/netshoot:v0.13`. All full
+image references are in the intent. FRR configuration uses
 the stable 10.2 [BGP](https://docs.frrouting.org/en/stable-10.2/bgp.html) and
 [BFD](https://docs.frrouting.org/en/stable-10.2/bfd.html) documentation.
 
@@ -75,6 +76,9 @@ outputs.
 - [E2 — BFD convergence](experiments/E2-bfd-convergence.md): carrier-down
   and silent-loss trials with BFD on and off; loss windows come from timestamped
   ping replies and sequence numbers.
+- [E3 — Soft-RoCE and RoCE QoS](experiments/E3-soft-roce.md): feasibility
+  of rxe in container namespaces (blocked by the kernel), GID selection,
+  QoS render, host DSCP classification, and headroom.
 - [BGP session-down runbook](runbooks/bgp-session-down.md): observed ASN
   mismatch symptoms and recovery.
 
@@ -85,6 +89,38 @@ to real switches, subject to vendor-specific configuration and validation.
 E1 measures Linux kernel hashing, not ASIC hashing. This work does not
 demonstrate hardware buffers, PFC, DCQCN, RoCE congestion control, or production
 convergence. No NOS VMs or GPUs are used.
+
+## RDMA (SOFT-ROCE) and QoS intent
+
+Hosts run a pinned RDMA tools image, built from
+[`images/roce-host/Containerfile`](images/roce-host/Containerfile) (Debian
+trixie by digest; packages pinned from snapshot.debian.org). containerlab is
+setuid root and uses the system Podman, so the image is served from a
+localhost registry. Root Podman must trust that registry; this takes one
+`registries.conf.d` entry, set up with sudo. The exact steps are in
+[E3](experiments/E3-soft-roce.md).
+
+```bash
+make roce-image       # start the localhost:5000 registry; build and push the host image
+make fabric-up        # renders rxe devices (rxe_<host>_<rail>) and host tc QoS
+make roce-e3          # GID discovery + DSCP classification counters
+make fabric-headroom  # PFC headroom table (INTENT-ONLY arithmetic)
+```
+
+The intent controls each deployed piece. `rdma` creates one `rdma_rxe` device
+per rail NIC, and `capture_taps` adds `spineN-tap` sidecars that share the
+spine's network namespace so capture tools can run there. `qos` holds the
+lossless RoCE design.
+
+| Piece | Status |
+|---|---|
+| rxe devices, GIDs (`::ffff:<rail IP>`, RoCE v2, index 1) | SOFT-ROCE, works |
+| Verbs traffic across the fabric | **does not work on Linux 6.18**: rxe routes and receives only in the initial netns ([E3 §0](experiments/E3-soft-roce.md#0-feasibility-gate)) |
+| SONiC `config_db` QoS fragments (`build/example/sonic/`) | INTENT-ONLY, never run on a switch |
+| Host `tc` DSCP classification (`hosts/<host>-qos.sh`) | EMULATED, verified with counters; no PFC, buffers, or ECN on veth |
+| PFC headroom (`tools/headroom.py`) | INTENT-ONLY arithmetic with cited sources |
+
+Design and sources: [`qos/README.md`](qos/README.md).
 
 ## Production path
 
