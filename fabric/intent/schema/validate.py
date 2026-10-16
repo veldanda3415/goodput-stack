@@ -147,3 +147,61 @@ def validate_semantics(intent: dict[str, Any]) -> None:
 
     if intent["ecmp_width"] != len(spines):
         raise ValueError(f"ecmp_width must equal spine count ({len(spines)})")
+    for tap in intent["capture_taps"]:
+        if tap not in nodes:
+            raise ValueError(f"capture tap {tap} is not a router node")
+    validate_qos(intent)
+
+
+def validate_qos(intent: dict[str, Any]) -> None:
+    """Semantic checks for the INTENT-ONLY lossless RoCE QoS design."""
+    qos = intent["qos"]
+    classes = qos["classes"]
+    roles = [cls["role"] for cls in classes]
+    for role in ("roce", "cnp", "default"):
+        if roles.count(role) != 1:
+            raise ValueError(f"qos needs exactly one {role} class; found {roles.count(role)}")
+    if len({cls["name"] for cls in classes}) != len(classes):
+        raise ValueError("qos class names must be unique")
+    if len({cls["tc"] for cls in classes}) != len(classes):
+        raise ValueError("qos classes must use distinct traffic classes")
+    dscps = [dscp for cls in classes for dscp in cls["dscp"]]
+    if len(set(dscps)) != len(dscps):
+        raise ValueError("a DSCP value is mapped to more than one qos class")
+    by_role = {cls["role"]: cls for cls in classes}
+    if by_role["default"]["dscp"]:
+        raise ValueError("the default class takes unmapped DSCPs; list none")
+    if not by_role["cnp"]["dscp"] or by_role["cnp"]["scheduler"]["type"] != "STRICT":
+        raise ValueError("the CNP class needs a DSCP and a STRICT scheduler")
+    if by_role["cnp"]["lossless"]:
+        raise ValueError("the CNP class must not be lossless")
+    pfc_priorities = set(qos["pfc"]["priorities"])
+    for cls in classes:
+        if cls["scheduler"]["type"] != "STRICT" and "weight" not in cls["scheduler"]:
+            raise ValueError(f"qos class {cls['name']} needs a scheduler weight")
+        if cls["lossless"]:
+            if "pfc_priority" not in cls or cls["pfc_priority"] not in pfc_priorities:
+                raise ValueError(f"lossless class {cls['name']} has no PFC priority enabled in qos.pfc.priorities")
+            if cls["priority_group"] == 0:
+                raise ValueError(f"lossless class {cls['name']} must not share lossy priority group 0")
+        elif "pfc_priority" in cls:
+            raise ValueError(f"lossy class {cls['name']} must not set pfc_priority")
+    lossless_tcs = {cls["tc"] for cls in classes if cls["lossless"]}
+    if {cls["pfc_priority"] for cls in classes if cls["lossless"]} != pfc_priorities:
+        raise ValueError("qos.pfc.priorities must match the lossless classes")
+    ecn = qos["ecn"]
+    if ecn["tc"] not in lossless_tcs:
+        raise ValueError("qos.ecn.tc must be a lossless traffic class")
+    if ecn["kmin_bytes"] >= ecn["kmax_bytes"]:
+        raise ValueError("ECN Kmin must be below Kmax")
+    if ecn["kmax_bytes"] >= qos["pfc"]["xoff_threshold_bytes"]:
+        raise ValueError("ECN Kmax must be below the PFC XOFF threshold so ECN marks before PFC pauses")
+    wd = qos["pfc_watchdog"]
+    if wd["detection_ms"] < wd["poll_ms"] or wd["restoration_ms"] < wd["poll_ms"]:
+        raise ValueError("PFC watchdog detection/restoration must be >= poll interval")
+    if qos["target"]["roce_mtu"] > qos["target"]["port_mtu"]:
+        raise ValueError("RoCE MTU must fit in the port MTU")
+    link_names = {link["name"] for link in intent["links"]}
+    unknown = sorted(set(qos["cable_length_m"]["links"]) - link_names)
+    if unknown:
+        raise ValueError(f"qos.cable_length_m.links names unknown links {unknown}")

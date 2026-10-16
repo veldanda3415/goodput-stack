@@ -78,40 +78,60 @@ topology:
       - sysctl -w net.ipv6.conf.all.forwarding=1
     host1:
       kind: linux
-      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      image: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
       privileged: true
       cmd: sleep infinity
       binds:
       - ./hosts/host1-setup.sh:/usr/local/bin/host-setup.sh:ro
+      - ./hosts/host1-qos.sh:/usr/local/bin/host-qos.sh:ro
       exec:
       - sh /usr/local/bin/host-setup.sh
+      - sh /usr/local/bin/host-qos.sh
     host2:
       kind: linux
-      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      image: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
       privileged: true
       cmd: sleep infinity
       binds:
       - ./hosts/host2-setup.sh:/usr/local/bin/host-setup.sh:ro
+      - ./hosts/host2-qos.sh:/usr/local/bin/host-qos.sh:ro
       exec:
       - sh /usr/local/bin/host-setup.sh
+      - sh /usr/local/bin/host-qos.sh
     host3:
       kind: linux
-      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      image: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
       privileged: true
       cmd: sleep infinity
       binds:
       - ./hosts/host3-setup.sh:/usr/local/bin/host-setup.sh:ro
+      - ./hosts/host3-qos.sh:/usr/local/bin/host-qos.sh:ro
       exec:
       - sh /usr/local/bin/host-setup.sh
+      - sh /usr/local/bin/host-qos.sh
     host4:
       kind: linux
-      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      image: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
       privileged: true
       cmd: sleep infinity
       binds:
       - ./hosts/host4-setup.sh:/usr/local/bin/host-setup.sh:ro
+      - ./hosts/host4-qos.sh:/usr/local/bin/host-qos.sh:ro
       exec:
       - sh /usr/local/bin/host-setup.sh
+      - sh /usr/local/bin/host-qos.sh
+    spine1-tap:
+      kind: linux
+      image: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
+      privileged: true
+      network-mode: container:spine1
+      cmd: sleep infinity
+    spine2-tap:
+      kind: linux
+      image: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
+      privileged: true
+      network-mode: container:spine2
+      cmd: sleep infinity
   links:
   - endpoints:
     - spine1:eth1

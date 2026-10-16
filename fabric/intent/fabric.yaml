@@ -63,4 +63,54 @@ bfd:
 ecmp_width: 2
 images:
   frr: quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb
-  host: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+  # Built from fabric/images/roce-host/Containerfile (`make roce-image`) and
+  # served by the local registry below; the digest is the pushed manifest.
+  host: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
+  registry: docker.io/library/registry:3.1.1@sha256:3d527cee870ddd0fc8a31f99b2fdfb6451801a8dd4f5a92c1ec36dae24c14274
+# SOFT-ROCE: one rdma_rxe device per host rail NIC, created inside the host
+# container at deploy. Device names are global because the kernel RDMA
+# subsystem runs in shared netns mode (`rdma system show`).
+rdma:
+  enabled: true
+  provider: rxe
+# Capture sidecars: the host image sharing a router's network namespace
+# (containerlab network-mode container:<node>), so tcpdump/tshark run on the
+# router's interfaces without adding tools to the pinned FRR image.
+capture_taps: [spine1, spine2]
+# INTENT-ONLY lossless RoCE v2 QoS design. Rendered to SONiC config_db
+# fragments (never run on hardware) and to a Linux tc equivalent that runs on
+# the lab host rail NICs. Veth has no PFC, no switch buffers and no queue ECN
+# marking; the lab verifies classification only. Sources for every default
+# are in fabric/qos/README.md.
+qos:
+  target:
+    port_speed_gbps: 400       # hardware design target, not the veth lab
+    port_mtu: 9100
+    roce_mtu: 4096
+    sonic_port_stride: 8       # placeholder ethN -> Ethernet{(N-1)*stride}
+  classes:
+    - {name: roce, role: roce, dscp: [26], tc: 3, queue: 3, priority_group: 3, lossless: true, pfc_priority: 3, scheduler: {type: DWRR, weight: 50}}
+    - {name: cnp, role: cnp, dscp: [48], tc: 6, queue: 6, priority_group: 0, lossless: false, scheduler: {type: STRICT}}
+    - {name: default, role: default, dscp: [], tc: 0, queue: 0, priority_group: 0, lossless: false, scheduler: {type: DWRR, weight: 50}}
+  pfc:
+    priorities: [3]
+    # Ingress PG occupancy that sends PAUSE (SONiC static_th). Design choice:
+    # 2x ECN Kmax, so ECN always marks before PFC can trigger.
+    xoff_threshold_bytes: 3000000
+    xon_bytes: 2288            # SONiC 202511 Configuration.md example value
+    reserved_bytes: 1248       # SONiC 202511 Configuration.md example value
+    mtu_s_bytes: 4200          # RoCE 4096 payload + headers on the paused priority
+  ecn:
+    tc: 3
+    kmin_bytes: 150000         # Cumulus Linux 5.16 RoCE default min-threshold
+    kmax_bytes: 1500000        # Cumulus Linux 5.16 RoCE default max-threshold
+    pmax_percent: 100          # Cumulus Linux 5.16 RoCE default probability
+  pfc_watchdog:                # sonic-utilities 202511 pfcwd defaults
+    action: drop
+    detection_ms: 200
+    restoration_ms: 200
+    poll_ms: 200
+  cable_length_m:
+    fabric: 10
+    host: 3
+    links: {}                  # per-link override, e.g. {spine1-leaf1: 100}

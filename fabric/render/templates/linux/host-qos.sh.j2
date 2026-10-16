@@ -1,0 +1,18 @@
+#!/bin/sh
+# Rendered from fabric/intent/fabric.yaml qos (EMULATED host-side equivalent).
+# Classifies egress traffic on each rail NIC by DSCP into prio bands that
+# mirror the switch classes. veth has no PFC, no buffers and no ECN marking;
+# this proves classification only. Linux prio bands are strict priority, so
+# the DWRR weights in the intent are NOT reproduced here.
+set -eu
+{% for nic in nics %}
+tc qdisc del dev {{ nic.interface }} root 2>/dev/null || true
+tc qdisc add dev {{ nic.interface }} root handle 1: prio bands {{ bands | length }} priomap{% for _ in range(16) %} {{ default_band }}{% endfor %}
+
+{% for band in bands if band.dscp %}
+{% for dscp in band.dscp %}
+# {{ band.name }}: DSCP {{ dscp }} -> TC{{ band.tc }} -> band 1:{{ band.index + 1 }}
+tc filter add dev {{ nic.interface }} parent 1: protocol ip prio {{ band.index + 1 }} flower ip_tos {{ '0x%02x' % (dscp * 4) }}/0xfc classid 1:{{ band.index + 1 }}
+{% endfor %}
+{% endfor %}
+{% endfor %}
