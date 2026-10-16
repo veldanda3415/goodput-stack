@@ -117,6 +117,8 @@ is up, before the spine has learned routes from every other leaf, so some
 hashed flows briefly hit a spine without the route. FRR mitigations to test
 next: `bgp update-delay` / `bgp max-med on-startup` on spines, or holding the
 link out of ECMP until the spine has a full table.
+Tested later: see [Restore transient (#32)](#restore-transient-32). The
+hypothesis as worded is refuted; the black hole on the spine is confirmed.
 
 ### Silent degradation: finding it without being told
 
@@ -172,3 +174,139 @@ What this shows:
 
 Verdict on "show how to find it": **partially achieved**. The query set found
 the link in 2 of 3 runs, but only run 1 had a clear margin. Recorded as such.
+
+## Restore transient (#32)
+
+**Label: EMULATED, SHAPED 500 Mbit/s.** Issue #32: in the spine-loss drill
+every cross-spine probe lost 1.0–2.7 s about 4 s *after* spine1's links came
+back, more than at the failure. This section tests the hypothesis above.
+
+### Method
+
+`python -m fabric.experiments.e6_restore --repeats 3 --label before`
+([`e6_restore.py`](e6_restore.py)). Raw:
+[`e6-restore-results.json`](e6-restore-results.json). Same spine-loss drill
+as above (spine1 eth1–eth4 down at T0+10 s, up at T0+20 s; ring load, L4
+hash, six ping probes at 0.1 s). Added, on one clock (Unix time; the
+containers share the host kernel clock and print UTC, parsed as UTC):
+
+- `ip -ts monitor link route nexthop neigh` on spine1 and leaf1–4: link up,
+  kernel route and nexthop changes, neighbor (ND) entries;
+- a 10 Hz poller in the same five nodes: BGP state and `pfxRcd` per session,
+  BFD status per peer, and the kernel's BGP routes grouped by next-hop
+  device (`ip -4 route show proto bgp`);
+- every ping reply timestamp, so a loss window is the exact reply gap.
+
+### Prediction (written before the runs)
+
+If the hypothesis holds, each run's timeline reads: links up → BFD up → BGP
+Established on leafN↔spine1 (sessions come up at different times) → leafN
+installs spine1 (`eth1`) as an ECMP next hop for remote prefixes **while
+spine1's `pfxRcd` from some other leaf is still 0** → probe loss starts →
+loss ends when spine1 has prefixes from all four leaves and has them in its
+FIB. Loss would start ≈ 3–4 s after link up and last 1–3 s, as before.
+
+What would refute it: loss that starts before any leaf has a route via
+spine1, or that continues after spine1 has every leaf's prefixes installed.
+A caveat I expect to matter: with eBGP a leaf can only learn prefix P via
+spine1 once spine1 has P, so a pure "spine has no route" black hole should
+be impossible at the control-plane level. If loss appears anyway, the gap is
+more likely between spine1's RIB and its kernel FIB (zebra programming) or
+in neighbor resolution of the IPv6 link-local next hop (RFC 5549), which the
+neighbor and route monitors would show.
+
+### Results (2026-10-16, 15:18–15:23 EDT, runs 901–903)
+
+Log: [`e6-restore-before.log`](e6-restore-before.log); per-run timeline from
+the raw JSON: [`e6-restore-before-table.txt`](e6-restore-before-table.txt)
+(`python -m fabric.experiments.e6_restore_report --label before`). Times are seconds after the restore command. "ND" = the leaf's
+neighbor entry for spine1's link-local address resolved (`169.254.0.1 dev
+eth1 lladdr …`, FRR's RFC 5549 entry). "Group" = the leaf kernel's ECMP
+nexthop group for its BGP routes contains spine1's `eth1` nexthop again.
+
+| | run 901 | run 902 | run 903 |
+|---|---|---|---|
+| spine1 links up | +0.20 | +0.20 | +0.18 |
+| **leaf1–4: group re-includes spine1** (kernel, `ip monitor`) | **+0.20–0.21** | **+0.20–0.21** | **+0.18–0.19** |
+| spine1 link-local addresses usable (DAD done) | +1.43–1.91 | +1.62–1.97 | +1.47–1.94 |
+| leaf ND for spine1 resolved (leaf1 / 2 / 3 / 4) | 1.99 / 1.99 / 1.99 / 1.99 | 2.89 / 1.89 / 1.89 / 1.89 | 2.60 / 1.60 / 2.60 / 2.60 |
+| BFD up (leaf1 / 2 / 3 / 4) | 2.00 / 1.98 / 1.99 / 1.74 | 2.93 / 1.91 / 1.98 / 1.95 | 1.82 / 1.62 / 2.89 / 2.64 |
+| BGP Established (leaf1 / 2 / 3 / 4) | **none (Active, ≈ 100 s)** / 2.08 / 1.99 / 2.04 | 2.93 / 1.91 / 1.98 / 1.95 | 2.62 / 1.62 / 2.89 / 2.64 |
+| spine1 first / full prefixes received | 3.14 / 3.14 (10, leaf1 missing) | 3.13 / 4.13 (14) | 2.83 / 4.03 (14) |
+| spine1 kernel FIB: first / last BGP route installed | 3.16 / 3.16 | 3.11 / 4.11 | 2.81 / 4.09 |
+| leaf first BGP route via spine1 *from BGP* (leaf2–4; leaf1) | 3.36; none | 3.26; 4.21 | 2.91–4.19; 3.91 |
+| **probe loss windows** (last reply → next reply) | rail B 1.95→3.21; ta1→ta3 1.98→2.28; tb1→tb4 1.77→2.29 | rail B 1.80→3.18; ta1→ta3 2.22→4.11 (3 gaps); tb1→tb4 2.48→4.16 (2 gaps) | rail B 2.59→4.17; tb1→tb4 2.04→2.90, 3.31→3.61 |
+| probes with no loss after restore | rail A host1→host3, host3→host4, tb2→tb4 | same | same + ta1→ta3 |
+| loss at the failure (any probe, gap > 0.25 s) | 0 | 0 | 0 |
+
+**Verdict on the hypothesis as stated: no.** BGP doesn't put spine1 back
+early. At link-up (+0.2 s), with the leaf↔spine1 session still Idle and BFD
+down, the leaf's kernel ECMP group for its BGP routes already contains
+spine1 again. The routes kept pointing at the same nexthop group (`nhid 31
+= group 30/32` on leaf3) through the outage. The kernel dropped spine1's
+member when the link went down, and zebra re-added it the moment the link
+came up (`id 32 via fe80::… dev eth1 proto zebra` then `id 31 group 30/32`,
+then 11 routes re-pointed at nhid 31, all at +0.20 s on leaf3). zebra keeps
+an installed nexthop group for `zebra nexthop-group keep` seconds, default
+180 ([FRR 10.2 zebra docs, Nexthop Tracking](https://docs.frrouting.org/en/stable-10.2/zebra.html)).
+
+**The second half holds:** loss ends when spine1 has the route. In every
+run each loss window closed within 0.1 s of spine1's kernel installing its
+BGP routes (run 901: +3.16 → 3.21; run 902: +3.11 / 4.11 → 3.18 / 4.11 /
+4.16; run 903: +4.09 → 4.17).
+
+**What starts the loss:** the window opens within 0.1 s of the leaves
+resolving spine1's link-local address (rail B: ND 1.99 / 1.89 / 2.60 →
+last reply 1.95 / 1.80 / 2.59). From that moment a leaf can deliver packets
+hashed onto `eth1` to spine1. spine1's only route for them is the mgmt
+default (`default via 10.253.0.1 dev eth0`), because BGP hasn't yet given it
+routes; it gets them ≈ 1.2–1.5 s after Established. `fib_multipath_use_neigh`
+is 0 on the leaves, so the kernel doesn't steer around an unresolved
+nexthop. Between +0.2 s and ND resolution, packets hashed onto spine1 should
+also be lost (spine1's link-local addresses are still tentative). The probes
+that lost packets show no gap there, and I didn't capture per-packet paths,
+so **that part is unexplained**.
+
+So the black hole is real and sits on the spine (no FIB yet). But the leaf
+sends to spine1 because zebra reinstates the kernel nexthop group at
+link-up, not because BGP chose spine1. Consequences for the fix:
+
+- `bgp update-delay` doesn't apply. FRR 10.2 documents it for "BGP process
+  restart or when a BGP process is cleared using 'clear ip bgp \*'"
+  ([FRR 10.2 BGP docs](https://docs.frrouting.org/en/stable-10.2/bgp.html), `bgp update-delay MAX-DELAY [ESTABLISH-WAIT]`).
+  In this drill bgpd never restarts.
+- `bgp max-med on-startup` isn't in the 10.2 user guide's BGP page and, by
+  name, also acts at process start. Neither knob changes the leaf's nexthop
+  group, which BGP doesn't drive at that moment. **No intent knob was
+  added** (step 2 skipped; step 3 instead).
+
+Also seen: in run 901 the leaf1↔spine1 session stayed in Active/Connect
+for the whole 44 s capture, and the post-run convergence check waited
+**100.4 s** for it (runs 902 / 903: 2.5 / 2.6 s). That's the slow
+re-establishment E6 predicted from F1's connect-retry and didn't see in the
+first 21 runs. It caused no probe loss (leaf1's rail A probe had no gap),
+because the other leaves didn't learn leaf1's prefixes via spine1.
+
+### Next hypothesis
+
+H2: the leaf re-adds spine1 to the kernel ECMP group at link-up because
+zebra reinstalls the still-referenced nexthop group as soon as the
+interface is up, independent of BGP. If H2 holds:
+
+1. If zebra installed these routes without a shared kernel nexthop group
+   (the exact FRR 10.2.1 setting still needs to be confirmed in the CLI; the
+   10.2 user guide documents only `zebra nexthop-group keep`), the kernel group wouldn't regain spine1 until BGP re-learns the routes
+   (+2.9–4.2 s above). eBGP ordering then guarantees spine1 has the prefix
+   first, and the restore loss should drop to ≈ 0.
+2. Or `net.ipv4.fib_multipath_use_neigh=1` on the leaves would not help
+   once ND resolves (at +1.6–2.9 s), so it shouldn't close the window. That
+   makes it a useful negative control.
+
+Test H2 with the same drill and the same timeline before adding any intent
+knob.
+
+**Issue #32 status: still open.** Hypothesis "BGP selects the restored
+spine before it has the table" is refuted. Measured mechanism: zebra
+reinstates spine1 in the leaf's kernel ECMP group at link-up; the loss
+starts when the leaf resolves spine1's link-local address and ends when
+spine1's FIB has the route. No fix tested yet.

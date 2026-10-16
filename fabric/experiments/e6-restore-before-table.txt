@@ -1,0 +1,33 @@
+RUN 901 (before): spine1 links up +0.2; spine1 link-local DAD done +1.43..+1.91; spine1 first/last BGP FIB install +3.16/+3.16
+  leaf1: ECMP group re-includes spine1 +0.2; ND for spine1 LL +1.99; BFD up +2.0; BGP Established +None; first prefix from spine1 +None; first BGP route via spine1 in FIB +None
+  leaf2: ECMP group re-includes spine1 +0.2; ND for spine1 LL +1.99; BFD up +1.98; BGP Established +2.08; first prefix from spine1 +3.38; first BGP route via spine1 in FIB +3.36
+  leaf3: ECMP group re-includes spine1 +0.2; ND for spine1 LL +1.99; BFD up +1.99; BGP Established +1.99; first prefix from spine1 +3.29; first BGP route via spine1 in FIB +3.36
+  leaf4: ECMP group re-includes spine1 +0.21; ND for spine1 LL +1.99; BFD up +1.74; BGP Established +2.04; first prefix from spine1 +3.34; first BGP route via spine1 in FIB +3.36
+    railA host1->host3 (leaf1->leaf2): restore gaps []  fault gaps []
+    railB host1->host3 (leaf3->leaf4): restore gaps [(1.95, 3.21)]  fault gaps []
+    railA host3->host4 (same leaf2): restore gaps []  fault gaps []
+    tenant-a ta1->ta3 (leaf1->leaf3): restore gaps [(1.98, 2.28)]  fault gaps []
+    tenant-b tb1->tb4 (leaf1->leaf4): restore gaps [(1.77, 2.29)]  fault gaps []
+    tenant-b tb2->tb4 (leaf2->leaf4): restore gaps []  fault gaps []
+RUN 902 (before): spine1 links up +0.2; spine1 link-local DAD done +1.62..+1.97; spine1 first/last BGP FIB install +3.11/+4.11
+  leaf1: ECMP group re-includes spine1 +0.2; ND for spine1 LL +2.89; BFD up +2.93; BGP Established +2.93; first prefix from spine1 +4.23; first BGP route via spine1 in FIB +4.21
+  leaf2: ECMP group re-includes spine1 +0.2; ND for spine1 LL +1.89; BFD up +1.91; BGP Established +1.91; first prefix from spine1 +3.21; first BGP route via spine1 in FIB +3.26
+  leaf3: ECMP group re-includes spine1 +0.2; ND for spine1 LL +1.89; BFD up +1.98; BGP Established +1.98; first prefix from spine1 +3.28; first BGP route via spine1 in FIB +3.26
+  leaf4: ECMP group re-includes spine1 +0.21; ND for spine1 LL +1.89; BFD up +1.95; BGP Established +1.95; first prefix from spine1 +3.25; first BGP route via spine1 in FIB +3.26
+    railA host1->host3 (leaf1->leaf2): restore gaps []  fault gaps []
+    railB host1->host3 (leaf3->leaf4): restore gaps [(1.8, 3.18)]  fault gaps []
+    railA host3->host4 (same leaf2): restore gaps []  fault gaps []
+    tenant-a ta1->ta3 (leaf1->leaf3): restore gaps [(2.22, 2.64), (2.64, 2.94), (3.16, 4.11)]  fault gaps []
+    tenant-b tb1->tb4 (leaf1->leaf4): restore gaps [(2.48, 2.89), (2.89, 4.16)]  fault gaps []
+    tenant-b tb2->tb4 (leaf2->leaf4): restore gaps []  fault gaps []
+RUN 903 (before): spine1 links up +0.18; spine1 link-local DAD done +1.47..+1.94; spine1 first/last BGP FIB install +2.81/+4.09
+  leaf1: ECMP group re-includes spine1 +0.18; ND for spine1 LL +2.6; BFD up +1.82; BGP Established +2.62; first prefix from spine1 +3.92; first BGP route via spine1 in FIB +3.91
+  leaf2: ECMP group re-includes spine1 +0.18; ND for spine1 LL +1.6; BFD up +1.62; BGP Established +1.62; first prefix from spine1 +2.92; first BGP route via spine1 in FIB +2.91
+  leaf3: ECMP group re-includes spine1 +0.19; ND for spine1 LL +2.6; BFD up +2.89; BGP Established +2.89; first prefix from spine1 +4.19; first BGP route via spine1 in FIB +4.19
+  leaf4: ECMP group re-includes spine1 +0.19; ND for spine1 LL +2.6; BFD up +2.64; BGP Established +2.64; first prefix from spine1 +3.84; first BGP route via spine1 in FIB +3.91
+    railA host1->host3 (leaf1->leaf2): restore gaps []  fault gaps []
+    railB host1->host3 (leaf3->leaf4): restore gaps [(2.59, 4.17)]  fault gaps []
+    railA host3->host4 (same leaf2): restore gaps []  fault gaps []
+    tenant-a ta1->ta3 (leaf1->leaf3): restore gaps []  fault gaps []
+    tenant-b tb1->tb4 (leaf1->leaf4): restore gaps [(2.04, 2.9), (3.31, 3.61)]  fault gaps []
+    tenant-b tb2->tb4 (leaf2->leaf4): restore gaps []  fault gaps []

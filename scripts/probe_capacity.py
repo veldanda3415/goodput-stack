@@ -6,6 +6,8 @@ Per level: C closed-loop workers for --secs each, short unique prompts, max_toke
 throughput, client p50/p99, errors, and EPP CPU (kubectl top, the metrics-server window is ~15-60 s so it is a
 rough upper-bound sample taken at the end of the level). The load generator is one Python process: where
 throughput stops scaling, check whether the client (this script) rather than the gateway is the limit.
+`client_cpu` = this process's CPU seconds per wall second during the level (time.process_time; one asyncio
+thread, so ~1.0 means the client is CPU-bound). `gw_top` = kubectl top of the gateway pods at the end of the level.
 """
 import argparse, asyncio, datetime as dt, json, pathlib, subprocess, time, uuid
 import httpx
@@ -38,13 +40,18 @@ async def level(urls, hdr, conc, secs):
     lim = httpx.Limits(max_connections=conc + 8, max_keepalive_connections=conc + 8)
     async with httpx.AsyncClient(timeout=60, limits=lim) as c:
         stop, lat, errs = asyncio.Event(), [], []
+        cpu0, wall0 = time.process_time(), time.perf_counter()
         ws = [asyncio.create_task(worker(c, urls[i % len(urls)], hdr, stop, lat, errs)) for i in range(conc)]
         await asyncio.sleep(secs)
+        client_cpu = (time.process_time() - cpu0) / (time.perf_counter() - wall0)
+        stop.set()  # before kubectl: completions during the top calls must not count toward rps
+        lat, errs = list(lat), list(errs)
         cpu = sh("kubectl", "-n", NS, "top", "pod", "-l", "llm-d-router-gateway=" + EPP).strip().splitlines()[-1:]
-        stop.set()
+        gw = sh("kubectl", "-n", NS, "top", "pod", "-l", "gateway.networking.k8s.io/gateway-name=inference-gateway").strip().splitlines()[1:]
         await asyncio.gather(*ws)
     return {"conc": conc, "ok": len(lat), "errors": len(errs), "err_kinds": sorted(set(map(str, errs)))[:3],
-            "rps": len(lat) / secs, "p50_ms": 1000 * pct(lat, 50), "p99_ms": 1000 * pct(lat, 99), "epp_top": cpu}
+            "rps": len(lat) / secs, "p50_ms": 1000 * pct(lat, 50), "p99_ms": 1000 * pct(lat, 99), "epp_top": cpu,
+            "gw_top": gw, "client_cpu": round(client_cpu, 3)}
 
 
 async def main(a):

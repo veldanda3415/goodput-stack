@@ -1,0 +1,3 @@
+{"label": "before", "repeat": 1, "poll_samples": {"spine1": 440, "leaf1": 440, "leaf2": 440, "leaf3": 440, "leaf4": 440}, "reconverge_wait": 100.4}
+{"label": "before", "repeat": 2, "poll_samples": {"spine1": 440, "leaf1": 440, "leaf2": 440, "leaf3": 440, "leaf4": 440}, "reconverge_wait": 2.5}
+{"label": "before", "repeat": 3, "poll_samples": {"spine1": 440, "leaf1": 440, "leaf2": 440, "leaf3": 440, "leaf4": 440}, "reconverge_wait": 2.6}

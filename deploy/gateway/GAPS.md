@@ -346,6 +346,80 @@ simulator/host/single-process client, not the gateway; the gateway adds ~0-15 ms
 off differs less than the run-to-run spread seen between the direct runs (66 vs 50 ms at conc 1). EPP CPU (`kubectl top`, rough) 45-330 m, no trend with plugin. Single runs, one load generator: indicative only; no
 real-engine capacity claim.
 
+**Quiet-host rerun (10-16).** SIMULATED, same pool and script. Before the
+runs: fabric lab, telemetry, Batfish and k3d `gpusim` stopped; the k3s lab
+(sim-pool, llamacpp-pool, gateway) still up.
+
+*Prediction (written before the runs):* the bend is the single-process
+client, not the gateway. If so, both paths stop scaling at the same level
+(16 → 64, as on 10-15), and the load generator uses ≈ 1 core (≥ 0.9 CPU-s
+per s) at that level. Gateway p50 overhead stays at 5–15 ms up to 16, and
+plugin on vs off differs by less than the run-to-run spread. If the
+gateway bends first while the client is below 0.9 cores, the gateway/EPP
+path is the limit.
+
+*Measured (15:32–15:49 EDT).* Quiet host before the runs:
+`benchmarks/results/probes/capacity/20261016-153017-quiet-host.txt`
+(16 CPUs, load average 0.66 / 1.41 / 1.47, `vmstat 5` 94–97% idle). Pool
+recreated as above (`sed 's/max-num-seqs: 2$/max-num-seqs: 256/'
+deploy/gateway/p8/sim-p8.yaml | kubectl apply -f -`, `helm upgrade --install
+p8-pool … --set router.epp.pluginsConfigFile=baseline.yaml|token-load.yaml`).
+Six runs in off/on order ×3, each after a helm toggle, a rollout, a check of
+the EPP `--config-file` arg, and 15 s settle (log:
+`20261016-153205-quiet-rerun.log`). Raw: `20261016-15{3456,4046,4630}-off.jsonl`,
+`20261016-15{3751,4337,4924}-on.jsonl`; table:
+`scripts/capacity_summary.py` → `20261016-summary.md`. The script now
+records the client's CPU (`time.process_time()` per wall second; one asyncio
+thread, so 1.0 = one core) and gateway-pod `kubectl top`. It stops counting
+at the end of the 10 s window. The 10-15 run also counted completions
+during its `kubectl top` call, so the two days' rps aren't strictly
+comparable.
+
+Mean (min–max) over 3 runs; errors 0 in all 72 levels:
+
+| conc | plugin | direct rps | gateway rps | direct p50 / p99 ms | gateway p50 / p99 ms | client CPU (direct / gw) |
+|---|---|---|---|---|---|---|
+| 1 | off | 13.0 (12.4–13.4) | 12.7 (12.0–13.4) | 55 (50–65) / 148 | 59 (53–69) / 152 | 0.02 / 0.02 |
+| 1 | on | 13.0 (12.2–13.6) | 12.6 (12.4–12.8) | 56 (50–66) / 148 | 53 (53–53) / 152 | 0.02 / 0.02 |
+| 4 | off | 53.2 (51.7–55.6) | 51.2 (50.1–52.0) | 60 (50–65) / 150 | 55 (53–57) / 153 | 0.06 / 0.07 |
+| 4 | on | 51.5 (50.5–52.4) | 49.1 (48.0–50.9) | 60 (50–65) / 150 | 64 (54–69) / 153 | 0.06 / 0.07 |
+| 16 | off | 211.3 (210.6–212.2) | 201.4 (200.5–202.6) | 55 (51–62) / 151 | 66 (63–68) / 154 | 0.20 / 0.24 |
+| 16 | on | 208.0 (207.2–209.3) | 202.3 (198.7–204.9) | 56 (52–65) / 151 | 60 (54–68) / 154 | 0.19 / 0.25 |
+| 64 | off | 261.4 (221.6–287.4) | 141.8 (137.0–144.4) | 129 (116–155) / 1580 | 183 (178–188) / 2553 | **0.98 / 1.00** |
+| 64 | on | 276.3 (239.8–306.5) | 137.9 (131.4–150.4) | 117 (109–132) / 1565 | 191 (177–198) / 2485 | **0.97 / 1.00** |
+| 128 | off | 103.6 (99.8–110.0) | 87.9 (83.2–91.7) | 618 (559–653) / 5286 | 673 (640–713) / 5873 | **1.00 / 1.00** |
+| 128 | on | 102.4 (96.2–110.3) | 91.5 (84.8–101.9) | 591 (496–646) / 5349 | 614 (533–655) / 5801 | **1.00 / 1.00** |
+| 256 | off | 97.4 (87.0–105.2) | 76.6 (72.9–82.1) | 1143 (1011–1256) / 8117 | 1343 (1288–1377) / 8289 | **1.00 / 1.00** |
+| 256 | on | 89.1 (81.3–98.6) | 95.9 (89.4–103.6) | 1239 (1131–1317) / 8227 | 1054 (977–1109) / 8578 | **1.00 / 1.00** |
+
+EPP CPU (kubectl top, one sample per level) 43–403 m; gateway pods (sum of
+2) 2–211 m. Neither is near a core at any level. Per-level EPP and gateway
+CPU is in `20261016-summary.md`.
+
+What it shows:
+
+1. **The bend is the client.** Both paths stop scaling between 16 and 64.
+   From 64 on, the load generator is at 0.97–1.00 core on both paths. Past
+   that point direct throughput *falls* (261–276 → 89–104 rps at 128–256):
+   that is an overloaded single event loop, not a saturated backend.
+   Prediction held. Nothing above 16 says anything about gateway capacity.
+2. **Gateway overhead where the client isn't the limit (≤ 16):** at 16 the
+   gateway path runs 201–202 rps vs 208–211 direct (−2.7% on, −4.7% off).
+   The ranges don't overlap, so it's outside run-to-run spread. p50 overhead
+   at 16 is +11 ms with plugin off (ranges don't overlap) and +4 ms with it
+   on (within spread). At 1 and 4 the p50 differences (−5 to +4 ms) are
+   within spread. p99 is +3–4 ms at every level ≤ 16.
+3. **token-load-scorer on vs off:** within run-to-run spread at every level
+   ≤ 16 (gateway p50 60 vs 66 ms at 16, overlapping ranges).
+4. The gateway's ≈ 2× lower rps at 64 also comes with the client at
+   1.00 core. The gateway path costs the client more CPU per request (0.24
+   vs 0.20 core at 16 for ~5% fewer requests), so that gap is not attributed
+   to the gateway.
+
+Not shown: gateway or EPP capacity limits. That needs a multi-process or
+multi-host load generator (e.g. several `probe_capacity.py` processes, or a
+compiled client) that stays below one core per process at the bend.
+
 ---
 
 ## Gateway smoke and #13 (2026-10-12)
