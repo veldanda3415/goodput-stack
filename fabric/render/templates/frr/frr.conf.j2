@@ -22,10 +22,29 @@ bfd
   detect-multiplier {{ intent.bfd.detect_multiplier }}
 !
 {% endif %}
+{%- for vrf in vrfs %}
+vrf {{ vrf.name }}
+ vni {{ vrf.l3vni }}
+exit-vrf
+!
+{%- endfor %}
 route-map FABRIC-IN permit 10
 !
 route-map FABRIC-OUT permit 10
 !
+{%- for vrf in vrfs %}
+router bgp {{ node.asn }} vrf {{ vrf.name }}
+ bgp router-id {{ node.loopback.split('/')[0] }}
+ address-family ipv4 unicast
+  redistribute connected
+ exit-address-family
+ address-family l2vpn evpn
+  advertise ipv4 unicast
+  route-target import {{ vrf.route_target }}
+  route-target export {{ vrf.route_target }}
+ exit-address-family
+!
+{%- endfor %}
 router bgp {{ node.asn }}
  bgp router-id {{ node.loopback.split('/')[0] }}
  no bgp default ipv4-unicast
@@ -59,6 +78,8 @@ router bgp {{ node.asn }}
  address-family l2vpn evpn
 {%- for group in peer_groups %}
   neighbor {{ group.name }} activate
+  neighbor {{ group.name }} route-map FABRIC-IN in
+  neighbor {{ group.name }} route-map FABRIC-OUT out
 {%- if node.role == "spine" %}
   neighbor {{ group.name }} attribute-unchanged next-hop
 {%- endif %}
@@ -75,20 +96,3 @@ router bgp {{ node.asn }}
  exit-address-family
 {%- endif %}
 !
-{%- for vrf in vrfs %}
-vrf {{ vrf.name }}
- vni {{ vrf.l3vni }}
-exit-vrf
-!
-router bgp {{ node.asn }} vrf {{ vrf.name }}
- bgp router-id {{ node.loopback.split('/')[0] }}
- address-family ipv4 unicast
-  redistribute connected
- exit-address-family
- address-family l2vpn evpn
-  advertise ipv4 unicast
-  route-target import {{ vrf.route_target }}
-  route-target export {{ vrf.route_target }}
- exit-address-family
-!
-{%- endfor %}

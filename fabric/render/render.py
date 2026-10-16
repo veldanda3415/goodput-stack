@@ -159,12 +159,17 @@ def render(intent: dict[str, Any], output: Path) -> None:
         if node["role"] == "leaf" and leaf_vrfs(intent, node["name"]):
             tenant_dir = output / "tenants"
             tenant_dir.mkdir(parents=True, exist_ok=True)
-            (tenant_dir / f"{node['name']}-tenants.sh").write_text(
-                leaf_tenant_script(intent, node["name"]), encoding="utf-8"
-            )
             router = topology["topology"]["nodes"][node["name"]]
-            router["binds"].append(f"./tenants/{node['name']}-tenants.sh:/usr/local/bin/tenants.sh:ro")
-            router["exec"].append("sh /usr/local/bin/tenants.sh")
+            for stage in ("devices", "ports"):
+                (tenant_dir / f"{node['name']}-tenant-{stage}.sh").write_text(
+                    leaf_tenant_script(intent, node["name"], stage), encoding="utf-8"
+                )
+                router["binds"].append(
+                    f"./tenants/{node['name']}-tenant-{stage}.sh:/usr/local/bin/tenant-{stage}.sh:ro"
+                )
+            # Tenant devices must exist before zebra reads `vrf X / vni N`.
+            router["cmd"] = "sh -c 'sh /usr/local/bin/tenant-devices.sh && exec /usr/lib/frr/docker-start'"
+            router["exec"].append("sh /usr/local/bin/tenant-ports.sh")
 
     for host_name, host in hosts.items():
         if host_name in {vm["name"] for vm in intent.get("vm_hosts", [])}:

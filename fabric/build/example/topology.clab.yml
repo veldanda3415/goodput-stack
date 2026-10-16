@@ -35,11 +35,15 @@ topology:
       binds:
       - ./frr/leaf1/frr.conf:/etc/frr/frr.conf:ro
       - ./frr/leaf1/daemons:/etc/frr/daemons:ro
+      - ./tenants/leaf1-tenant-devices.sh:/usr/local/bin/tenant-devices.sh:ro
+      - ./tenants/leaf1-tenant-ports.sh:/usr/local/bin/tenant-ports.sh:ro
       exec:
       - sysctl -w net.ipv4.conf.all.rp_filter=0
       - sysctl -w net.ipv4.conf.default.rp_filter=0
       - sysctl -w net.ipv4.ip_forward=1
       - sysctl -w net.ipv6.conf.all.forwarding=1
+      - sh /usr/local/bin/tenant-ports.sh
+      cmd: sh -c 'sh /usr/local/bin/tenant-devices.sh && exec /usr/lib/frr/docker-start'
     leaf2:
       kind: linux
       image: quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb
@@ -47,11 +51,15 @@ topology:
       binds:
       - ./frr/leaf2/frr.conf:/etc/frr/frr.conf:ro
       - ./frr/leaf2/daemons:/etc/frr/daemons:ro
+      - ./tenants/leaf2-tenant-devices.sh:/usr/local/bin/tenant-devices.sh:ro
+      - ./tenants/leaf2-tenant-ports.sh:/usr/local/bin/tenant-ports.sh:ro
       exec:
       - sysctl -w net.ipv4.conf.all.rp_filter=0
       - sysctl -w net.ipv4.conf.default.rp_filter=0
       - sysctl -w net.ipv4.ip_forward=1
       - sysctl -w net.ipv6.conf.all.forwarding=1
+      - sh /usr/local/bin/tenant-ports.sh
+      cmd: sh -c 'sh /usr/local/bin/tenant-devices.sh && exec /usr/lib/frr/docker-start'
     leaf3:
       kind: linux
       image: quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb
@@ -59,11 +67,15 @@ topology:
       binds:
       - ./frr/leaf3/frr.conf:/etc/frr/frr.conf:ro
       - ./frr/leaf3/daemons:/etc/frr/daemons:ro
+      - ./tenants/leaf3-tenant-devices.sh:/usr/local/bin/tenant-devices.sh:ro
+      - ./tenants/leaf3-tenant-ports.sh:/usr/local/bin/tenant-ports.sh:ro
       exec:
       - sysctl -w net.ipv4.conf.all.rp_filter=0
       - sysctl -w net.ipv4.conf.default.rp_filter=0
       - sysctl -w net.ipv4.ip_forward=1
       - sysctl -w net.ipv6.conf.all.forwarding=1
+      - sh /usr/local/bin/tenant-ports.sh
+      cmd: sh -c 'sh /usr/local/bin/tenant-devices.sh && exec /usr/lib/frr/docker-start'
     leaf4:
       kind: linux
       image: quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb
@@ -71,11 +83,15 @@ topology:
       binds:
       - ./frr/leaf4/frr.conf:/etc/frr/frr.conf:ro
       - ./frr/leaf4/daemons:/etc/frr/daemons:ro
+      - ./tenants/leaf4-tenant-devices.sh:/usr/local/bin/tenant-devices.sh:ro
+      - ./tenants/leaf4-tenant-ports.sh:/usr/local/bin/tenant-ports.sh:ro
       exec:
       - sysctl -w net.ipv4.conf.all.rp_filter=0
       - sysctl -w net.ipv4.conf.default.rp_filter=0
       - sysctl -w net.ipv4.ip_forward=1
       - sysctl -w net.ipv6.conf.all.forwarding=1
+      - sh /usr/local/bin/tenant-ports.sh
+      cmd: sh -c 'sh /usr/local/bin/tenant-devices.sh && exec /usr/lib/frr/docker-start'
     host1:
       kind: linux
       image: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
@@ -150,58 +166,161 @@ topology:
       privileged: true
       network-mode: container:spine2
       cmd: sleep infinity
+    ta1:
+      kind: linux
+      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      cmd: sleep infinity
+      cap-add:
+      - NET_ADMIN
+      - NET_RAW
+      labels:
+        goodput.tenant: tenant-a
+      exec:
+      - ip link set eth1 mtu 9000 up
+      - ip address replace 10.220.11.10/24 dev eth1
+      - ip route replace default via 10.220.11.1 dev eth1
+    ta3:
+      kind: linux
+      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      cmd: sleep infinity
+      cap-add:
+      - NET_ADMIN
+      - NET_RAW
+      labels:
+        goodput.tenant: tenant-a
+      exec:
+      - ip link set eth1 mtu 9000 up
+      - ip address replace 10.220.13.10/24 dev eth1
+      - ip route replace default via 10.220.13.1 dev eth1
+    tb1:
+      kind: linux
+      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      cmd: sleep infinity
+      cap-add:
+      - NET_ADMIN
+      - NET_RAW
+      labels:
+        goodput.tenant: tenant-b
+      exec:
+      - ip link set eth1 mtu 9000 up
+      - ip address replace 10.220.21.10/24 dev eth1
+      - ip route replace default via 10.220.21.1 dev eth1
+    tb2:
+      kind: linux
+      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      cmd: sleep infinity
+      cap-add:
+      - NET_ADMIN
+      - NET_RAW
+      labels:
+        goodput.tenant: tenant-b
+      exec:
+      - ip link set eth1 mtu 9000 up
+      - ip address replace 10.220.22.10/24 dev eth1
+      - ip route replace default via 10.220.22.1 dev eth1
+    tb4:
+      kind: linux
+      image: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+      cmd: sleep infinity
+      cap-add:
+      - NET_ADMIN
+      - NET_RAW
+      labels:
+        goodput.tenant: tenant-b
+      exec:
+      - ip link set eth1 mtu 9000 up
+      - ip address replace 10.220.24.10/24 dev eth1
+      - ip route replace default via 10.220.24.1 dev eth1
   links:
   - endpoints:
     - spine1:eth1
     - leaf1:eth1
+    mtu: 9500
   - endpoints:
     - spine1:eth2
     - leaf2:eth1
+    mtu: 9500
   - endpoints:
     - spine1:eth3
     - leaf3:eth1
+    mtu: 9500
   - endpoints:
     - spine1:eth4
     - leaf4:eth1
+    mtu: 9500
   - endpoints:
     - spine2:eth1
     - leaf1:eth2
+    mtu: 9500
   - endpoints:
     - spine2:eth2
     - leaf2:eth2
+    mtu: 9500
   - endpoints:
     - spine2:eth3
     - leaf3:eth2
+    mtu: 9500
   - endpoints:
     - spine2:eth4
     - leaf4:eth2
+    mtu: 9500
   - endpoints:
     - host1:eth1
     - leaf1:eth3
+    mtu: 9500
   - endpoints:
     - host2:eth1
     - leaf1:eth4
+    mtu: 9500
   - endpoints:
     - host1:eth2
     - leaf3:eth3
+    mtu: 9500
   - endpoints:
     - host2:eth2
     - leaf3:eth4
+    mtu: 9500
   - endpoints:
     - host3:eth1
     - leaf2:eth3
+    mtu: 9500
   - endpoints:
     - host4:eth1
     - leaf2:eth4
+    mtu: 9500
   - endpoints:
     - host3:eth2
     - leaf4:eth3
+    mtu: 9500
   - endpoints:
     - host4:eth2
     - leaf4:eth4
+    mtu: 9500
   - endpoints:
     - vmhost1:eth1
     - leaf1:eth5
+    mtu: 9500
   - endpoints:
     - vmhost2:eth1
     - leaf2:eth5
+    mtu: 9500
+  - endpoints:
+    - ta1:eth1
+    - leaf1:eth6
+    mtu: 9500
+  - endpoints:
+    - tb1:eth1
+    - leaf1:eth7
+    mtu: 9500
+  - endpoints:
+    - ta3:eth1
+    - leaf3:eth5
+    mtu: 9500
+  - endpoints:
+    - tb2:eth1
+    - leaf2:eth6
+    mtu: 9500
+  - endpoints:
+    - tb4:eth1
+    - leaf4:eth5
+    mtu: 9500

@@ -1,0 +1,1031 @@
+{
+  "label": "EMULATED (veth + Linux VXLAN/VRF + FRR 10.2.1 EVPN)",
+  "run_at": "2026-10-16T17:07:36.621413+00:00",
+  "control_plane": {
+    "show_evpn_vni": {
+      "leaf1": {
+        "node": "leaf1",
+        "command": "vtysh -c \"show evpn vni\"",
+        "rc": 0,
+        "output": "VNI        Type VxLAN IF              # MACs   # ARPs   # Remote VTEPs  Tenant VRF                           \n10201      L2   vx10201               1        1        0               tenant-b                             \n10101      L2   vx10101               1        1        0               tenant-a                             \n50002      L3   vx50002               2        2        n/a             tenant-b                             \n50001      L3   vx50001               1        1        n/a             tenant-a                             \n"
+      },
+      "leaf2": {
+        "node": "leaf2",
+        "command": "vtysh -c \"show evpn vni\"",
+        "rc": 0,
+        "output": "VNI        Type VxLAN IF              # MACs   # ARPs   # Remote VTEPs  Tenant VRF                           \n10202      L2   vx10202               1        1        0               tenant-b                             \n50002      L3   vx50002               2        2        n/a             tenant-b                             \n"
+      },
+      "leaf3": {
+        "node": "leaf3",
+        "command": "vtysh -c \"show evpn vni\"",
+        "rc": 0,
+        "output": "VNI        Type VxLAN IF              # MACs   # ARPs   # Remote VTEPs  Tenant VRF                           \n10103      L2   vx10103               1        2        0               tenant-a                             \n50001      L3   vx50001               1        1        n/a             tenant-a                             \n"
+      },
+      "leaf4": {
+        "node": "leaf4",
+        "command": "vtysh -c \"show evpn vni\"",
+        "rc": 0,
+        "output": "VNI        Type VxLAN IF              # MACs   # ARPs   # Remote VTEPs  Tenant VRF                           \n10204      L2   vx10204               1        1        0               tenant-b                             \n50002      L3   vx50002               2        2        n/a             tenant-b                             \n"
+      }
+    },
+    "evpn_type2_leaf3": {
+      "node": "leaf3",
+      "command": "vtysh -c \"show bgp l2vpn evpn route type 2\"",
+      "rc": 0,
+      "output": "BGP table version is 10, local router ID is 10.200.0.13\nStatus codes: s suppressed, d damped, h history, * valid, > best, i - internal\nOrigin codes: i - IGP, e - EGP, ? - incomplete\nEVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]:[Frag-id]\nEVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]:[IPlen]:[IP]\nEVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]\nEVPN type-4 prefix: [4]:[ESI]:[IPlen]:[OrigIP]\nEVPN type-5 prefix: [5]:[EthTag]:[IPlen]:[IP]\n\n   Network          Next Hop            Metric LocPrf Weight Path\n                    Extended Community\nRoute Distinguisher: 10.200.0.11:4\n *>  [2]:[0]:[48]:[aa:c1:ab:c7:aa:1c]\n                    10.200.0.11                            0 65000 65101 i\n                    RT:65000:10101 ET:8\n *=  [2]:[0]:[48]:[aa:c1:ab:c7:aa:1c]\n                    10.200.0.11                            0 65000 65101 i\n                    RT:65000:10101 ET:8\n *>  [2]:[0]:[48]:[aa:c1:ab:c7:aa:1c]:[32]:[10.220.11.10]\n                    10.200.0.11                            0 65000 65101 i\n                    RT:65000:10101 RT:65000:50001 ET:8 Rmac:82:b5:4f:04:75:67\n *=  [2]:[0]:[48]:[aa:c1:ab:c7:aa:1c]:[32]:[10.220.11.10]\n                    10.200.0.11                            0 65000 65101 i\n                    RT:65000:10101 RT:65000:50001 ET:8 Rmac:82:b5:4f:04:75:67\nRoute Distinguisher: 10.200.0.11:5\n *>  [2]:[0]:[48]:[aa:c1:ab:50:35:13]\n                    10.200.0.11                            0 65000 65101 i\n                    RT:65000:10201 ET:8\n *=  [2]:[0]:[48]:[aa:c1:ab:50:35:13]\n                    10.200.0.11                            0 65000 65101 i\n                    RT:65000:10201 ET:8\n *>  [2]:[0]:[48]:[aa:c1:ab:50:35:13]:[128]:[fe80::a8c1:abff:fe50:3513]\n                    10.200.0.11                            0 65000 65101 i\n                    RT:65000:10201 ET:8\n *=  [2]:[0]:[48]:[aa:c1:ab:50:35:13]:[128]:[fe80::a8c1:abff:fe50:3513]\n                    10.200.0.11                            0 65000 65101 i\n                    RT:65000:10201 ET:8\nRoute Distinguisher: 10.200.0.12:3\n *>  [2]:[0]:[48]:[aa:c1:ab:25:b9:3d]\n                    10.200.0.12                            0 65000 65102 i\n                    RT:65000:10202 ET:8\n *=  [2]:[0]:[48]:[aa:c1:ab:25:b9:3d]\n                    10.200.0.12                            0 65000 65102 i\n                    RT:65000:10202 ET:8\n *>  [2]:[0]:[48]:[aa:c1:ab:25:b9:3d]:[128]:[fe80::a8c1:abff:fe25:b93d]\n                    10.200.0.12                            0 65000 65102 i\n                    RT:65000:10202 ET:8\n *=  [2]:[0]:[48]:[aa:c1:ab:25:b9:3d]:[128]:[fe80::a8c1:abff:fe25:b93d]\n                    10.200.0.12                            0 65000 65102 i\n                    RT:65000:10202 ET:8\nRoute Distinguisher: 10.200.0.13:3\n *>  [2]:[0]:[48]:[aa:c1:ab:45:6b:1c]\n                    10.200.0.13                        32768 i\n                    ET:8 RT:65000:10103\n *>  [2]:[0]:[48]:[aa:c1:ab:45:6b:1c]:[32]:[10.220.13.10]\n                    10.200.0.13                        32768 i\n                    ET:8 RT:65000:10103 RT:65000:50001 Rmac:5e:e5:3f:b2:e8:f9\n *>  [2]:[0]:[48]:[aa:c1:ab:45:6b:1c]:[128]:[fe80::a8c1:abff:fe45:6b1c]\n                    10.200.0.13                        32768 i\n                    ET:8 RT:65000:10103\nRoute Distinguisher: 10.200.0.14:3\n *>  [2]:[0]:[48]:[aa:c1:ab:eb:04:4d]\n                    10.200.0.14                            0 65000 65104 i\n                    RT:65000:10204 ET:8\n *=  [2]:[0]:[48]:[aa:c1:ab:eb:04:4d]\n                    10.200.0.14                            0 65000 65104 i\n                    RT:65000:10204 ET:8\n *>  [2]:[0]:[48]:[aa:c1:ab:eb:04:4d]:[32]:[10.220.24.10]\n                    10.200.0.14                            0 65000 65104 i\n                    RT:65000:10204 RT:65000:50002 ET:8 Rmac:6a:c5:c8:17:e6:51\n *=  [2]:[0]:[48]:[aa:c1:ab:eb:04:4d]:[32]:[10.220.24.10]\n                    10.200.0.14                            0 65000 65104 i\n                    RT:65000:10204 RT:65000:50002 ET:8 Rmac:6a:c5:c8:17:e6:51\n\nDisplayed 11 prefixes (19 paths) (of requested type)\n"
+    },
+    "evpn_type5_leaf3": {
+      "node": "leaf3",
+      "command": "vtysh -c \"show bgp l2vpn evpn route type 5\"",
+      "rc": 0,
+      "output": "BGP table version is 2, local router ID is 10.200.0.13\nStatus codes: s suppressed, d damped, h history, * valid, > best, i - internal\nOrigin codes: i - IGP, e - EGP, ? - incomplete\nEVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]:[Frag-id]\nEVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]:[IPlen]:[IP]\nEVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]\nEVPN type-4 prefix: [4]:[ESI]:[IPlen]:[OrigIP]\nEVPN type-5 prefix: [5]:[EthTag]:[IPlen]:[IP]\n\n   Network          Next Hop            Metric LocPrf Weight Path\n                    Extended Community\nRoute Distinguisher: 10.200.0.11:1\n *>  [5]:[0]:[24]:[10.220.11.0]\n                    10.200.0.11                            0 65000 65101 ?\n                    RT:65000:50001 ET:8 Rmac:82:b5:4f:04:75:67\n *=  [5]:[0]:[24]:[10.220.11.0]\n                    10.200.0.11                            0 65000 65101 ?\n                    RT:65000:50001 ET:8 Rmac:82:b5:4f:04:75:67\nRoute Distinguisher: 10.200.0.11:2\n *>  [5]:[0]:[24]:[10.220.21.0]\n                    10.200.0.11                            0 65000 65101 ?\n                    RT:65000:50002 ET:8 Rmac:4e:fb:97:09:bf:cd\n *=  [5]:[0]:[24]:[10.220.21.0]\n                    10.200.0.11                            0 65000 65101 ?\n                    RT:65000:50002 ET:8 Rmac:4e:fb:97:09:bf:cd\nRoute Distinguisher: 10.200.0.12:1\n *>  [5]:[0]:[24]:[10.220.22.0]\n                    10.200.0.12                            0 65000 65102 ?\n                    RT:65000:50002 ET:8 Rmac:be:78:47:a5:b6:74\n *=  [5]:[0]:[24]:[10.220.22.0]\n                    10.200.0.12                            0 65000 65102 ?\n                    RT:65000:50002 ET:8 Rmac:be:78:47:a5:b6:74\nRoute Distinguisher: 10.200.0.13:1\n *>  [5]:[0]:[24]:[10.220.13.0]\n                    10.200.0.13              0         32768 ?\n                    ET:8 RT:65000:50001 Rmac:5e:e5:3f:b2:e8:f9\nRoute Distinguisher: 10.200.0.14:1\n *>  [5]:[0]:[24]:[10.220.24.0]\n                    10.200.0.14                            0 65000 65104 ?\n                    RT:65000:50002 ET:8 Rmac:6a:c5:c8:17:e6:51\n *=  [5]:[0]:[24]:[10.220.24.0]\n                    10.200.0.14                            0 65000 65104 ?\n                    RT:65000:50002 ET:8 Rmac:6a:c5:c8:17:e6:51\n\nDisplayed 5 prefixes (9 paths) (of requested type)\n"
+    },
+    "evpn_type5_spine1": {
+      "node": "spine1",
+      "command": "vtysh -c \"show bgp l2vpn evpn route type 5\"",
+      "rc": 0,
+      "output": "BGP table version is 1, local router ID is 10.200.0.1\nStatus codes: s suppressed, d damped, h history, * valid, > best, i - internal\nOrigin codes: i - IGP, e - EGP, ? - incomplete\nEVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]:[Frag-id]\nEVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]:[IPlen]:[IP]\nEVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]\nEVPN type-4 prefix: [4]:[ESI]:[IPlen]:[OrigIP]\nEVPN type-5 prefix: [5]:[EthTag]:[IPlen]:[IP]\n\n   Network          Next Hop            Metric LocPrf Weight Path\n                    Extended Community\nRoute Distinguisher: 10.200.0.11:1\n *>  [5]:[0]:[24]:[10.220.11.0]\n                    10.200.0.11              0             0 65101 ?\n                    RT:65000:50001 ET:8 Rmac:82:b5:4f:04:75:67\nRoute Distinguisher: 10.200.0.11:2\n *>  [5]:[0]:[24]:[10.220.21.0]\n                    10.200.0.11              0             0 65101 ?\n                    RT:65000:50002 ET:8 Rmac:4e:fb:97:09:bf:cd\nRoute Distinguisher: 10.200.0.12:1\n *>  [5]:[0]:[24]:[10.220.22.0]\n                    10.200.0.12              0             0 65102 ?\n                    RT:65000:50002 ET:8 Rmac:be:78:47:a5:b6:74\nRoute Distinguisher: 10.200.0.13:1\n *>  [5]:[0]:[24]:[10.220.13.0]\n                    10.200.0.13              0             0 65103 ?\n                    RT:65000:50001 ET:8 Rmac:5e:e5:3f:b2:e8:f9\nRoute Distinguisher: 10.200.0.14:1\n *>  [5]:[0]:[24]:[10.220.24.0]\n                    10.200.0.14              0             0 65104 ?\n                    RT:65000:50002 ET:8 Rmac:6a:c5:c8:17:e6:51\n\nDisplayed 5 prefixes (5 paths) (of requested type)\n"
+    },
+    "evpn_vni_rts_leaf1": {
+      "node": "leaf1",
+      "command": "vtysh -c \"show bgp l2vpn evpn vni\"",
+      "rc": 0,
+      "output": "Advertise Gateway Macip: Disabled\nAdvertise SVI Macip: Disabled\nAdvertise All VNI flag: Enabled\nBUM flooding: Head-end replication\nVXLAN flooding: Enabled\nNumber of L2 VNIs: 2\nNumber of L3 VNIs: 2\nFlags: * - Kernel\n  VNI        Type RD                    Import RT                 Export RT                 MAC-VRF Site-of-Origin    Tenant VRF                           \n* 10201      L2   10.200.0.11:5         65000:10201               65000:10201                                         tenant-b                             \n* 10101      L2   10.200.0.11:4         65000:10101               65000:10101                                         tenant-a                             \n* 50001      L3   10.200.0.11:1         65000:50001               65000:50001                                         tenant-a                             \n* 50002      L3   10.200.0.11:2         65000:50002               65000:50002                                         tenant-b                             \n"
+    },
+    "vrf_tenant_a_leaf1": {
+      "node": "leaf1",
+      "command": "vtysh -c \"show bgp vrf tenant-a ipv4 unicast\"",
+      "rc": 0,
+      "output": "BGP table version is 5, local router ID is 10.200.0.11, vrf id 3\nDefault local pref 100, local AS 65101\nStatus codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,\n               i internal, r RIB-failure, S Stale, R Removed\nNexthop codes: @NNN nexthop's vrf id, < announce-nh-self\nOrigin codes:  i - IGP, e - EGP, ? - incomplete\nRPKI validation codes: V valid, I invalid, N Not found\n\n     Network          Next Hop            Metric LocPrf Weight Path\n *>  10.220.11.0/24   0.0.0.0                  0         32768 ?\n *>  10.220.13.0/24   10.200.0.13<                           0 65000 65103 ?\n *=                   10.200.0.13<                           0 65000 65103 ?\n *>  10.220.13.10/32  10.200.0.13<                           0 65000 65103 i\n *=                   10.200.0.13<                           0 65000 65103 i\n\nDisplayed 3 routes and 5 total paths\n"
+    },
+    "vrf_tenant_b_leaf1": {
+      "node": "leaf1",
+      "command": "vtysh -c \"show bgp vrf tenant-b ipv4 unicast\"",
+      "rc": 0,
+      "output": "BGP table version is 8, local router ID is 10.200.0.11, vrf id 8\nDefault local pref 100, local AS 65101\nStatus codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,\n               i internal, r RIB-failure, S Stale, R Removed\nNexthop codes: @NNN nexthop's vrf id, < announce-nh-self\nOrigin codes:  i - IGP, e - EGP, ? - incomplete\nRPKI validation codes: V valid, I invalid, N Not found\n\n     Network          Next Hop            Metric LocPrf Weight Path\n *>  10.220.21.0/24   0.0.0.0                  0         32768 ?\n *>  10.220.22.0/24   10.200.0.12<                           0 65000 65102 ?\n *=                   10.200.0.12<                           0 65000 65102 ?\n *>  10.220.24.0/24   10.200.0.14<                           0 65000 65104 ?\n *=                   10.200.0.14<                           0 65000 65104 ?\n *>  10.220.24.10/32  10.200.0.14<                           0 65000 65104 i\n *=                   10.200.0.14<                           0 65000 65104 i\n\nDisplayed 4 routes and 7 total paths\n"
+    },
+    "vrf_tenant_a_kernel_leaf3": {
+      "node": "leaf3",
+      "command": "ip route show vrf tenant-a",
+      "rc": 0,
+      "output": "10.220.11.0/24 nhid 37 via 10.200.0.11 dev br50001 proto bgp metric 20 onlink \n10.220.11.10 nhid 37 via 10.200.0.11 dev br50001 proto bgp metric 20 onlink \n10.220.13.0/24 dev br10103 proto kernel scope link src 10.220.13.1 \n"
+    },
+    "evpn_rmac_leaf1": {
+      "node": "leaf1",
+      "command": "vtysh -c \"show evpn rmac vni all\"",
+      "rc": 0,
+      "output": "\nVNI 50002 #RMACs 2\n\nRMAC              Remote VTEP          \n6a:c5:c8:17:e6:51 10.200.0.14          \nbe:78:47:a5:b6:74 10.200.0.12          \n\nVNI 50001 #RMACs 1\n\nRMAC              Remote VTEP          \n5e:e5:3f:b2:e8:f9 10.200.0.13          \n"
+    },
+    "evpn_nexthops_leaf1": {
+      "node": "leaf1",
+      "command": "vtysh -c \"show evpn next-hops vni all\"",
+      "rc": 0,
+      "output": "\nVNI 50002 #Next-Hops 2\n\nIP              RMAC             \n10.200.0.14     6a:c5:c8:17:e6:51\n10.200.0.12     be:78:47:a5:b6:74\n\nVNI 50001 #Next-Hops 1\n\nIP              RMAC             \n10.200.0.13     5e:e5:3f:b2:e8:f9\n"
+    },
+    "bridge_fdb_leaf1": {
+      "node": "leaf1",
+      "command": "bridge fdb show dev vx50001",
+      "rc": 0,
+      "output": "5e:e5:3f:b2:e8:f9 vlan 1 extern_learn master br50001 \n5e:e5:3f:b2:e8:f9 extern_learn master br50001 \n82:b5:4f:04:75:67 vlan 1 master br50001 permanent\n82:b5:4f:04:75:67 master br50001 permanent\n5e:e5:3f:b2:e8:f9 dst 10.200.0.13 self extern_learn \n"
+    },
+    "bridge_fdb_leaf1_l2": {
+      "node": "leaf1",
+      "command": "bridge fdb show br br10101",
+      "rc": 0,
+      "output": "33:33:00:00:00:01 dev br10101 self permanent\n01:00:5e:00:00:6a dev br10101 self permanent\n33:33:00:00:00:6a dev br10101 self permanent\n01:00:5e:00:00:01 dev br10101 self permanent\n33:33:ff:00:fe:01 dev br10101 self permanent\n33:33:00:00:00:02 dev br10101 self permanent\n33:33:ff:00:00:00 dev br10101 self permanent\n02:00:00:00:fe:01 dev br10101 vlan 1 master br10101 permanent\n02:00:00:00:fe:01 dev br10101 master br10101 permanent\n76:8a:3f:84:03:9a dev vx10101 vlan 1 master br10101 permanent\n76:8a:3f:84:03:9a dev vx10101 master br10101 permanent\naa:c1:ab:c7:aa:1c dev eth6 master br10101 \naa:c1:ab:09:9c:74 dev eth6 vlan 1 master br10101 permanent\naa:c1:ab:09:9c:74 dev eth6 master br10101 permanent\n33:33:00:00:00:01 dev eth6 self permanent\n33:33:00:00:00:02 dev eth6 self permanent\n01:00:5e:00:00:01 dev eth6 self permanent\n33:33:ff:09:9c:74 dev eth6 self permanent\n33:33:ff:00:00:00 dev eth6 self permanent\n"
+    },
+    "evpn_summary_spine1": {
+      "node": "spine1",
+      "command": "vtysh -c \"show bgp l2vpn evpn summary\"",
+      "rc": 0,
+      "output": "BGP router identifier 10.200.0.1, local AS number 65000 VRF default vrf-id 0\nBGP table version 0\nRIB entries 19, using 2432 bytes of memory\nPeers 4, using 66 KiB of memory\nPeer groups 4, using 256 bytes of memory\n\nNeighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\neth1            4      65101        92       103        8    0    0 00:02:01            8       21 N/A\neth2            4      65102        93       103        8    0    0 00:02:01            4       21 N/A\neth3            4      65103        92       102        8    0    0 00:02:01            5       21 N/A\neth4            4      65104        93        93        8    0    0 00:02:02            4       21 N/A\n\nTotal number of neighbors 4\n"
+    },
+    "default_vrf_leaf1_no_tenant_routes": {
+      "node": "leaf1",
+      "command": "ip route show 10.220.0.0/16",
+      "rc": 0,
+      "output": ""
+    }
+  },
+  "type5_nexthops_leaf3": {
+    "10.200.0.11:1 [5]:[0]:[24]:[10.220.11.0]": [
+      "10.200.0.11",
+      "10.200.0.11"
+    ],
+    "10.200.0.11:2 [5]:[0]:[24]:[10.220.21.0]": [
+      "10.200.0.11",
+      "10.200.0.11"
+    ],
+    "10.200.0.12:1 [5]:[0]:[24]:[10.220.22.0]": [
+      "10.200.0.12",
+      "10.200.0.12"
+    ],
+    "10.200.0.13:1 [5]:[0]:[24]:[10.220.13.0]": [
+      "10.200.0.13"
+    ],
+    "10.200.0.14:1 [5]:[0]:[24]:[10.220.24.0]": [
+      "10.200.0.14",
+      "10.200.0.14"
+    ]
+  },
+  "reachability": [
+    {
+      "source": "ta1",
+      "source_vrf": "tenant-a",
+      "target": "ta3",
+      "target_ip": "10.220.13.10",
+      "kind": "same tenant",
+      "reached": true,
+      "expected": true,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.13.10"
+    },
+    {
+      "source": "ta1",
+      "source_vrf": "tenant-a",
+      "target": "tb1",
+      "target_ip": "10.220.21.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.21.10"
+    },
+    {
+      "source": "ta1",
+      "source_vrf": "tenant-a",
+      "target": "tb2",
+      "target_ip": "10.220.22.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.22.10"
+    },
+    {
+      "source": "ta1",
+      "source_vrf": "tenant-a",
+      "target": "tb4",
+      "target_ip": "10.220.24.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.24.10"
+    },
+    {
+      "source": "ta1",
+      "source_vrf": "tenant-a",
+      "target": "host1 rail A",
+      "target_ip": "10.210.0.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.2"
+    },
+    {
+      "source": "ta1",
+      "source_vrf": "tenant-a",
+      "target": "host3 rail A",
+      "target_ip": "10.210.0.10",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.10"
+    },
+    {
+      "source": "ta1",
+      "source_vrf": "tenant-a",
+      "target": "host1 rail B",
+      "target_ip": "10.210.1.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.1.2"
+    },
+    {
+      "source": "ta3",
+      "source_vrf": "tenant-a",
+      "target": "ta1",
+      "target_ip": "10.220.11.10",
+      "kind": "same tenant",
+      "reached": true,
+      "expected": true,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.11.10"
+    },
+    {
+      "source": "ta3",
+      "source_vrf": "tenant-a",
+      "target": "tb1",
+      "target_ip": "10.220.21.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.21.10"
+    },
+    {
+      "source": "ta3",
+      "source_vrf": "tenant-a",
+      "target": "tb2",
+      "target_ip": "10.220.22.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.22.10"
+    },
+    {
+      "source": "ta3",
+      "source_vrf": "tenant-a",
+      "target": "tb4",
+      "target_ip": "10.220.24.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.24.10"
+    },
+    {
+      "source": "ta3",
+      "source_vrf": "tenant-a",
+      "target": "host1 rail A",
+      "target_ip": "10.210.0.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.2"
+    },
+    {
+      "source": "ta3",
+      "source_vrf": "tenant-a",
+      "target": "host3 rail A",
+      "target_ip": "10.210.0.10",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.10"
+    },
+    {
+      "source": "ta3",
+      "source_vrf": "tenant-a",
+      "target": "host1 rail B",
+      "target_ip": "10.210.1.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.1.2"
+    },
+    {
+      "source": "tb1",
+      "source_vrf": "tenant-b",
+      "target": "ta1",
+      "target_ip": "10.220.11.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.11.10"
+    },
+    {
+      "source": "tb1",
+      "source_vrf": "tenant-b",
+      "target": "ta3",
+      "target_ip": "10.220.13.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.13.10"
+    },
+    {
+      "source": "tb1",
+      "source_vrf": "tenant-b",
+      "target": "tb2",
+      "target_ip": "10.220.22.10",
+      "kind": "same tenant",
+      "reached": true,
+      "expected": true,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.22.10"
+    },
+    {
+      "source": "tb1",
+      "source_vrf": "tenant-b",
+      "target": "tb4",
+      "target_ip": "10.220.24.10",
+      "kind": "same tenant",
+      "reached": true,
+      "expected": true,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.24.10"
+    },
+    {
+      "source": "tb1",
+      "source_vrf": "tenant-b",
+      "target": "host1 rail A",
+      "target_ip": "10.210.0.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.2"
+    },
+    {
+      "source": "tb1",
+      "source_vrf": "tenant-b",
+      "target": "host3 rail A",
+      "target_ip": "10.210.0.10",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.10"
+    },
+    {
+      "source": "tb1",
+      "source_vrf": "tenant-b",
+      "target": "host1 rail B",
+      "target_ip": "10.210.1.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.1.2"
+    },
+    {
+      "source": "tb2",
+      "source_vrf": "tenant-b",
+      "target": "ta1",
+      "target_ip": "10.220.11.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.11.10"
+    },
+    {
+      "source": "tb2",
+      "source_vrf": "tenant-b",
+      "target": "ta3",
+      "target_ip": "10.220.13.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.13.10"
+    },
+    {
+      "source": "tb2",
+      "source_vrf": "tenant-b",
+      "target": "tb1",
+      "target_ip": "10.220.21.10",
+      "kind": "same tenant",
+      "reached": true,
+      "expected": true,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.21.10"
+    },
+    {
+      "source": "tb2",
+      "source_vrf": "tenant-b",
+      "target": "tb4",
+      "target_ip": "10.220.24.10",
+      "kind": "same tenant",
+      "reached": true,
+      "expected": true,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.24.10"
+    },
+    {
+      "source": "tb2",
+      "source_vrf": "tenant-b",
+      "target": "host1 rail A",
+      "target_ip": "10.210.0.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.2"
+    },
+    {
+      "source": "tb2",
+      "source_vrf": "tenant-b",
+      "target": "host3 rail A",
+      "target_ip": "10.210.0.10",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.10"
+    },
+    {
+      "source": "tb2",
+      "source_vrf": "tenant-b",
+      "target": "host1 rail B",
+      "target_ip": "10.210.1.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.1.2"
+    },
+    {
+      "source": "tb4",
+      "source_vrf": "tenant-b",
+      "target": "ta1",
+      "target_ip": "10.220.11.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.11.10"
+    },
+    {
+      "source": "tb4",
+      "source_vrf": "tenant-b",
+      "target": "ta3",
+      "target_ip": "10.220.13.10",
+      "kind": "other tenant",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.13.10"
+    },
+    {
+      "source": "tb4",
+      "source_vrf": "tenant-b",
+      "target": "tb1",
+      "target_ip": "10.220.21.10",
+      "kind": "same tenant",
+      "reached": true,
+      "expected": true,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.21.10"
+    },
+    {
+      "source": "tb4",
+      "source_vrf": "tenant-b",
+      "target": "tb2",
+      "target_ip": "10.220.22.10",
+      "kind": "same tenant",
+      "reached": true,
+      "expected": true,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.220.22.10"
+    },
+    {
+      "source": "tb4",
+      "source_vrf": "tenant-b",
+      "target": "host1 rail A",
+      "target_ip": "10.210.0.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.2"
+    },
+    {
+      "source": "tb4",
+      "source_vrf": "tenant-b",
+      "target": "host3 rail A",
+      "target_ip": "10.210.0.10",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.0.10"
+    },
+    {
+      "source": "tb4",
+      "source_vrf": "tenant-b",
+      "target": "host1 rail B",
+      "target_ip": "10.210.1.2",
+      "kind": "backend rail",
+      "reached": false,
+      "expected": false,
+      "pass": true,
+      "command": "ping -c 2 -W 1 10.210.1.2"
+    }
+  ],
+  "iperf3": [
+    {
+      "source": "ta1",
+      "target": "ta3",
+      "command": "iperf3 -c 10.220.13.10 -p 5601 -t 3 --json",
+      "received_gbps": 5.616201022759532,
+      "retransmits": 0,
+      "label": "EMULATED; shaping state recorded separately"
+    },
+    {
+      "source": "tb1",
+      "target": "tb4",
+      "command": "iperf3 -c 10.220.24.10 -p 5602 -t 3 --json",
+      "received_gbps": 5.580705904303453,
+      "retransmits": 0,
+      "label": "EMULATED; shaping state recorded separately"
+    }
+  ],
+  "mtu": [
+    {
+      "payload": 8972,
+      "ip_packet": 9000,
+      "rc": 0,
+      "output": "PING 10.220.13.10 (10.220.13.10) 8972(9000) bytes of data.\n8980 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.107 ms\n8980 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.118 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1022ms\nrtt min/avg/max/mdev = 0.107/0.112/0.118/0.005 ms\n",
+      "command": "ping -c 2 -W 1 -M do -s 8972 10.220.13.10"
+    },
+    {
+      "payload": 8973,
+      "ip_packet": 9001,
+      "rc": 1,
+      "output": "command failed on ta1: ping -c 2 -W 1 -M do -s 8973 10.220.13.10\nexit=1\nstdout=PING 10.220.13.10 (10.220.13.10) 8973(9001) bytes of data.\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1018ms\n\n\nstderr=ping: local error: message too long, mtu=9000\nping: local error: message too long, mtu=9000\n",
+      "command": "ping -c 2 -W 1 -M do -s 8973 10.220.13.10"
+    },
+    {
+      "links": {
+        "leaf1 vx10101": {
+          "node": "leaf1",
+          "command": "ip -d link show vx10101",
+          "rc": 0,
+          "output": "7: vx10101: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc noqueue master br10101 state UNKNOWN mode DEFAULT group default qlen 1000\n    link/ether 76:8a:3f:84:03:9a brd ff:ff:ff:ff:ff:ff promiscuity 1 allmulti 1 minmtu 68 maxmtu 65535 \n    vxlan id 10101 local 10.200.0.11 srcport 0 0 dstport 4789 ttl auto ageing 300 nolearning \n    bridge_slave state forwarding priority 32 cost 100 hairpin off guard off root_block off fastleave off learning off flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.02:00:00:00:FE:01 designated_root 8000.02:00:00:00:FE:01 hold_timer    0.00 message_age_timer    0.00 forward_delay_timer    0.00 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on bcast_flood on mcast_to_unicast off neigh_suppress on neigh_vlan_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off locked off mab off addrgenmode none numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 tso_max_size 65536 tso_max_segs 65535 gro_max_size 65536 gso_ipv4_max_size 65536 gro_ipv4_max_size 65536 \n"
+        },
+        "leaf1 eth1 (fabric)": {
+          "node": "leaf1",
+          "command": "ip link show eth1",
+          "rc": 0,
+          "output": "1147: eth1@if1148: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9500 qdisc noqueue state UP mode DEFAULT group default \n    link/ether aa:c1:ab:ed:4f:79 brd ff:ff:ff:ff:ff:ff link-netnsid 1\n    altname clab-o-b53bd494e6225766\n"
+        },
+        "ta1 eth1": {
+          "node": "ta1",
+          "command": "ip link show eth1",
+          "rc": 0,
+          "output": "1160: eth1@if1159: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc noqueue state UP mode DEFAULT group default \n    link/ether aa:c1:ab:c7:aa:1c brd ff:ff:ff:ff:ff:ff link-netnsid 1\n    altname clab-o-00e675223e20aaa0\n"
+        }
+      }
+    }
+  ],
+  "capture": {
+    "spine1": {
+      "command": "timeout 8 tcpdump -n -i any -s 160 -c 60 -w /tmp/e7-spine1-1792170328593007463.pcap udp port 4789",
+      "file": "fabric/experiments/e7/vxlan-spine1.pcap",
+      "bytes": 3424,
+      "tcpdump_stderr": "tcpdump: WARNING: any: That device doesn't support promiscuous mode\n(Promiscuous mode not supported on the \"any\" device)\ntcpdump: listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 160 bytes\n20 packets captured\n20 packets received by filter\n0 packets dropped by kernel\n",
+      "packets": 20,
+      "flows": {
+        "VNI 50001 10.200.0.11->10.200.0.13 inner 10.220.11.10->10.220.13.10": 10,
+        "VNI 50002 10.200.0.14->10.200.0.12 inner 10.220.24.10->10.220.22.10": 10
+      }
+    },
+    "spine2": {
+      "command": "timeout 8 tcpdump -n -i any -s 160 -c 60 -w /tmp/e7-spine2-1792170337312757654.pcap udp port 4789",
+      "file": "fabric/experiments/e7/vxlan-spine2.pcap",
+      "bytes": 6824,
+      "tcpdump_stderr": "tcpdump: WARNING: any: That device doesn't support promiscuous mode\n(Promiscuous mode not supported on the \"any\" device)\ntcpdump: listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 160 bytes\n40 packets captured\n40 packets received by filter\n0 packets dropped by kernel\n",
+      "packets": 40,
+      "flows": {
+        "VNI 50001 10.200.0.13->10.200.0.11 inner 10.220.13.10->10.220.11.10": 10,
+        "VNI 50002 10.200.0.11->10.200.0.14 inner 10.220.21.10->10.220.24.10": 10,
+        "VNI 50002 10.200.0.14->10.200.0.11 inner 10.220.24.10->10.220.21.10": 10,
+        "VNI 50002 10.200.0.12->10.200.0.14 inner 10.220.22.10->10.220.24.10": 10
+      }
+    }
+  },
+  "drill_rt_auto": {
+    "description": "router bgp 65103 vrf tenant-a\n address-family l2vpn evpn\n",
+    "before": {
+      "node": "ta1",
+      "command": "ping -c 2 -W 1 10.220.13.10",
+      "rc": 0,
+      "output": "PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n64 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.120 ms\n64 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.093 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1007ms\nrtt min/avg/max/mdev = 0.093/0.106/0.120/0.013 ms\n"
+    },
+    "change": {
+      "node": "leaf3",
+      "command": "vtysh -c 'configure terminal' -c 'router bgp 65103 vrf tenant-a' -c 'address-family l2vpn evpn' -c 'no route-target import 65000:50001'",
+      "rc": 0,
+      "output": ""
+    },
+    "during": {
+      "ping": {
+        "node": "ta1",
+        "command": "ping -c 2 -W 1 10.220.13.10",
+        "rc": 0,
+        "output": "PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n64 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.159 ms\n64 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.135 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1010ms\nrtt min/avg/max/mdev = 0.135/0.147/0.159/0.012 ms\n"
+      },
+      "leaf3_vrf_rts": {
+        "node": "leaf3",
+        "command": "vtysh -c \"show bgp vrf tenant-a json\"",
+        "rc": 0,
+        "output": "{\"vrfId\": 3, \"vrfName\": \"tenant-a\", \"tableVersion\": 0, \"routerId\": \"10.200.0.13\", \"defaultLocPrf\": 100, \"localAS\": 65103, \"routes\": {}}"
+      },
+      "leaf3_l3vni": {
+        "node": "leaf3",
+        "command": "vtysh -c \"show bgp l2vpn evpn vni 50001\"",
+        "rc": 0,
+        "output": "VNI: 50001 (known to the kernel)\n  Type: L3\n  Tenant VRF: tenant-a\n  RD: 10.200.0.13:1\n  Originator IP: 10.200.0.13\n  MAC-VRF Site-of-Origin: \n  Advertise-gw-macip : n/a\n  Advertise-svi-macip : n/a\n  Advertise-pip: Yes\n  System-IP: 0.0.0.0\n  System-MAC: 5e:e5:3f:b2:e8:f9\n  Router-MAC: 5e:e5:3f:b2:e8:f9\n  Import Route Target:\n    65103:50001\n  Export Route Target:\n    65000:50001\n"
+      },
+      "leaf3_vrf_routes": {
+        "node": "leaf3",
+        "command": "ip route show vrf tenant-a",
+        "rc": 0,
+        "output": "10.220.11.0/24 nhid 37 via 10.200.0.11 dev br50001 proto bgp metric 20 onlink \n10.220.11.10 nhid 37 via 10.200.0.11 dev br50001 proto bgp metric 20 onlink \n10.220.13.0/24 dev br10103 proto kernel scope link src 10.220.13.1 \n"
+      }
+    },
+    "refresh": {
+      "node": "leaf3",
+      "command": "vtysh -c \"clear bgp l2vpn evpn * soft in\"",
+      "rc": 0,
+      "output": ""
+    },
+    "during_after_refresh": {
+      "ping": {
+        "node": "ta1",
+        "command": "ping -c 2 -W 1 10.220.13.10",
+        "rc": 0,
+        "output": "PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n64 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.140 ms\n64 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.145 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1018ms\nrtt min/avg/max/mdev = 0.140/0.142/0.145/0.002 ms\n"
+      },
+      "leaf3_vrf_routes": {
+        "node": "leaf3",
+        "command": "ip route show vrf tenant-a",
+        "rc": 0,
+        "output": "10.220.11.0/24 nhid 37 via 10.200.0.11 dev br50001 proto bgp metric 20 onlink \n10.220.11.10 nhid 37 via 10.200.0.11 dev br50001 proto bgp metric 20 onlink \n10.220.13.0/24 dev br10103 proto kernel scope link src 10.220.13.1 \n"
+      },
+      "leaf1_vrf_routes": {
+        "node": "leaf1",
+        "command": "ip route show vrf tenant-a",
+        "rc": 0,
+        "output": "10.220.11.0/24 dev br10101 proto kernel scope link src 10.220.11.1 \n10.220.13.0/24 nhid 53 via 10.200.0.13 dev br50001 proto bgp metric 20 onlink \n10.220.13.10 nhid 53 via 10.200.0.13 dev br50001 proto bgp metric 20 onlink \n"
+      }
+    },
+    "restore": {
+      "node": "leaf3",
+      "command": "vtysh -c 'configure terminal' -c 'router bgp 65103 vrf tenant-a' -c 'address-family l2vpn evpn' -c 'route-target import 65000:50001'",
+      "rc": 0,
+      "output": ""
+    },
+    "after": {
+      "node": "ta1",
+      "command": "ping -c 2 -W 1 10.220.13.10",
+      "rc": 0,
+      "output": "PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n64 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.095 ms\n64 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.091 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1026ms\nrtt min/avg/max/mdev = 0.091/0.093/0.095/0.002 ms\n"
+    }
+  },
+  "drill_nh_rewrite": {
+    "before": {
+      "nexthops": {
+        "10.200.0.11:1 [5]:[0]:[24]:[10.220.11.0]": [
+          "10.200.0.11",
+          "10.200.0.11"
+        ],
+        "10.200.0.11:2 [5]:[0]:[24]:[10.220.21.0]": [
+          "10.200.0.11",
+          "10.200.0.11"
+        ],
+        "10.200.0.12:1 [5]:[0]:[24]:[10.220.22.0]": [
+          "10.200.0.12",
+          "10.200.0.12"
+        ],
+        "10.200.0.13:1 [5]:[0]:[24]:[10.220.13.0]": [
+          "10.200.0.13"
+        ],
+        "10.200.0.14:1 [5]:[0]:[24]:[10.220.24.0]": [
+          "10.200.0.14",
+          "10.200.0.14"
+        ]
+      },
+      "ping": {
+        "node": "ta1",
+        "command": "ping -c 2 -W 1 10.220.13.10",
+        "rc": 0,
+        "output": "PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n64 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.153 ms\n64 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.105 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1015ms\nrtt min/avg/max/mdev = 0.105/0.129/0.153/0.024 ms\n"
+      }
+    },
+    "change": [
+      {
+        "node": "spine1",
+        "command": "vtysh -c 'configure terminal' -c 'router bgp 65000' -c 'address-family l2vpn evpn' -c 'no neighbor PEER_LEAF1 attribute-unchanged next-hop' -c 'no neighbor PEER_LEAF2 attribute-unchanged next-hop' -c 'no neighbor PEER_LEAF3 attribute-unchanged next-hop' -c 'no neighbor PEER_LEAF4 attribute-unchanged next-hop'",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "spine1",
+        "command": "vtysh -c \"clear bgp l2vpn evpn * soft out\"",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "spine2",
+        "command": "vtysh -c 'configure terminal' -c 'router bgp 65000' -c 'address-family l2vpn evpn' -c 'no neighbor PEER_LEAF1 attribute-unchanged next-hop' -c 'no neighbor PEER_LEAF2 attribute-unchanged next-hop' -c 'no neighbor PEER_LEAF3 attribute-unchanged next-hop' -c 'no neighbor PEER_LEAF4 attribute-unchanged next-hop'",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "spine2",
+        "command": "vtysh -c \"clear bgp l2vpn evpn * soft out\"",
+        "rc": 0,
+        "output": ""
+      }
+    ],
+    "during": {
+      "nexthops": {
+        "10.200.0.11:1 [5]:[0]:[24]:[10.220.11.0]": [
+          "10.200.0.1",
+          "10.200.0.2"
+        ],
+        "10.200.0.11:2 [5]:[0]:[24]:[10.220.21.0]": [
+          "10.200.0.1",
+          "10.200.0.2"
+        ],
+        "10.200.0.12:1 [5]:[0]:[24]:[10.220.22.0]": [
+          "10.200.0.1",
+          "10.200.0.2"
+        ],
+        "10.200.0.13:1 [5]:[0]:[24]:[10.220.13.0]": [
+          "10.200.0.13"
+        ],
+        "10.200.0.14:1 [5]:[0]:[24]:[10.220.24.0]": [
+          "10.200.0.1",
+          "10.200.0.2"
+        ]
+      },
+      "ping": {
+        "node": "ta1",
+        "command": "ping -c 2 -W 1 10.220.13.10",
+        "rc": 1,
+        "output": "command failed on ta1: ping -c 2 -W 1 10.220.13.10\nexit=1\nstdout=PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 0 received, 100% packet loss, time 1014ms\n\n\nstderr="
+      },
+      "leaf3_vrf_routes": {
+        "node": "leaf3",
+        "command": "ip route show vrf tenant-a",
+        "rc": 0,
+        "output": "10.220.11.0/24 nhid 60 proto bgp metric 20 \n\tnexthop via 10.200.0.1 dev br50001 weight 1 onlink \n\tnexthop via 10.200.0.2 dev br50001 weight 1 onlink \n10.220.11.10 nhid 60 proto bgp metric 20 \n\tnexthop via 10.200.0.1 dev br50001 weight 1 onlink \n\tnexthop via 10.200.0.2 dev br50001 weight 1 onlink \n10.220.13.0/24 dev br10103 proto kernel scope link src 10.220.13.1 \n"
+      }
+    },
+    "restore": [
+      {
+        "node": "spine1",
+        "command": "vtysh -c 'configure terminal' -c 'router bgp 65000' -c 'address-family l2vpn evpn' -c 'neighbor PEER_LEAF1 attribute-unchanged next-hop' -c 'neighbor PEER_LEAF2 attribute-unchanged next-hop' -c 'neighbor PEER_LEAF3 attribute-unchanged next-hop' -c 'neighbor PEER_LEAF4 attribute-unchanged next-hop'",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "spine1",
+        "command": "vtysh -c \"clear bgp l2vpn evpn * soft out\"",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "spine2",
+        "command": "vtysh -c 'configure terminal' -c 'router bgp 65000' -c 'address-family l2vpn evpn' -c 'neighbor PEER_LEAF1 attribute-unchanged next-hop' -c 'neighbor PEER_LEAF2 attribute-unchanged next-hop' -c 'neighbor PEER_LEAF3 attribute-unchanged next-hop' -c 'neighbor PEER_LEAF4 attribute-unchanged next-hop'",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "spine2",
+        "command": "vtysh -c \"clear bgp l2vpn evpn * soft out\"",
+        "rc": 0,
+        "output": ""
+      }
+    ],
+    "after": {
+      "nexthops": {
+        "10.200.0.11:1 [5]:[0]:[24]:[10.220.11.0]": [
+          "10.200.0.11",
+          "10.200.0.11"
+        ],
+        "10.200.0.11:2 [5]:[0]:[24]:[10.220.21.0]": [
+          "10.200.0.11",
+          "10.200.0.11"
+        ],
+        "10.200.0.12:1 [5]:[0]:[24]:[10.220.22.0]": [
+          "10.200.0.12",
+          "10.200.0.12"
+        ],
+        "10.200.0.13:1 [5]:[0]:[24]:[10.220.13.0]": [
+          "10.200.0.13"
+        ],
+        "10.200.0.14:1 [5]:[0]:[24]:[10.220.24.0]": [
+          "10.200.0.14",
+          "10.200.0.14"
+        ]
+      },
+      "ping": {
+        "node": "ta1",
+        "command": "ping -c 2 -W 1 10.220.13.10",
+        "rc": 0,
+        "output": "PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n64 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.129 ms\n64 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.183 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1030ms\nrtt min/avg/max/mdev = 0.129/0.156/0.183/0.027 ms\n"
+      }
+    }
+  },
+  "drill_rt_auto_export": {
+    "before": {
+      "node": "ta1",
+      "command": "ping -c 2 -W 1 10.220.13.10",
+      "rc": 0,
+      "output": "PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n64 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.133 ms\n64 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.095 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1029ms\nrtt min/avg/max/mdev = 0.095/0.114/0.133/0.019 ms\n"
+    },
+    "change": {
+      "node": "leaf3",
+      "command": "vtysh -c 'configure terminal' -c 'router bgp 65103 vrf tenant-a' -c 'address-family l2vpn evpn' -c 'no route-target export 65000:50001'",
+      "rc": 0,
+      "output": ""
+    },
+    "during": {
+      "ping": {
+        "node": "ta1",
+        "command": "ping -c 2 -W 1 10.220.13.10",
+        "rc": 1,
+        "output": "command failed on ta1: ping -c 2 -W 1 10.220.13.10\nexit=1\nstdout=PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 0 received, 100% packet loss, time 1030ms\n\n\nstderr="
+      },
+      "leaf3_l3vni": {
+        "node": "leaf3",
+        "command": "vtysh -c \"show bgp l2vpn evpn vni 50001\"",
+        "rc": 0,
+        "output": "VNI: 50001 (known to the kernel)\n  Type: L3\n  Tenant VRF: tenant-a\n  RD: 10.200.0.13:1\n  Originator IP: 10.200.0.13\n  MAC-VRF Site-of-Origin: \n  Advertise-gw-macip : n/a\n  Advertise-svi-macip : n/a\n  Advertise-pip: Yes\n  System-IP: 0.0.0.0\n  System-MAC: 5e:e5:3f:b2:e8:f9\n  Router-MAC: 5e:e5:3f:b2:e8:f9\n  Import Route Target:\n    65000:50001\n  Export Route Target:\n    65103:50001\n"
+      },
+      "leaf1_vrf_routes": {
+        "node": "leaf1",
+        "command": "ip route show vrf tenant-a",
+        "rc": 0,
+        "output": "10.220.11.0/24 dev br10101 proto kernel scope link src 10.220.11.1 \n"
+      },
+      "leaf1_type5_from_leaf3": {
+        "node": "leaf1",
+        "command": "vtysh -c \"show bgp l2vpn evpn route rd 10.200.0.13:1\"",
+        "rc": 0,
+        "output": "EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]:[Frag-id]\nEVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]\nEVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]\nEVPN type-4 prefix: [4]:[ESI]:[IPlen]:[OrigIP]\nEVPN type-5 prefix: [5]:[EthTag]:[IPlen]:[IP]\n\nBGP routing table entry for 10.200.0.13:1:[5]:[0]:[24]:[10.220.13.0]\nPaths: (2 available, best #1)\n  Advertised to non peer-group peers:\n  eth1 eth2\n  Route [5]:[0]:[24]:[10.220.13.0] VNI 50001\n  65000 65103\n    10.200.0.13 from eth1 (10.200.0.1)\n      Origin incomplete, valid, external, multipath, best (Older Path)\n      Extended Community: RT:65103:50001 ET:8 Rmac:5e:e5:3f:b2:e8:f9\n      Last update: Fri Oct 16 17:07:57 2026\n  Route [5]:[0]:[24]:[10.220.13.0] VNI 50001\n  65000 65103\n    10.200.0.13 from eth2 (10.200.0.2)\n      Origin incomplete, valid, external, multipath\n      Extended Community: RT:65103:50001 ET:8 Rmac:5e:e5:3f:b2:e8:f9\n      Last update: Fri Oct 16 17:07:57 2026\n\nDisplayed 1 prefixes (2 paths) with this RD\n"
+      }
+    },
+    "restore": {
+      "node": "leaf3",
+      "command": "vtysh -c 'configure terminal' -c 'router bgp 65103 vrf tenant-a' -c 'address-family l2vpn evpn' -c 'route-target export 65000:50001'",
+      "rc": 0,
+      "output": ""
+    },
+    "after": {
+      "node": "ta1",
+      "command": "ping -c 2 -W 1 10.220.13.10",
+      "rc": 0,
+      "output": "PING 10.220.13.10 (10.220.13.10) 56(84) bytes of data.\n64 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.132 ms\n64 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.084 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1010ms\nrtt min/avg/max/mdev = 0.084/0.108/0.132/0.024 ms\n"
+    }
+  },
+  "drill_mtu_overrun": {
+    "label": "EMULATED drill: tenant MTU raised to fabric MTU (9500) on the ta1->ta3 path, then restored",
+    "change": [
+      {
+        "node": "leaf1",
+        "command": "ip link set eth6 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf1",
+        "command": "ip link set br10101 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf1",
+        "command": "ip link set vx50001 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf1",
+        "command": "ip link set br50001 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf3",
+        "command": "ip link set vx50001 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf3",
+        "command": "ip link set br50001 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf3",
+        "command": "ip link set br10103 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf3",
+        "command": "ip link set eth5 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "ta1",
+        "command": "ip link set eth1 mtu 9500",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "ta3",
+        "command": "ip link set eth1 mtu 9500",
+        "rc": 0,
+        "output": ""
+      }
+    ],
+    "ping_9500": {
+      "node": "ta1",
+      "command": "ping -c 3 -W 1 -M do -s 9472 10.220.13.10",
+      "rc": 1,
+      "output": "command failed on ta1: ping -c 3 -W 1 -M do -s 9472 10.220.13.10\nexit=1\nstdout=PING 10.220.13.10 (10.220.13.10) 9472(9500) bytes of data.\nFrom 10.220.13.10 icmp_seq=1 Frag needed and DF set (mtu = 9450)\n\n--- 10.220.13.10 ping statistics ---\n3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2030ms\n\n\nstderr=ping: local error: message too long, mtu=9450\nping: local error: message too long, mtu=9450\n"
+    },
+    "ping_9000": {
+      "node": "ta1",
+      "command": "ping -c 2 -W 1 -M do -s 8972 10.220.13.10",
+      "rc": 0,
+      "output": "PING 10.220.13.10 (10.220.13.10) 8972(9000) bytes of data.\n8980 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.117 ms\n8980 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.121 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1008ms\nrtt min/avg/max/mdev = 0.117/0.119/0.121/0.002 ms\n"
+    },
+    "leaf1_nstat": {
+      "node": "leaf1",
+      "command": "nstat -az IpFragCreates IpFragFails IpOutDiscards",
+      "rc": 0,
+      "output": "#kernel\nIpOutDiscards                   0                  0.0\nIpFragFails                     0                  0.0\nIpFragCreates                   0                  0.0\n"
+    },
+    "tap_spine1": "17:10:46.833970 eth1  In  IP (tos 0x0, ttl 64, id 23948, offset 0, flags [none], proto UDP (17), length 9050)\n    10.200.0.11.45336 > 10.200.0.13.4789: VXLAN, flags [I] (0x08), vni 50001\nIP (tos 0x0, ttl 63, id 0, offset 0, flags [DF], proto ICMP (1), length 9000)\n    10.220.11.10 > 10.220.13.10: ICMP echo request, id 64558, seq 1, length 8980\n17:10:46.833984 eth3  Out IP (tos 0x0, ttl 63, id 23948, offset 0, flags [none], proto UDP (17), length 9050)\n    10.200.0.11.45336 > 10.200.0.13.4789: VXLAN, flags [I] (0x08), vni 50001\nIP (tos 0x0, ttl 63, id 0, offset 0, flags [DF], proto ICMP (1), length 9000)\n    10.220.11.10 > 10.220.13.10: ICMP echo request, id 64558, seq 1, length 8980\n\n",
+    "tap_spine2": "17:10:46.834028 eth3  In  IP (tos 0x0, ttl 64, id 19645, offset 0, flags [none], proto UDP (17), length 9050)\n    10.200.0.13.45336 > 10.200.0.11.4789: VXLAN, flags [I] (0x08), vni 50001\nIP (tos 0x0, ttl 63, id 10493, offset 0, flags [none], proto ICMP (1), length 9000)\n    10.220.13.10 > 10.220.11.10: ICMP echo reply, id 64558, seq 1, length 8980\n17:10:46.834036 eth1  Out IP (tos 0x0, ttl 63, id 19645, offset 0, flags [none], proto UDP (17), length 9050)\n    10.200.0.13.45336 > 10.200.0.11.4789: VXLAN, flags [I] (0x08), vni 50001\nIP (tos 0x0, ttl 63, id 10493, offset 0, flags [none], proto ICMP (1), length 9000)\n    10.220.13.10 > 10.220.11.10: ICMP echo reply, id 64558, seq 1, length 8980\n\n",
+    "restore": [
+      {
+        "node": "leaf1",
+        "command": "ip link set eth6 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf1",
+        "command": "ip link set br10101 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf1",
+        "command": "ip link set vx50001 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf1",
+        "command": "ip link set br50001 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf3",
+        "command": "ip link set vx50001 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf3",
+        "command": "ip link set br50001 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf3",
+        "command": "ip link set br10103 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "leaf3",
+        "command": "ip link set eth5 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "ta1",
+        "command": "ip link set eth1 mtu 9000",
+        "rc": 0,
+        "output": ""
+      },
+      {
+        "node": "ta3",
+        "command": "ip link set eth1 mtu 9000",
+        "rc": 0,
+        "output": ""
+      }
+    ],
+    "after_9000": {
+      "node": "ta1",
+      "command": "ping -c 2 -W 1 -M do -s 8972 10.220.13.10",
+      "rc": 0,
+      "output": "PING 10.220.13.10 (10.220.13.10) 8972(9000) bytes of data.\n8980 bytes from 10.220.13.10: icmp_seq=1 ttl=62 time=0.148 ms\n8980 bytes from 10.220.13.10: icmp_seq=2 ttl=62 time=0.146 ms\n\n--- 10.220.13.10 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1002ms\nrtt min/avg/max/mdev = 0.146/0.147/0.148/0.001 ms\n"
+    }
+  }
+}

@@ -3,6 +3,7 @@ address_plan:
   loopbacks: 10.200.0.0/24
   hosts: 10.210.0.0/16
   management: 10.253.0.0/24
+  tenants: 10.220.0.0/16       # front-end tenant VRF subnets (EVPN-VXLAN)
   excluded:
     - 10.42.0.0/16
     - 10.43.0.0/16
@@ -64,6 +65,11 @@ links:
   - {name: host4-leaf4, kind: host, a: {node: host4, interface: eth2}, b: {node: leaf4, interface: eth4}}
   - {name: vmhost1-leaf1, kind: host, a: {node: vmhost1, interface: eth1}, b: {node: leaf1, interface: eth5}}
   - {name: vmhost2-leaf2, kind: host, a: {node: vmhost2, interface: eth1}, b: {node: leaf2, interface: eth5}}
+  - {name: ta1-leaf1, kind: tenant, a: {node: ta1, interface: eth1}, b: {node: leaf1, interface: eth6}}
+  - {name: tb1-leaf1, kind: tenant, a: {node: tb1, interface: eth1}, b: {node: leaf1, interface: eth7}}
+  - {name: ta3-leaf3, kind: tenant, a: {node: ta3, interface: eth1}, b: {node: leaf3, interface: eth5}}
+  - {name: tb2-leaf2, kind: tenant, a: {node: tb2, interface: eth1}, b: {node: leaf2, interface: eth6}}
+  - {name: tb4-leaf4, kind: tenant, a: {node: tb4, interface: eth1}, b: {node: leaf4, interface: eth5}}
 bgp:
   spine_asn: 65000
   leaf_asn_base: 65101
@@ -83,6 +89,8 @@ images:
   host: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
   # Built from fabric/images/roce-vm/Containerfile; image digest pinned below.
   vmrunner: localhost:5000/goodput-roce-vm:0.1.0@sha256:8b2c5ba8936c2d21dc657fe6b268857490360a5e6a3fa8e6172aeecce53b88f7
+  # Tenant endpoints (EVPN front end); same pin used in F1 for hosts.
+  tenant: docker.io/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
   registry: docker.io/library/registry:3.1.1@sha256:3d527cee870ddd0fc8a31f99b2fdfb6451801a8dd4f5a92c1ec36dae24c14274
 # SOFT-ROCE: one rdma_rxe device per host rail NIC, created inside the host
 # container at deploy. Device names are global because the kernel RDMA
@@ -94,6 +102,41 @@ rdma:
 # (containerlab network-mode container:<node>), so tcpdump/tshark run on the
 # router's interfaces without adding tools to the pinned FRR image.
 capture_taps: [spine1, spine2]
+# Front-end multi-tenancy (EVPN-VXLAN, symmetric IRB). Each tenant is a VRF
+# with an L3VNI; each (tenant, leaf) has its own routed L2VNI/subnet, so no
+# L2 domain is stretched across the fabric. Route targets are explicit
+# because leaves are in different ASes (auto AS:VNI RTs would not match).
+# The backend rails stay in the default VRF and are not part of any tenant.
+# fabric_mtu is the containerlab veth MTU, made explicit; tenant MTU leaves
+# room for the 50 B VXLAN/UDP/IP/Ethernet overhead.
+fabric_mtu: 9500
+tenants:
+  mtu: 9000
+  gateway_mac: "02:00:00:00:fe:01"   # anycast gateway MAC on every tenant SVI
+  vxlan_udp_port: 4789
+  vrfs:
+    - name: tenant-a
+      table: 1001
+      l3vni: 50001
+      route_target: "65000:50001"
+      segments:
+        - {leaf: leaf1, l2vni: 10101, subnet: 10.220.11.0/24, route_target: "65000:10101"}
+        - {leaf: leaf3, l2vni: 10103, subnet: 10.220.13.0/24, route_target: "65000:10103"}
+      endpoints:
+        - {name: ta1, leaf: leaf1, address: 10.220.11.10/24}
+        - {name: ta3, leaf: leaf3, address: 10.220.13.10/24}
+    - name: tenant-b
+      table: 1002
+      l3vni: 50002
+      route_target: "65000:50002"
+      segments:
+        - {leaf: leaf1, l2vni: 10201, subnet: 10.220.21.0/24, route_target: "65000:10201"}
+        - {leaf: leaf2, l2vni: 10202, subnet: 10.220.22.0/24, route_target: "65000:10202"}
+        - {leaf: leaf4, l2vni: 10204, subnet: 10.220.24.0/24, route_target: "65000:10204"}
+      endpoints:
+        - {name: tb1, leaf: leaf1, address: 10.220.21.10/24}
+        - {name: tb2, leaf: leaf2, address: 10.220.22.10/24}
+        - {name: tb4, leaf: leaf4, address: 10.220.24.10/24}
 # EMULATED lab profile (not a hardware design value): Linux TBF on both ends
 # of every leaf<->spine veth so the fabric, not the host containers, is the
 # bottleneck for E5-shaped and E6. Applied/removed at runtime with
