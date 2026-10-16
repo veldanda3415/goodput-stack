@@ -114,6 +114,13 @@ outputs.
   ring collective, with per-rail/per-tenant blast radius, FIB reconvergence
   timestamps, and telemetry-based detection of the degraded link (partial:
   2/3 runs).
+- [E6 restore transient (#32)](experiments/E6-failure-drills.md#restore-transient-32):
+  instrumented spine-loss restore (×3, one clock). zebra puts the restored
+  spine back in the leaves' kernel ECMP group at link-up (+0.2 s), before
+  BGP is up. Loss starts when the leaf resolves the spine's link-local
+  address and ends when the spine's FIB has the route (1.3–1.6 s on rail B).
+  `bgp update-delay` doesn't apply (process restart only); no knob added;
+  #32 still open.
 - [E7 — EVPN-VXLAN tenancy](experiments/E7-evpn-tenancy.md): two tenant VRFs
   (symmetric IRB, explicit RTs, anycast gateway MAC) on the front end;
   reachability, isolation (including two tenants on one leaf), VNI captures,
