@@ -1,0 +1,65 @@
+$ /usr/bin/python3 -m pip show -f nvidia-nccl-cu12
+# rc=0
+Name: nvidia-nccl-cu12
+Version: 2.28.9
+Summary: NVIDIA Collective Communication Library (NCCL) Runtime
+Home-page: https://developer.nvidia.com/cuda-zone
+Author: Nvidia CUDA Installer Team
+Author-email: compute_installer@nvidia.com
+License: 
+Location: /usr/local/lib/python3.13/dist-packages
+Requires: 
+Required-by: libcuvs-cu12, libraft-cu12, raft-dask-cu12, torch
+Files:
+  nvidia/nccl/include/nccl.h
+  nvidia/nccl/include/nccl_device.h
+  nvidia/nccl/include/nccl_device/barrier.h
+  nvidia/nccl/include/nccl_device/comm.h
+  nvidia/nccl/include/nccl_device/coop.h
+  nvidia/nccl/include/nccl_device/core.h
+  nvidia/nccl/include/nccl_device/gin.h
+  nvidia/nccl/include/nccl_device/gin/gdaki/doca_gpunetio/common/doca_gpunetio_verbs_def.h
+  nvidia/nccl/include/nccl_device/gin/gdaki/doca_gpunetio/common/doca_gpunetio_verbs_dev.h
+  nvidia/nccl/include/nccl_device/gin/gdaki/doca_gpunetio/device/doca_gpunetio_dev_verbs_common.cuh
+  nvidia/nccl/include/nccl_device/gin/gdaki/doca_gpunetio/device/doca_gpunetio_dev_verbs_counter.cuh
+  nvidia/nccl/include/nccl_device/gin/gdaki/doca_gpunetio/device/doca_gpunetio_dev_verbs_cq.cuh
+  nvidia/nccl/include/nccl_device/gin/gdaki/doca_gpunetio/device/doca_gpunetio_dev_verbs_onesided.cuh
+  nvidia/nccl/include/nccl_device/gin/gdaki/doca_gpunetio/device/doca_gpunetio_dev_verbs_qp.cuh
+  nvidia/nccl/include/nccl_device/gin/gdaki/doca_gpunetio/doca_gpunetio_device.h
+  nvidia/nccl/include/nccl_device/gin/gdaki/gin_gdaki.h
+  nvidia/nccl/include/nccl_device/gin/gdaki/gin_gdaki_device_host_common.h
+  nvidia/nccl/include/nccl_device/gin/gin_device_api.h
+  nvidia/nccl/include/nccl_device/gin/gin_device_common.h
+  nvidia/nccl/include/nccl_device/gin/gin_device_host_common.h
+  nvidia/nccl/include/nccl_device/gin/proxy/gin_proxy.h
+  nvidia/nccl/include/nccl_device/gin/proxy/gin_proxy_device_host_common.h
+  nvidia/nccl/include/nccl_device/gin_barrier.h
+  nvidia/nccl/include/nccl_device/impl/barrier__funcs.h
+  nvidia/nccl/include/nccl_device/impl/barrier__types.h
+  nvidia/nccl/include/nccl_device/impl/comm__funcs.h
+  nvidia/nccl/include/nccl_device/impl/comm__types.h
+  nvidia/nccl/include/nccl_device/impl/core__funcs.h
+  nvidia/nccl/include/nccl_device/impl/core__types.h
+  nvidia/nccl/include/nccl_device/impl/gin__funcs.h
+  nvidia/nccl/include/nccl_device/impl/gin__types.h
+  nvidia/nccl/include/nccl_device/impl/gin_barrier__funcs.h
+  nvidia/nccl/include/nccl_device/impl/gin_barrier__types.h
+  nvidia/nccl/include/nccl_device/impl/ll_a2a__funcs.h
+  nvidia/nccl/include/nccl_device/impl/ll_a2a__types.h
+  nvidia/nccl/include/nccl_device/impl/lsa_barrier__funcs.h
+  nvidia/nccl/include/nccl_device/impl/lsa_barrier__types.h
+  nvidia/nccl/include/nccl_device/impl/ptr__funcs.h
+  nvidia/nccl/include/nccl_device/impl/ptr__types.h
+  nvidia/nccl/include/nccl_device/ll_a2a.h
+  nvidia/nccl/include/nccl_device/lsa_barrier.h
+  nvidia/nccl/include/nccl_device/net_device.h
+  nvidia/nccl/include/nccl_device/ptr.h
+  nvidia/nccl/include/nccl_device/utility.h
+  nvidia/nccl/lib/libnccl.so.2
+  nvidia_nccl_cu12-2.28.9.dist-info/INSTALLER
+  nvidia_nccl_cu12-2.28.9.dist-info/METADATA
+  nvidia_nccl_cu12-2.28.9.dist-info/RECORD
+  nvidia_nccl_cu12-2.28.9.dist-info/REQUESTED
+  nvidia_nccl_cu12-2.28.9.dist-info/WHEEL
+  nvidia_nccl_cu12-2.28.9.dist-info/licenses/License.txt
+  nvidia_nccl_cu12-2.28.9.dist-info/top_level.txt

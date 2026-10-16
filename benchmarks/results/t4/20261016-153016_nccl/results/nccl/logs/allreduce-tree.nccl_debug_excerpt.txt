@@ -1,0 +1,94 @@
+cudaDriverVersion 13000
+NCCL version 2.28.9+cuda12.9
+NET/Plugin: Could not find: libnccl-net.so
+NET/IB : No device found.
+NET/IB : Using [RO]; OOB eth0:172.19.2.2<0>
+Failed to initialize NET plugin IB
+NET/Socket : Using [0]eth0:172.19.2.2<0>
+Initialized NET plugin Socket
+Assigned NET plugin Socket to comm
+Using network Socket
+ncclCommInitRankConfig comm 0x5b82e7dfafa0 rank 1 nranks 2 cudaDev 1 nvmlDev 1 busId 50 commId 0x9d5abe0a98761e18 - Init START
+ncclCommInitRankConfig comm 0x5b82e7cea400 rank 0 nranks 2 cudaDev 0 nvmlDev 0 busId 40 commId 0x9d5abe0a98761e18 - Init START
+Topology detection : could not read /sys/devices/pci0000:00/0000:00:05.0/max_link_speed, ignoring
+Topology detection : could not read /sys/devices/pci0000:00/0000:00:05.0/../max_link_speed, ignoring
+Topology detection : could not read /sys/devices/pci0000:00/0000:00:04.0/max_link_speed, ignoring
+Topology detection : could not read /sys/devices/pci0000:00/0000:00:05.0/max_link_width, ignoring
+Topology detection : could not read /sys/devices/pci0000:00/0000:00:04.0/../max_link_speed, ignoring
+Topology detection : could not read /sys/devices/pci0000:00/0000:00:05.0/../max_link_width, ignoring
+Topology detection : could not read /sys/devices/pci0000:00/0000:00:04.0/max_link_width, ignoring
+Topology detection : could not read /sys/devices/pci0000:00/0000:00:04.0/../max_link_width, ignoring
+TOPO/NET : Importing network plugins to topology
+ncclTopoPopulateNics : Filled eth0 in topo with pciPath=(null) keep=1 coll=(null)
+=== System : maxBw 12.0 totalBw 12.0 ===
+CPU/0-0 (1/1/2)
++ PCI[5000.0] - NIC/0-0
++ NET[1.2] - NET/0-0 (0/0/0/1.250000)
++ PCI[12.0] - GPU/0-40 (0)
++ PCI[12.0] - GPU/0-50 (1)
+GPU/0-40 :GPU/0-40 (0/5000.0/LOC) GPU/0-50 (2/12.0/PHB) CPU/0-0 (1/12.0/PHB) NET/0-0 (3/1.2/PHB)
+GPU/0-50 :GPU/0-40 (2/12.0/PHB) GPU/0-50 (0/5000.0/LOC) CPU/0-0 (1/12.0/PHB) NET/0-0 (3/1.2/PHB)
+NET/0-0 :GPU/0-40 (3/1.2/PHB) GPU/0-50 (3/1.2/PHB) CPU/0-0 (2/1.2/PHB) NET/0-0 (0/5000.0/LOC)
+NVLS multicast support is not available on dev 1 (NVLS_NCHANNELS 0)
+NVLS multicast support is not available on dev 0 (NVLS_NCHANNELS 0)
+Pattern 4, crossNic 0, nChannels 1, bw 10.000000/10.000000, type PHB/PIX, sameChannels 1
+0 : GPU/0-40 GPU/0-50
+Pattern 1, crossNic 0, nChannels 1, bw 10.000000/10.000000, type PHB/PIX, sameChannels 1
+comm 0x5b82e7cea400 rank 0 nRanks 2 nNodes 1 localRanks 2 localRank 0 MNNVL 0
+comm 0x5b82e7dfafa0 rank 1 nRanks 2 nNodes 1 localRanks 2 localRank 1 MNNVL 0
+Channel 00/02 : 0 1
+Ring 00 : 0 -> 1 -> 0
+Ring 01 : 0 -> 1 -> 0
+Channel 01/02 : 0 1
+Ring 00 : 1 -> 0 -> 1
+Ring 01 : 1 -> 0 -> 1
+Trees [0] 1/-1/-1->0->-1 [1] 1/-1/-1->0->-1
+Trees [0] -1/-1/-1->1->0 [1] -1/-1/-1->1->0
+P2P Chunksize set to 131072
+Check P2P Type isAllDirectP2p 0 directMode 1 isAllCudaP2p 1
+ncclP2pSchedule: group size used is 2
+2 coll channels, 2 collnet channels, 0 nvls channels, 2 p2p channels, 2 p2p channels per peer
+Algorithm   |                            Tree                  |                            Ring                  |                   CollNetDirect                  |
+Protocol    |             LL |          LL128 |         Simple |             LL |          LL128 |         Simple |             LL |          LL128 |         Simple |
+Max NThreads |            512 |            640 |            512 |            512 |            640 |            256 |              0 |              0 |            640 |
+Broadcast |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     7.6/   0.0 |    16.5/   0.0 |    14.1/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+Reduce |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     7.6/   0.0 |    16.5/   0.0 |    14.1/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+AllGather |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     7.6/   0.0 |    16.5/   0.0 |    14.1/   0.0 |     0.8/   0.0 |     0.8/   0.0 |    39.2/   0.0 |
+ReduceScatter |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     7.6/   0.0 |    16.5/   0.0 |    14.1/   0.0 |     0.8/   0.0 |     0.8/   0.0 |    39.2/   0.0 |
+AllReduce |     8.8/   1.2 |    17.8/   0.0 |    16.4/   4.6 |     8.6/   0.0 |    19.0/   0.0 |    19.8/   0.0 |     0.8/   0.0 |     0.8/   0.0 |    39.2/   0.0 |
+Algorithm   |                    CollNetChain                  |                            NVLS                  |                        NVLSTree                  |
+Max NThreads |              0 |              0 |            640 |              0 |              0 |            640 |              0 |              0 |            640 |
+Broadcast |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+Reduce |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+AllGather |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+ReduceScatter |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+AllReduce |     0.0/   0.0 |     0.0/   0.0 |    35.6/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+Algorithm   |                             PAT                  |
+Max NThreads |              0 |              0 |              0 |
+Broadcast |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+Reduce |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+AllGather |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+ReduceScatter |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+AllReduce |     0.0/   0.0 |     0.0/   0.0 |     0.0/   0.0 |
+ncclCommInitRankConfig comm 0x5b82e7dfafa0 rank 1 nranks 2 cudaDev 1 nvmlDev 1 busId 50 commId 0x9d5abe0a98761e18 - Init COMPLETE
+Init timings - ncclCommInitRankConfig: rank 1 nranks 2 total 0.40 (kernels 0.36, alloc 0.03, bootstrap 0.00, allgathers 0.00, topo 0.01, graphs 0.00, connections 0.00, rest 0.00)
+ncclCommInitRankConfig comm 0x5b82e7cea400 rank 0 nranks 2 cudaDev 0 nvmlDev 0 busId 40 commId 0x9d5abe0a98761e18 - Init COMPLETE
+Init timings - ncclCommInitRankConfig: rank 0 nranks 2 total 0.40 (kernels 0.36, alloc 0.03, bootstrap 0.00, allgathers 0.00, topo 0.01, graphs 0.00, connections 0.00, rest 0.00)
+Channel 00 : 1[1] -> 0[0] via SHM/direct/direct
+Channel 00 : 0[0] -> 1[1] via SHM/direct/direct
+Channel 01 : 1[1] -> 0[0] via SHM/direct/direct
+Channel 01 : 0[0] -> 1[1] via SHM/direct/direct
+Connected all trees
+AllReduce: 8 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..0}
+AllReduce: 16 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..0}
+AllReduce: 32 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..0}
+AllReduce: 64 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..0}
+AllReduce: 128 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..0}
+AllReduce: 256 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..0}
+AllReduce: 512 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..0}
+AllReduce: 1024 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..0}
+AllReduce: 8192 Bytes -> Algo TREE proto LL channel{Lo..Hi}={0..1}
+AllReduce: 16384 Bytes -> Algo TREE proto SIMPLE channel{Lo..Hi}={0..0}
+AllReduce: 65536 Bytes -> Algo TREE proto SIMPLE channel{Lo..Hi}={0..1}
+comm 0x5b82e7cea400 rank 0 nranks 2 cudaDev 0 busId 40 - Destroy COMPLETE
+comm 0x5b82e7dfafa0 rank 1 nranks 2 cudaDev 1 busId 50 - Destroy COMPLETE
