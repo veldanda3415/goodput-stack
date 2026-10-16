@@ -202,7 +202,7 @@ probe-zero: ## 0->1 through zero-pool (KEDA does the scale): make probe-zero ARG
 > $(PY) autoscaling/scale-from-zero/probe_zero.py $(ARGS)
 
 # ---- AI fabric lab (fabric/README.md; EMULATED) ----------------------------------------------
-.PHONY: fabric-render fabric-up fabric-down fabric-test fabric-e1 fabric-e2
+.PHONY: fabric-render fabric-up fabric-down fabric-test fabric-e1 fabric-e2 fabric-e3 fabric-e4 fabric-e5 telemetry-up telemetry-down
 FABRIC_PY := .venv/bin/python
 FABRIC_TOPO := fabric/build/topology.clab.yml
 FABRIC_RUNTIME ?= podman
@@ -230,6 +230,23 @@ fabric-e1: fabric-render ## Run E1 ECMP hash-policy experiment (EMULATED)
 fabric-e2: fabric-render ## Run E2 BFD convergence experiment (EMULATED)
 > $(FABRIC_PY) -m fabric.experiments.e2
 
+fabric-e3: roce-vm-up ## Run E3 VM SOFT-ROCE verbs, wire decode, and QoS checks
+> $(FABRIC_PY) -m fabric.experiments.e3.run devices qos
+> $(FABRIC_PY) -m fabric.experiments.e3.run rdma --path vm-cross-spine
+> $(FABRIC_PY) -m fabric.experiments.e3.run wire
+
+fabric-e4: ## E4: scale QoS intent into an EMULATED RED/ECN bottleneck
+> $(FABRIC_PY) -m fabric.experiments.e4_ecn
+
+fabric-e5: ## E5: collective traffic and ECMP entropy sweep (EMULATED)
+> $(FABRIC_PY) -m fabric.tools.collective_gen
+
+telemetry-up: ## Start local Prometheus + the EMULATED fabric Python exporter
+> $(FABRIC_PY) -m fabric.telemetry.service up
+
+telemetry-down: ## Stop local fabric telemetry services
+> $(FABRIC_PY) -m fabric.telemetry.service down
+
 # ---- RoCE on the fabric lab (fabric/README.md; SOFT-ROCE + INTENT-ONLY QoS) ---------------------
 .PHONY: roce-registry roce-image roce-vm-image roce-vm-up roce-e3 fabric-headroom
 ROCE_REGISTRY := $(shell awk '$$1 == "registry:" {print $$2}' fabric/intent/fabric.yaml)
@@ -247,7 +264,7 @@ roce-vm-image: roce-registry ## Build + push the pinned Debian QEMU runner; reco
 
 roce-vm-up: fabric-up ## Deploy the EMULATED fabric with SOFT-ROCE VM endpoints
 
-roce-e3: ## E3: SOFT-ROCE devices + GIDs and host QoS classification (verbs traffic blocked; see E3 doc)
+roce-e3: ## E3: container-host SOFT-ROCE devices/GIDs + host QoS classification (verbs blocked; see E3 doc)
 > $(FABRIC_PY) -m fabric.experiments.e3.run devices qos
 
 fabric-headroom: ## PFC headroom table (INTENT-ONLY arithmetic)

@@ -1,0 +1,122 @@
+{
+  "uid": "goodput-fabric",
+  "title": "goodput-stack / EMULATED fabric",
+  "tags": ["goodput-stack", "fabric", "emulated"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "description": "EMULATED containerlab Linux/veth counters from the local Python exporter; byte rates are not link utilization at a hardware line rate.",
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "EMULATED uplink traffic",
+      "collapsed": false,
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 1},
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Leaf uplink TX bytes/s",
+      "description": "Linux interface counters on EMULATED veth links. Bytes/s is a traffic-rate proxy, not hardware link utilization.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 1, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m])",
+        "legendFormat": "{{node}} {{interface}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Leaf uplink max/mean imbalance",
+      "description": "Per-leaf maximum uplink TX byte rate divided by the mean across both ECMP members. EMULATED Linux counters.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 1, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "max by (node) (rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m])) / avg by (node) (rate(fabric_interface_tx_bytes_total{node=~\"leaf[1-4]\"}[1m]))",
+        "legendFormat": "{{node}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Leaf uplink discards/s",
+      "description": "Linux interface TX/RX dropped counters on EMULATED veth links.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 9, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "rate(fabric_interface_tx_dropped_total{node=~\"leaf[1-4]\"}[1m]) + rate(fabric_interface_rx_dropped_total{node=~\"leaf[1-4]\"}[1m])",
+        "legendFormat": "{{node}} {{interface}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "ECN-marked packets/s",
+      "description": "Linux qdisc ECN mark counters where present. No PFC/DCQCN or switch ASIC counters are exported.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 9, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "rate(fabric_qdisc_ecn_marked_packets_total[1m])",
+        "legendFormat": "{{node}} {{interface}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "EMULATED control-plane state",
+      "collapsed": false,
+      "gridPos": {"x": 0, "y": 17, "w": 24, "h": 1},
+      "panels": []
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "BGP neighbor established",
+      "description": "FRR JSON state sampled by the host-side Python exporter. 1=Established, 0=other state.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 18, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "max": 1}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "fabric_bgp_neighbor_established",
+        "legendFormat": "{{node}} {{neighbor}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "BFD peer up",
+      "description": "FRR BFD JSON state sampled by the host-side Python exporter. 1=Up, 0=other state.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 18, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "max": 1}, "overrides": []},
+      "targets": [{
+        "refId": "A",
+        "expr": "fabric_bfd_peer_up",
+        "legendFormat": "{{node}} {{peer}}",
+        "datasource": {"type": "prometheus", "uid": "prometheus"}
+      }]
+    }
+  ]
+}
