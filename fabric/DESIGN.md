@@ -402,6 +402,8 @@ link-local addresses with RFC 8950 next hops, two-way ECMP, and BFD at
 | NVLink / scale-up | none (hosts are containers) | NVSwitch at 450 GB/s per GPU per direction (S4) | **No.** Modelled only in §2 (CALCULATED) |
 | Front-end, storage, OOB | containerlab management network only | Three separate networks (§1) | **Partly:** only the idea of a separate management plane |
 | Scale (2-tier ceiling, transceivers, power) | 6 switches, 8 host links | §3 tables | **No.** Calculated only |
+| Multi-NOS configuration (F5) | NX-OS rendered from the same intent and checked in Batfish; never deployed | NX-OS / SONiC / FRR fleets from one source of truth, with Batfish in CI | **OFFLINE-VALIDATED** for NX-OS (numbered /31 variant only); see §7.4 |
+| Front-end tenancy (F5) | EVPN-VXLAN, 2 tenant VRFs on 4 leaves (E7) | EVPN-VXLAN on the front-end fabric | **Concept + FRR config transfer**; software VTEP, not ASIC (§7.1) |
 
 ## 5. RoCE v2 and lossless transport
 
@@ -504,4 +506,109 @@ Exporter pins, failure evidence, and E5 query-range output are documented in
 
 ## 7. Tenancy and failure domains
 
-TBD in F5.
+Labels as elsewhere: EMULATED results come from the containerlab fabric
+(veth + Linux forwarding + FRR 10.2.1), OFFLINE-VALIDATED results from
+Batfish only, INTENT-ONLY items were rendered or reasoned but never run.
+
+### 7.1 Tenancy: front-end overlay, backend partitioning
+
+The two halves of an AI cluster isolate tenants differently.
+
+- **Front end (EVPN-VXLAN, VRFs).** Shared leaves and spines carry many
+  customers' VMs, storage clients, and inference endpoints. Each tenant is a
+  VRF with an L3VNI; each (tenant, leaf) has a routed L2VNI/subnet; type-5
+  routes carry tenant prefixes and type-2 routes carry endpoint MAC/IP
+  (symmetric IRB). In L3VPN terms: VRF = VRF, L3VNI ≈ VPN label, type-5 ≈
+  VPNv4 prefix, RD/RT have the same roles. [E7](experiments/E7-evpn-tenancy.md)
+  runs two tenants on four leaves, with one endpoint of each tenant on the
+  same leaf (EMULATED). Same-tenant traffic crossed the fabric on the tenant's
+  L3VNI (8/8 pairs reachable; the spine pcap shows VNI 50001 vs 50002 with
+  leaf-loopback outer IPs). Every cross-tenant attempt (12/12) and every
+  tenant→rail attempt (15/15) failed.
+- **Backend (rails/pods, default VRF).** RDMA rails are isolated by physical
+  partitioning (dedicated leaves per rail, pods per job, the scheduler
+  assigning whole rails), not by VXLAN. VXLAN would add 50 B per packet, a
+  UDP/IP layer in front of RoCE, and ECN/PFC interactions, without adding
+  isolation that rails don't already give. The lab's rails stayed in the
+  default VRF and were unaffected by the tenants (fabric-test 65 passed).
+
+Design rules E7 measured or hit:
+
+| Rule | Why (measured) |
+|---|---|
+| Explicit RTs per VNI in intent (`65000:<VNI>`) | Leaves are in different ASes. FRR's *auto import* matches `*:VNI` and kept working, but an auto **export** (`65103:50001`) was not imported by a leaf with explicit RTs, and tenant-a broke |
+| Spines: `l2vpn evpn` with `attribute-unchanged next-hop` | Without it FRR rewrote every EVPN next hop to the spine loopback (10.200.0.1/.2). The spines are not VTEPs, and tenant traffic stopped |
+| Route-maps in the EVPN address family | eBGP policy is per address family; without them every EVPN session showed `(Policy)` |
+| Render `vrf … vni` and `router bgp … vrf` blocks before the default instance | otherwise FRR 10.2.1 bound the L3VNI to the default VRF or created a phantom VRF instance with auto RTs (leaf2) |
+| Tenant MTU + 50 ≤ fabric MTU (validator) | 9000-B tenant packet = 9050 B on the wire. The Linux VTEP answered "frag needed (mtu = 9450)" when overrun; a hardware VTEP usually drops silently |
+
+The NX-OS render does not include EVPN (§7.4), and Batfish does not model
+this EVPN render (its RT/VNI lines are unrecognized).
+
+### 7.2 Failure domains and blast radius
+
+[E6](experiments/E6-failure-drills.md) injected faults under a shaped ring
+collective (16 flows per host pair, uplinks 500 Mbit/s, step target ≈ 20 s)
+with probes per rail and per tenant. **EMULATED, SHAPED**; timings are
+Linux/FRR on one WSL2 VM.
+
+| Failure domain | Blast radius (measured) | Detection → FIB | Collective step time | Restore |
+|---|---|---|---|---|
+| Link (carrier down) | flows on that link, both directions: all 4 ring pairs at half rate; rail probes lost 0.1 s | 0.25–0.26 s | +7.4 to +9.1 s (+37–46%) | ECMP whole 3.5–5.1 s after link-up; tenant-b lost 0.6–1.2 s **after restore** |
+| Link (silent, carrier up) | same flows; probes lost 0.5–0.7 s | BFD: 0.54–0.57 s | +7.1 to +8.3 s | 2.4–2.6 s; no 120 s connect-retry wait |
+| Link flapping (5 × 2 s) | same flows, repeatedly | 0.28 s per down | did not finish in 30 s (89–93% of target) | 1.6–2.2 s after the last up |
+| Spine | every cross-leaf flow through it on **both rails and both tenants**; only same-leaf traffic untouched | 0.28–1.44 s | ≥ +8.9 s; 2 of 3 runs did not finish in 30 s | **1.0–2.7 s probe loss ≈ 4 s after restore** |
+| Leaf | that leaf's rail for every attached host (host1/host2 rail A, vmhost1) and its tenant endpoints (ta1, tb1): 13.0–13.4 s loss (10 s fault + ≈ 3.3 s) | 0.34–1.1 s (remote leaf) | ring stalls (≈ 10 Mbit/s per pair; 64/64 streams stalled) | ≈ 3.3–4.2 s |
+| Rail | = all leaves of that rail; the other rail of the same hosts kept working through the leaf loss (rail B: 0 lost) | — | jobs on that rail stop | — |
+| Pod | (not built in the lab: one pod) | — | — | — |
+| Silent degradation (1% loss on one uplink) | flows on that uplink only; no link/BGP/BFD event | none (no counter changes state) | +85% in 1 of 3 runs; ≈ +4% or not measurable in 2 | found by telemetry in 2/3 (drops/MB) and 1/3 (share) runs |
+
+**Collective job vs inference service.** A synchronous collective runs at the
+pace of its slowest member. Any fault on any path it uses stretches the whole
+step, and a leaf loss stops it outright: two of the four ring members were cut
+off, and progress fell to ≈ 2% of normal. An inference service behind a
+load balancer loses only the endpoints behind the failed leaf. In the same
+leaf-loss runs, the front-end tenant on other leaves (tb2→tb4) lost nothing,
+and same-leaf traffic elsewhere was untouched. So the fabric's failure
+domains (link < spine < leaf/rail < pod) translate to job-wide impact for
+training and to fractional capacity loss for serving. Training needs fast
+fail-and-reschedule on rail or leaf loss; serving needs drain and rebalance.
+
+**Restore is a failure event too.** The largest loss windows for link-down
+(tenant), flap, and spine loss came 2–4 s *after* the repair, when the path
+re-entered ECMP. That is a hypothesis to test next with `bgp update-delay` /
+`max-med on-startup`.
+
+### 7.3 Operations
+
+- **Runbooks:** [`runbooks/README.md`](runbooks/README.md). Six are
+  MEASURED-IN-LAB (link/BFD flap, spine/leaf loss, silent degradation, ECMP
+  imbalance, EVPN tenant reachability, BGP session down) and three are
+  INTENT-ONLY (PFC storm/watchdog, ECN vs XOFF, FEC/CRC).
+- **Telemetry signals** (local Python exporter + Prometheus, EMULATED; no
+  gNMI): uplink TX rate and max/mean imbalance, uplink share of leaf TX,
+  root-qdisc drops per MB, host TCP retransmit ratio, BGP and BFD state. The
+  step-time effect of ECMP imbalance is visible directly: in the shaped E5
+  rerun, job time tracked the busiest link (Pearson r = 0.998). Silent loss is
+  only partially visible to these counters (E6); production needs receiver
+  FCS/FEC counters or active per-path probes.
+- **Pre-deployment validation:** `make fabric-batfish` (OFFLINE-VALIDATED)
+  catches config-consistency faults in 9 s, before any device changes. F1's
+  leaf-ASN fault, as a partial change, shows up as 4 `HALF_OPEN` sessions; a
+  missing `maximum-paths` shows up as 1 path instead of 2. The intent
+  validator catches plan errors (ASN scheme, overlapping ranges, MTU budget).
+  Post-deploy `make fabric-test` (65 checks) remains the second gate for what
+  models miss (BFD, EVPN, MTU, convergence).
+
+### 7.4 Multi-NOS intent
+
+One intent renders FRR + Linux + containerlab (EMULATED, running), SONiC
+`config_db` QoS fragments (INTENT-ONLY), and NX-OS (OFFLINE-VALIDATED;
+[ADR 0006](../docs/adr/0006-multi-nos-render-batfish.md)).
+
+| Unchanged across NOSes (intent) | Changes per NOS (renderer) |
+|---|---|
+| devices, roles, ASNs, loopbacks, links, rails, host prefixes | config syntax and section order (FRR needed VRF/VNI blocks first) |
+| ECMP width, BFD timers, BGP timers | how BFD and ECMP are switched on (`bfd` profile vs `feature bfd` + interface `bfd interval`) |
+| QoS classes, ECN/PFC thresholds, MTU budget | platform limits (NX-OS MTU ≤ 9216) and which features exist (lab: `tc`, SONiC: buffers/PFC) |
+| tenants, VNIs, route targets | unnumbered peering: FRR runs it; NX-OS supports it per its guide, but Batfish models only numbered NX-OS, so intent also carries a /31 pool (`address_plan.fabric_p2p`) |
