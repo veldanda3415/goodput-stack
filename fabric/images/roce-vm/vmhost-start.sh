@@ -20,13 +20,14 @@ ip link set eth1 master br-fabric
 ip tuntap add dev tap0 mode tap
 ip link set tap0 master br-fabric
 ip link set tap0 up
+ip link set br-fabric up
 
 mkdir -p /var/lib/vm
 ssh-keygen -q -t ed25519 -N "" -C "$VM_NAME" -f /var/lib/vm/id_ed25519
 public_key=$(cat /var/lib/vm/id_ed25519.pub)
 sed "s|__VM_SSH_PUBLIC_KEY__|\"$public_key\"|" /run/vm/user-data > /var/lib/vm/user-data
 qemu-img create -q -f qcow2 -F qcow2 -b /opt/debian-13-generic-amd64.qcow2 /var/lib/vm/disk.qcow2
-cloud-localds --network-config /run/vm/network-config /var/lib/vm/seed.iso /var/lib/vm/user-data /run/vm/meta-data
+cloud-localds -N /run/vm/network-config /var/lib/vm/seed.iso /var/lib/vm/user-data /run/vm/meta-data
 
 if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
     accelerator=kvm
@@ -53,6 +54,6 @@ qemu-system-x86_64 \
     -monitor none \
     -serial file:/var/log/vm-serial.log \
     -daemonize \
-    -pidfile /run/vm/qemu.pid
+    -pidfile /var/lib/vm/qemu.pid
 
 tail -F /var/log/vm-serial.log

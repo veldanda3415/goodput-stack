@@ -110,9 +110,11 @@ def test_renderer_is_byte_deterministic(tmp_path: Path) -> None:
     network = yaml.safe_load((output / "vms/vmhost1/network-config").read_text(encoding="utf-8"))
     assert network["config"][1]["subnets"][0]["address"] == "10.210.0.18/30"
     assert network["config"][1]["subnets"][0]["routes"][0]["gateway"] == "10.210.0.17"
+    assert all("set-name" not in nic for nic in network["config"])
     user_data = (output / "vms/vmhost1/user-data").read_text(encoding="utf-8")
     assert user_data.startswith("#cloud-config\n")
     assert "perftest=25.01.0+0.80-1" in user_data
+    assert "netdev\n  - fabric" in user_data
     assert "__VM_SSH_PUBLIC_KEY__" in user_data
 
 

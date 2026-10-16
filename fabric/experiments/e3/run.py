@@ -42,8 +42,13 @@ TCLASS_DSCP26 = 104  # DSCP 26 << 2, ECN bits 0
 
 
 def text(node: str, command: str) -> str:
-    out = node_result(node, command)["stdout"]
+    out = node_result(node, node_command(node, command))["stdout"]
     return out if isinstance(out, str) else json.dumps(out)
+
+
+def node_command(node: str, command: str) -> str:
+    vm_names = {host["name"] for host in load_intent().get("vm_hosts", [])}
+    return f"vm-exec {command}" if node in vm_names else command
 
 
 def background(node: str, command: str) -> subprocess.Popen[str]:
@@ -53,7 +58,7 @@ def background(node: str, command: str) -> subprocess.Popen[str]:
             "--name", load_intent()["name"],
             "--label", f"clab-node-name={node}",
             "--format", "json", "--log-level", "error",
-            "--cmd", command,
+            "--cmd", node_command(node, command),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -75,7 +80,8 @@ def finish(node: str, process: subprocess.Popen[str], timeout: int = 60) -> str:
 def endpoints() -> dict[str, dict[str, Any]]:
     """(host, rail) -> address, interface, rxe device."""
     out = {}
-    for host in load_intent()["hosts"]:
+    intent = load_intent()
+    for host in [*intent["hosts"], *intent.get("vm_hosts", [])]:
         for nic in host["nics"]:
             out[f"{host['name']}:{nic['rail']}"] = {
                 "host": host["name"],
@@ -92,6 +98,7 @@ PATHS = {
     "same-leaf (host1 A -> host2 A)": ("host1:A", "host2:A"),
     "cross-spine same rail (host1 A -> host3 A)": ("host1:A", "host3:A"),
     "cross-rail (host1 A -> host3 B)": ("host1:A", "host3:B"),
+    "vm-cross-spine": ("vmhost1:A", "vmhost2:A"),
 }
 
 
@@ -157,7 +164,8 @@ def parse_perftest(tool: str, output: str, size: int) -> dict[str, Any]:
             # bytes iterations t_min t_max t_typical t_avg t_stdev p99 p99.9 (usec)
             return {"iterations": values[0], "t_min_us": values[1], "t_max_us": values[2],
                     "t_typical_us": values[3], "t_avg_us": values[4], "t_stdev_us": values[5],
-                    "p99_us": values[6], "p999_us": values[7]}
+                    "p99_us": values[6] if len(values) > 6 else None,
+                    "p999_us": values[7] if len(values) > 7 else None}
     raise RuntimeError(f"no result line for size {size} in {tool} output:\n{output}")
 
 
@@ -176,7 +184,7 @@ def iperf(src: dict[str, Any], dst: dict[str, Any], size: int) -> dict[str, Any]
     server = background(dst["host"], f"timeout 30 iperf3 -s -1 -B {dst['ip']}")
     time.sleep(1)
     command = f"iperf3 -c {dst['ip']} -B {src['ip']} -t {DURATION} -l {size} --json"
-    result = node_result(src["host"], command)["stdout"]
+    result = node_result(src["host"], node_command(src["host"], command))["stdout"]
     data = result if isinstance(result, dict) else json.loads(result)
     finish(dst["host"], server)
     return {
@@ -187,10 +195,18 @@ def iperf(src: dict[str, Any], dst: dict[str, Any], size: int) -> dict[str, Any]
     }
 
 
-def cmd_rdma(results: dict[str, Any]) -> None:
+def cmd_rdma(results: dict[str, Any], selected_paths: list[str] | None = None) -> None:
     eps = endpoints()
-    runs: dict[str, Any] = {"nproc": text("host1", "nproc").strip()}
-    for label, (src_key, dst_key) in PATHS.items():
+    vm_eps = {key: endpoint for key, endpoint in eps.items() if endpoint["host"].startswith("vmhost")}
+    runs: dict[str, Any] = {
+        "nproc": text("vmhost1", "nproc").strip(),
+        "rxe_counters_before": {
+            key: rdma_counters(endpoint) for key, endpoint in vm_eps.items()
+        },
+    }
+    labels = selected_paths or list(PATHS)
+    for label in labels:
+        src_key, dst_key = PATHS[label]
         src, dst = eps[src_key], eps[dst_key]
         path = {"traceroute": text(src["host"], f"traceroute -n -q 1 -s {src['ip']} {dst['ip']}")}
         for size in SIZES:
@@ -200,7 +216,24 @@ def cmd_rdma(results: dict[str, Any]) -> None:
             path[f"iperf3_{size}"] = [iperf(src, dst, size) for _ in range(REPEATS)]
             print(label, "iperf3", size, [r["received_gbps"] for r in path[f"iperf3_{size}"]])
         runs[label] = path
+    runs["rxe_counters_after"] = {
+        key: rdma_counters(endpoint) for key, endpoint in vm_eps.items()
+    }
     results["rdma"] = runs
+
+
+def rdma_counters(endpoint: dict[str, Any]) -> dict[str, int]:
+    output = text(
+        endpoint["host"],
+        f"rdma statistic show link {endpoint['device']}/1",
+    )
+    counters = {
+        name: int(value)
+        for name, value in re.findall(r"^\s*(sent_pkts|rcvd_pkts)\s+(\d+)\s*$", output, re.M)
+    }
+    if set(counters) != {"sent_pkts", "rcvd_pkts"}:
+        raise RuntimeError(f"missing rxe packet counters for {endpoint['device']}:\n{output}")
+    return counters
 
 
 def tx_bytes(node: str, interface: str) -> int:
@@ -258,7 +291,7 @@ def capture_run(src: dict[str, Any], dst: dict[str, Any], qps: int, tclass: int 
 
 def cmd_wire(results: dict[str, Any]) -> None:
     eps = endpoints()
-    src, dst = eps["host1:A"], eps["host3:A"]
+    src, dst = eps["vmhost1:A"], eps["vmhost2:A"]
     CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
     wire: dict[str, Any] = {}
     # Decode sample: full frames, DSCP 26 marking, at most 400 packets per spine (< 2 MB).
@@ -316,11 +349,15 @@ def cmd_qos(results: dict[str, Any]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("steps", nargs="+", choices=["devices", "rdma", "wire", "qos"])
+    parser.add_argument("--path", action="append", choices=PATHS, dest="paths")
     args = parser.parse_args()
     results = json.loads(RESULT_PATH.read_text()) if RESULT_PATH.exists() else {}
     commands = {"devices": cmd_devices, "rdma": cmd_rdma, "wire": cmd_wire, "qos": cmd_qos}
     for step in args.steps:
-        commands[step](results)
+        if step == "rdma":
+            cmd_rdma(results, args.paths)
+        else:
+            commands[step](results)
         results.setdefault("timestamps", {})[step] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         RESULT_PATH.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
         print(f"wrote {step} to {RESULT_PATH.relative_to(ROOT)}")

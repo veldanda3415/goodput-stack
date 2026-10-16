@@ -216,8 +216,8 @@ def render(intent: dict[str, Any], output: Path) -> None:
             ],
             "runcmd": [
                 ["modprobe", "rdma_rxe"],
-                ["ip", "route", "replace", "10.210.0.0/16", "via", nic["gateway"], "dev", "fabric0"],
-                ["rdma", "link", "add", f"rxe_{vm_host['name']}_a", "type", "rxe", "netdev", "fabric0"],
+                ["ip", "route", "replace", "10.210.0.0/16", "via", nic["gateway"], "dev", "fabric"],
+                ["rdma", "link", "add", f"rxe_{vm_host['name']}_a", "type", "rxe", "netdev", "fabric"],
             ],
         }
         (vm_dir / "user-data").write_text(
@@ -231,14 +231,12 @@ def render(intent: dict[str, Any], output: Path) -> None:
                     "type": "physical",
                     "name": "management",
                     "mac_address": vm_host["management_mac"],
-                    "set-name": "mgmt0",
                     "subnets": [{"type": "dhcp"}],
                 },
                 {
                     "type": "physical",
                     "name": "fabric",
                     "mac_address": nic["mac"],
-                    "set-name": "fabric0",
                     "subnets": [{
                         "type": "static",
                         "address": nic["address"],

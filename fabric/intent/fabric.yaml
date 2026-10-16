@@ -82,7 +82,7 @@ images:
   # served by the local registry below; the digest is the pushed manifest.
   host: localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2
   # Built from fabric/images/roce-vm/Containerfile; image digest pinned below.
-  vmrunner: localhost:5000/goodput-roce-vm:0.1.0@sha256:88cebaaa66e8ddf6b993934b8aab2bc084af7d2662a6f201dcb869e83a62c783
+  vmrunner: localhost:5000/goodput-roce-vm:0.1.0@sha256:8b2c5ba8936c2d21dc657fe6b268857490360a5e6a3fa8e6172aeecce53b88f7
   registry: docker.io/library/registry:3.1.1@sha256:3d527cee870ddd0fc8a31f99b2fdfb6451801a8dd4f5a92c1ec36dae24c14274
 # SOFT-ROCE: one rdma_rxe device per host rail NIC, created inside the host
 # container at deploy. Device names are global because the kernel RDMA

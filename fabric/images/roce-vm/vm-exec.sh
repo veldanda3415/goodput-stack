@@ -4,6 +4,7 @@ set -eu
 ssh_guest() {
     ssh -i /var/lib/vm/id_ed25519 \
         -o BatchMode=yes \
+        -o LogLevel=ERROR \
         -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null \
         -p 2222 \
@@ -21,4 +22,9 @@ while ! ssh_guest test -f /var/lib/cloud/instance/boot-finished >/dev/null 2>&1;
     elapsed=$((elapsed + 2))
 done
 
-exec ssh_guest "$@"
+if ! ssh_guest cloud-init status --long >/dev/null; then
+    ssh_guest cloud-init status --long >&2
+    exit 1
+fi
+
+ssh_guest "$@"

@@ -45,7 +45,7 @@ runcmd:
   - via
   - 10.210.0.17
   - dev
-  - fabric0
+  - fabric
 - - rdma
   - link
   - add
@@ -53,4 +53,4 @@ runcmd:
   - type
   - rxe
   - netdev
-  - fabric0
+  - fabric

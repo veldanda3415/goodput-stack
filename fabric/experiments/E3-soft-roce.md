@@ -1,10 +1,9 @@
 # E3 — Soft-RoCE across the fabric and lossless RoCE QoS
 
-**Status (2026-10-15):** RDMA verbs traffic across the fabric is **not
-feasible on this kernel**. The cause is identified below, and the RDMA
-measurements and RoCE wire decode were not run. The QoS design is rendered
-(**INTENT-ONLY**), and host-side DSCP classification is verified in the lab
-(**EMULATED**).
+**Status (2026-10-16):** Task 1 is complete: two VM endpoints run
+**SOFT-ROCE** in separate guest kernels across the **EMULATED** fabric and
+complete RC verbs traffic across a spine. The original container-netns
+blocker remains valid for the container hosts. Task 2 wire decode is pending.
 
 Labels used here:
 
@@ -42,7 +41,7 @@ index 1 on all eight devices (`fabric/experiments/e3-results.json`,
 `devices`). The driver selects it by matching that address and type `RoCE v2`
 in `ibv_devinfo -v`; it does not hard-code the index.
 
-### Why verbs traffic fails: rxe is bound to the initial network namespace
+### Why verbs traffic fails in containers: rxe is bound to the initial network namespace
 
 Counters around the failing run, from `rdma statistic show link <dev>/1`,
 `ip -s -j link show dev eth1`, and `/proc/net/snmp`. Raw values are in
@@ -77,7 +76,36 @@ the netdev in the container netns, so both fail the same way. Option (c),
 rootful, is already in use. **Per (d), RDMA work stopped here**, and Tasks
 3–4 were completed.
 
-Possible ways forward, untested:
+The VM endpoint path now avoids that limitation by running `rdma_rxe` in each
+guest's init network namespace. The VM runner bridges its containerlab rail
+port to a QEMU TAP device; the QEMU guest owns the IPv4 rail address and rxe
+device. This is still software RoCE over emulated veth links, not NIC
+performance.
+
+### VM endpoint pin and prediction
+
+Two QEMU guests use 768 MiB RAM and 2 vCPUs each. `/dev/kvm` is available and
+the runner selects KVM when readable/writable, otherwise QEMU TCG. The guest
+image is the Debian 13 generic amd64 cloud image with SHA-512
+`d4721b56d60472370f3ff088a85ca36f298b360d3131af421a009bb8ea03c4d80eb67915bb57a69f6057e56c5bd48e69d3a47fbc5b8efacc5434a9c756b345d3`.
+The pinned runner image is `localhost:5000/goodput-roce-vm:0.1.0@sha256:8b2c5ba8936c2d21dc657fe6b268857490360a5e6a3fa8e6172aeecce53b88f7`.
+
+**Prediction before the cross-spine measurements:** SOFT-ROCE verbs should
+complete because rxe packet routing and UDP 4791 now belong to each guest's
+init namespace. Its CPU-bound software datapath should be much slower than
+the guest-to-guest iperf3 TCP datapath; 1 MiB messages should give higher
+bandwidth than 64 KiB, while `ib_read_lat` should report sub-millisecond
+software latency on an unloaded lab. These are predictions, not results.
+
+| Path / test | Prediction | Measured result |
+|---|---|---|
+| vmhost1 rail A → vmhost2 rail A, `ib_write_bw`, 64 KiB / 1 MiB, 3 repeats | QP should establish; CPU-bound and below iperf3 | Pending |
+| Same path, `ib_read_lat`, 64 KiB / 1 MiB, 3 repeats | RC read completes; software latency, not NIC latency | Pending |
+| Same path, iperf3 TCP, 64 KiB / 1 MiB, 3 repeats | higher throughput than Soft-RoCE | Pending |
+
+Measured command lines and raw outputs are recorded in `e3-results.json`.
+
+Possible ways forward for the original container hosts:
 
 1. A kernel whose rxe has network-namespace support. Check the upstream rxe
    history before relying on any particular version.
@@ -94,30 +122,78 @@ Possible ways forward, untested:
 | apt source | `snapshot.debian.org/archive/debian/20260918T000000Z` (+ `-security`, `trixie-updates`) | <https://snapshot.debian.org/> |
 | Packages | `rdma-core`, `ibverbs-utils`, `ibverbs-providers`, `rdmacm-utils` `56.1-1`; `perftest 25.01.0+0.80-1`; `iproute2 6.15.0-1`; `iperf3 3.18-2+deb13u2`; `tcpdump 4.99.5-2`; `tshark 4.4.18-0+deb13u1`; `sysstat 12.7.5-2`; `procps 2:4.0.4-9`; `iputils-ping 3:20240905-3`; `traceroute 1:2.1.6-1` | `apt-cache policy` against the snapshot, verified with `dpkg-query -W` in the built image |
 | Host image | `localhost:5000/goodput-roce-host:0.1.0@sha256:f6f2f4045e4f9a533cebb4435c8acc8f7182104d1dca19bf033f50455d0056e2` | `fabric/images/roce-host/Containerfile`; digest of the pushed manifest (rebuilds are not byte-identical; update intent after `make roce-image`) |
+| VM runner | `localhost:5000/goodput-roce-vm:0.1.0@sha256:8b2c5ba8936c2d21dc657fe6b268857490360a5e6a3fa8e6172aeecce53b88f7` | Digest of the pushed runner image; image build and QEMU/TAP wiring are in `fabric/images/roce-vm/Containerfile` and `vmhost-start.sh` |
+| VM guest image | Debian 13 generic amd64 qcow2; SHA-512 `d4721b56d60472370f3ff088a85ca36f298b360d3131af421a009bb8ea03c4d80eb67915bb57a69f6057e56c5bd48e69d3a47fbc5b8efacc5434a9c756b345d3` | <https://cloud.debian.org/images/cloud/> index; exact content is verified in the runner build |
+| VM runner base and QEMU packages | Debian `trixie-20260918-slim@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c`; QEMU `1:10.0.13+ds-0+deb13u1`; cloud-image-utils `0.33-1`; iproute2 `6.15.0-1`; openssh-client `1:10.0p1-7+deb13u4` | `fabric/images/roce-vm/Containerfile`; packages installed from <https://snapshot.debian.org/> at `20260918T000000Z` |
+| VM guest packages | rdma-core/ibverbs `56.1-1`; perftest `25.01.0+0.80-1`; iperf3 `3.18-2+deb13u2`; tcpdump `4.99.5-2`; tshark `4.4.18-0+deb13u1`; sysstat `12.7.5-2`; iproute2 `6.15.0-1`; remaining utilities and OpenSSH pinned in `VM_RDMA_PACKAGES` | `fabric/render/render.py`; package versions resolved from <https://snapshot.debian.org/> at `20260918T000000Z` |
 | Local registry | `docker.io/library/registry:3.1.1@sha256:3d527cee870ddd0fc8a31f99b2fdfb6451801a8dd4f5a92c1ec36dae24c14274` | Docker Hub `library/registry`; release before `3.1.2` |
 | Root Podman trust | `/etc/containers/registries.conf.d/50-goodput-local.conf`: `[[registry]] location = "localhost:5000" insecure = true` | Created by the user with sudo; containerlab 0.78.2 accepts only `docker://` references (`Unsupported transport oci-archive ... only docker transport is supported`) |
 
-After the image change, `make fabric-up` and `make fabric-test` ran:
-**29 passed**. These are the original 14 checks (9 intent and 5 live-lab
-tests) plus 15 new tests for QoS, headroom, and the decoder.
+The runner uses a containerlab `kind: linux` node and generated topology
+links (containerlab [Topology definition: Nodes and Links](https://containerlab.dev/manual/topo-def-file/)).
+Its rail-facing TAP is bridged to the node's `eth1`; the QEMU guest's virtio
+NIC owns the rail MAC/IP (QEMU [Network emulation: TAP and user-mode
+backends](https://www.qemu.org/docs/master/system/devices/net.html#using-tap-network-interfaces)).
+QEMU's user-mode NIC is only for SSH/guest package bootstrap. `/dev/kvm` was
+readable and writable in both runners, so both guests used KVM (not TCG).
+Each guest is configured for 768 MiB and 2 vCPUs. `make fabric-up` took
+18.03 s (`/usr/bin/time -f 'fabric-up elapsed_seconds=%e' make fabric-up`);
+the subsequent `make fabric-test` reported **32 passed**.
 
-## 1. RDMA across the fabric — not run
+## 1. RDMA across the fabric — complete (SOFT-ROCE + EMULATED)
 
-Blocked by §0. `ib_write_bw`/`ib_read_lat` and iperf3 comparisons on the
-same-leaf (host1 A ↔ host2 A, both on leaf1), cross-spine (host1 A ↔ host3
-A), and cross-rail (host1 A ↔ host3 B) paths are implemented in
-`fabric/experiments/e3/run.py rdma`, but **no results exist**.
+**Prediction before the measurement:** the guest init namespaces should let
+the RC QPs send and receive. Because rxe is CPU-bound, verbs throughput
+should be lower than guest-to-guest iperf3; 1 MiB read latency might approach
+the millisecond scale or higher. The earlier expectation of sub-millisecond
+latency was wrong, especially at 1 MiB.
 
-On a working kernel, Soft-RoCE would prove the following: the verbs API, QP
-and MR setup, RoCE v2 routed as ordinary UDP/IP over the BGP L3 fabric, and
-ECMP selection by UDP source port. It would not prove NIC throughput,
+Command: `./.venv/bin/python -m fabric.experiments.e3.run rdma --path vm-cross-spine`.
+The driver ran three repeats per cell on vmhost1 rail A (`10.210.0.18`) to
+vmhost2 rail A (`10.210.0.22`), recorded the client/server command lines and
+raw outputs in [`e3-results.json`](./e3-results.json), and sampled guest CPU
+with `mpstat`. `ibv_devinfo -v` reported the RoCE v2 IPv4-mapped GID
+`::ffff:10.210.0.18` at index 1 on vmhost1 and
+`::ffff:10.210.0.22` at index 1 on vmhost2. `rdma link show` reported both
+devices `ACTIVE`, and traceroute crossed vmhost1's leaf, spine1, and
+vmhost2's leaf.
+
+| Path/test | Prediction | Measured result (median, range; 3 repeats) |
+|---|---|---|
+| `ib_write_bw`, 64 KiB | Completes; below TCP | 0.64 Gbit/s (0.61–0.68); perftest client CPU 54.24%, `mpstat %usr` 29.62% median |
+| `ib_write_bw`, 1 MiB | Completes; below TCP | 0.60 Gbit/s (0.57–0.62); perftest client CPU 55.80%, `mpstat %usr` 28.90% median |
+| `ib_read_lat`, 64 KiB | RC read completes; predicted sub-ms | 1,301.77 µs (1,199.97–1,349.30); prediction missed |
+| `ib_read_lat`, 1 MiB | RC read completes; software latency | 10,940.61 µs (10,780.51–11,224.85) |
+| iperf3 TCP, 64 KiB | Faster than verbs | 2.627 Gbit/s (2.186–2.718); median sender/receiver CPU 8.98%/49.44% |
+| iperf3 TCP, 1 MiB | Faster than verbs | 2.541 Gbit/s (2.465–2.558); median sender/receiver CPU 12.45%/44.99% |
+
+`rdma statistic show link <device>/1` was sampled immediately before and
+after the workload. vmhost1 changed from 0/0 to `sent_pkts=1,442,515`,
+`rcvd_pkts=3,286,439`; vmhost2 changed from 0/0 to
+`sent_pkts=3,286,439`, `rcvd_pkts=1,442,236`. Counters prove packets moved;
+the 279-packet difference in the forward direction is not explained by this
+measurement, so this is not evidence of loss-free delivery. The command and
+raw counter output are in the result JSON.
+
+The exact 64 KiB write client command was
+`ib_write_bw -d rxe_vmhost1_a -x 1 -s 65536 -D 3 --report_gbits -F --cpu_util --bind_source_ip 10.210.0.18 10.210.0.22`;
+server command:
+`timeout 40 ib_write_bw -d rxe_vmhost2_a -x 1 -s 65536 -D 3 --report_gbits -F`.
+The corresponding iperf3 client command was
+`iperf3 -c 10.210.0.22 -B 10.210.0.18 -t 3 -l 65536 --json`; sizes and
+commands for all six cells and 18 repeated runs are preserved in the JSON.
+
+This proves the verbs API, RC QP/MR setup, and RoCE v2 traffic routed as
+ordinary UDP/IP over the BGP fabric. It does **not** prove NIC throughput,
 latency, losslessness, or congestion control (rxe has no DCQCN, and veth has
-no PFC).
+no PFC). These are **SOFT-ROCE** results on an **EMULATED** fabric, not NIC
+performance.
 
-## 2. RoCE v2 on the wire — not run
+## 2. RoCE v2 on the wire — pending
 
-No RoCE packets crossed the fabric, so there is no RoCE pcap. Prepared for
-the next attempt:
+The completed Task 1 verbs run proves that RoCE traffic crosses the fabric;
+the separate tap captures, packet decode, QP entropy sweep, and DSCP/ECN
+observation have not yet been run. Prepared for this task:
 
 - `fabric/experiments/e3/bth_decode.py` (stdlib only) parses classic pcap
   through Ethernet, IPv4, UDP 4791, and BTH. It decodes the opcode, SE,
@@ -140,10 +216,10 @@ the next attempt:
   `--tclass 104` should appear on the wire as DSCP 26, ECN 00 (Not-ECT).
   Not verified.
 
-A quick attempt to see DSCP 26 at the spine taps with TCP (`iperf3 --tos
-104`, `tcpdump -v` on spine1-tap/spine2-tap `eth1`) captured 0 packets. The
-capture filter or timing was not debugged for lack of time; there is no
-DSCP-on-the-fabric result.
+A quick pre-VM attempt to see DSCP 26 at the spine taps with TCP
+(`iperf3 --tos 104`, `tcpdump -v` on spine1-tap/spine2-tap `eth1`) captured 0
+packets. Its capture filter/timing was not debugged; there is no DSCP-on-wire
+result from that attempt.
 
 ## 3. QoS: INTENT-ONLY design, EMULATED host classification
 
@@ -201,11 +277,21 @@ classes.
    creation, before the rxe devices exist. Fix: the rendered host setup now
    `mknod`s missing `uverbsN` nodes from `/sys/class/infiniband_verbs/*/dev`.
 3. **Verbs traffic fails (`Failed status 5`).** Evidence and cause: §0; rxe
-   is bound to `init_net` in Linux 6.18. No fix in this lab.
+   is bound to `init_net` in Linux 6.18. VM guests in their own init netns
+   resolve this for VM endpoints; no fix for the original containers.
 4. **No `tcpdump` on spines.** The FRR image is Alpine without capture tools.
    Fix: `capture_taps` in intent renders `spineN-tap` nodes (the pinned host
    image, `network-mode: container:spineN`) instead of adding packages to the
    pinned FRR image.
+5. **VM guest cloud-init did not configure its fabric NIC.** Symptom:
+   cloud-init status `error`, no rxe link. Evidence: cloud-init v1 rejects
+   `set-name`; the guest NIC names were `management` and `fabric`, while the
+   generated `runcmd` used `fabric0`. Fix: omit `set-name` in network-config
+   and use `fabric` consistently; `vm-exec` now surfaces cloud-init failures.
+6. **VM guest could not ping its leaf or a remote VM after cloud-init passed.**
+   Evidence: runner `ip -d link show br-fabric` reported the bridge `state
+   DOWN`; bringing it up immediately made the gateway and cross-spine pings
+   succeed. Fix: explicitly `ip link set br-fabric up` before QEMU starts.
 
 ## Notes for DESIGN §5 (for F2, who owns `fabric/DESIGN.md`)
 

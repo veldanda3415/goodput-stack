@@ -122,7 +122,7 @@ topology:
       - sh /usr/local/bin/host-qos.sh
     vmhost1:
       kind: linux
-      image: localhost:5000/goodput-roce-vm:0.1.0@sha256:88cebaaa66e8ddf6b993934b8aab2bc084af7d2662a6f201dcb869e83a62c783
+      image: localhost:5000/goodput-roce-vm:0.1.0@sha256:8b2c5ba8936c2d21dc657fe6b268857490360a5e6a3fa8e6172aeecce53b88f7
       privileged: true
       cmd: /usr/local/sbin/vmhost-start
       binds:
@@ -131,7 +131,7 @@ topology:
       - /dev/net/tun:/dev/net/tun
     vmhost2:
       kind: linux
-      image: localhost:5000/goodput-roce-vm:0.1.0@sha256:88cebaaa66e8ddf6b993934b8aab2bc084af7d2662a6f201dcb869e83a62c783
+      image: localhost:5000/goodput-roce-vm:0.1.0@sha256:8b2c5ba8936c2d21dc657fe6b268857490360a5e6a3fa8e6172aeecce53b88f7
       privileged: true
       cmd: /usr/local/sbin/vmhost-start
       binds:

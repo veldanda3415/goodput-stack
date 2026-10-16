@@ -174,7 +174,8 @@
   },
   "timestamps": {
     "devices": "2026-10-16T01:35:21+00:00",
-    "qos": "2026-10-16T01:37:10+00:00"
+    "qos": "2026-10-16T01:37:10+00:00",
+    "rdma": "2026-10-16T11:15:57+00:00"
   },
   "feasibility_failure": {
     "client_command": "ib_write_bw -d rxe_host1_a -x 1 -s 65536 -n 100 -F --bind_source_ip 10.210.0.2 10.210.0.6",
@@ -274,6 +275,356 @@
         "1:1": 208937,
         "1:2": 0,
         "1:3": 16
+      }
+    }
+  },
+  "rdma": {
+    "nproc": "2",
+    "rxe_counters_before": {
+      "vmhost1:A": {
+        "sent_pkts": 0,
+        "rcvd_pkts": 0
+      },
+      "vmhost2:A": {
+        "sent_pkts": 0,
+        "rcvd_pkts": 0
+      }
+    },
+    "vm-cross-spine": {
+      "traceroute": "traceroute to 10.210.0.22 (10.210.0.22), 30 hops max, 60 byte packets\n 1  10.210.0.17  0.962 ms\n 2  10.200.0.1  0.821 ms\n 3  10.200.0.12  0.753 ms\n 4  10.210.0.22  2.475 ms\n",
+      "ib_write_bw_65536": [
+        {
+          "server_command": "timeout 40 ib_write_bw -d rxe_vmhost2_a -x 1 -s 65536 -D 3 --report_gbits -F",
+          "client_command": "ib_write_bw -d rxe_vmhost1_a -x 1 -s 65536 -D 3 --report_gbits -F --cpu_util --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 3480.0,
+            "bw_peak_gbps": 0.0,
+            "bw_avg_gbps": 0.61,
+            "msg_rate_mpps": 0.00116,
+            "extra": [
+              54.97
+            ]
+          },
+          "client_output": " WARNING: BW peak won't be measured in this run.\n---------------------------------------------------------------------------------------\n                    RDMA_Write BW Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 128\n CQ Moderation   : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Max inline data : 0[B]\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0011 PSN 0x87cf80 RKey 0x000242 VAddr 0x007f33acff4000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0011 PSN 0xa873f4 RKey 0x000203 VAddr 0x007f19484a1000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]    CPU_Util[%]\n 65536      3480             0.00               0.61   \t\t     0.001160\t    54.97\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": "---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]\n 65536      3480             0.00               0.61   \t\t     0.001160\n---------------------------------------------------------------------------------------",
+          "mpstat": {
+            "%usr": 29.71,
+            "%nice": 0.0,
+            "%sys": 5.52,
+            "%iowait": 0.16,
+            "%irq": 0.0,
+            "%soft": 5.19,
+            "%steal": 0.16,
+            "%guest": 0.0,
+            "%gnice": 0.0,
+            "%idle": 59.25
+          },
+          "mpstat_raw": "Linux 6.12.111+deb13-amd64 (vmhost1) \t10/16/26 \t_x86_64_\t(2 CPU)\n\n11:12:43     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n11:12:46     all   29.71    0.00    5.52    0.16    0.00    5.19    0.16    0.00    0.00   59.25\nAverage:     all   29.71    0.00    5.52    0.16    0.00    5.19    0.16    0.00    0.00   59.25\n"
+        },
+        {
+          "server_command": "timeout 40 ib_write_bw -d rxe_vmhost2_a -x 1 -s 65536 -D 3 --report_gbits -F",
+          "client_command": "ib_write_bw -d rxe_vmhost1_a -x 1 -s 65536 -D 3 --report_gbits -F --cpu_util --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 3879.0,
+            "bw_peak_gbps": 0.0,
+            "bw_avg_gbps": 0.68,
+            "msg_rate_mpps": 0.001293,
+            "extra": [
+              53.69
+            ]
+          },
+          "client_output": " WARNING: BW peak won't be measured in this run.\n---------------------------------------------------------------------------------------\n                    RDMA_Write BW Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 128\n CQ Moderation   : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Max inline data : 0[B]\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0012 PSN 0x2e048f RKey 0x000375 VAddr 0x007fbb4bc75000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0012 PSN 0xa6d69 RKey 0x0003ae VAddr 0x007f3e13d8d000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]    CPU_Util[%]\n 65536      3879             0.00               0.68   \t\t     0.001293\t    53.69\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": "---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]\n 65536      3879             0.00               0.68   \t\t     0.001293\n---------------------------------------------------------------------------------------",
+          "mpstat": {
+            "%usr": 27.92,
+            "%nice": 0.0,
+            "%sys": 6.66,
+            "%iowait": 0.0,
+            "%irq": 0.0,
+            "%soft": 6.98,
+            "%steal": 0.0,
+            "%guest": 0.0,
+            "%gnice": 0.0,
+            "%idle": 58.44
+          },
+          "mpstat_raw": "Linux 6.12.111+deb13-amd64 (vmhost1) \t10/16/26 \t_x86_64_\t(2 CPU)\n\n11:12:52     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n11:12:55     all   27.92    0.00    6.66    0.00    0.00    6.98    0.00    0.00    0.00   58.44\nAverage:     all   27.92    0.00    6.66    0.00    0.00    6.98    0.00    0.00    0.00   58.44\n"
+        },
+        {
+          "server_command": "timeout 40 ib_write_bw -d rxe_vmhost2_a -x 1 -s 65536 -D 3 --report_gbits -F",
+          "client_command": "ib_write_bw -d rxe_vmhost1_a -x 1 -s 65536 -D 3 --report_gbits -F --cpu_util --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 3672.0,
+            "bw_peak_gbps": 0.0,
+            "bw_avg_gbps": 0.64,
+            "msg_rate_mpps": 0.001224,
+            "extra": [
+              54.24
+            ]
+          },
+          "client_output": " WARNING: BW peak won't be measured in this run.\n---------------------------------------------------------------------------------------\n                    RDMA_Write BW Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 128\n CQ Moderation   : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Max inline data : 0[B]\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0013 PSN 0x4f1f7b RKey 0x000477 VAddr 0x007f4fdb606000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0013 PSN 0x67c49b RKey 0x000412 VAddr 0x007fd9917f8000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]    CPU_Util[%]\n 65536      3672             0.00               0.64   \t\t     0.001224\t    54.24\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": "---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]\n 65536      3672             0.00               0.64   \t\t     0.001224\n---------------------------------------------------------------------------------------",
+          "mpstat": {
+            "%usr": 29.62,
+            "%nice": 0.0,
+            "%sys": 5.73,
+            "%iowait": 0.16,
+            "%irq": 0.0,
+            "%soft": 6.71,
+            "%steal": 0.0,
+            "%guest": 0.0,
+            "%gnice": 0.0,
+            "%idle": 57.77
+          },
+          "mpstat_raw": "Linux 6.12.111+deb13-amd64 (vmhost1) \t10/16/26 \t_x86_64_\t(2 CPU)\n\n11:13:01     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n11:13:04     all   29.62    0.00    5.73    0.16    0.00    6.71    0.00    0.00    0.00   57.77\nAverage:     all   29.62    0.00    5.73    0.16    0.00    6.71    0.00    0.00    0.00   57.77\n"
+        }
+      ],
+      "ib_read_lat_65536": [
+        {
+          "server_command": "timeout 40 ib_read_lat -d rxe_vmhost2_a -x 1 -s 65536 -n 1000 -F",
+          "client_command": "ib_read_lat -d rxe_vmhost1_a -x 1 -s 65536 -n 1000 -F --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 1000.0,
+            "t_min_us": 730.16,
+            "t_max_us": 3365.71,
+            "t_typical_us": 1064.31,
+            "t_avg_us": 1199.97,
+            "t_stdev_us": 400.72,
+            "p99_us": 2872.03,
+            "p999_us": 3365.71
+          },
+          "client_output": "---------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------\n                    RDMA_Read Latency Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Outstand reads  : 128\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0014 PSN 0xf2ade6 OUT 0x80 RKey 0x0005b2 VAddr 0x007fdd3fa46000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0014 PSN 0x318e86 OUT 0x80 RKey 0x00052b VAddr 0x007f60362c8000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]    t_avg[usec]    t_stdev[usec]   99% percentile[usec]   99.9% percentile[usec] \n 65536   1000          730.16         3365.71      1064.31  \t       1199.97     \t400.72 \t\t2872.03 \t\t3365.71\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": " GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n remote address: LID 0000 QPN 0x0014 PSN 0xf2ade6 OUT 0x80 RKey 0x0005b2 VAddr 0x007fdd3fa46000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n---------------------------------------------------------------------------------------",
+          "mpstat": null,
+          "mpstat_raw": null
+        },
+        {
+          "server_command": "timeout 40 ib_read_lat -d rxe_vmhost2_a -x 1 -s 65536 -n 1000 -F",
+          "client_command": "ib_read_lat -d rxe_vmhost1_a -x 1 -s 65536 -n 1000 -F --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 1000.0,
+            "t_min_us": 744.54,
+            "t_max_us": 4476.5,
+            "t_typical_us": 1133.17,
+            "t_avg_us": 1301.77,
+            "t_stdev_us": 509.23,
+            "p99_us": 3155.33,
+            "p999_us": 4476.5
+          },
+          "client_output": "---------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------\n                    RDMA_Read Latency Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Outstand reads  : 128\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0015 PSN 0xf05d36 OUT 0x80 RKey 0x000666 VAddr 0x007f433a20e000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0015 PSN 0x133b8a OUT 0x80 RKey 0x000651 VAddr 0x007f315cffa000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]    t_avg[usec]    t_stdev[usec]   99% percentile[usec]   99.9% percentile[usec] \n 65536   1000          744.54         4476.50      1133.17  \t       1301.77     \t509.23 \t\t3155.33 \t\t4476.50\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": " GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n remote address: LID 0000 QPN 0x0015 PSN 0xf05d36 OUT 0x80 RKey 0x000666 VAddr 0x007f433a20e000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n---------------------------------------------------------------------------------------",
+          "mpstat": null,
+          "mpstat_raw": null
+        },
+        {
+          "server_command": "timeout 40 ib_read_lat -d rxe_vmhost2_a -x 1 -s 65536 -n 1000 -F",
+          "client_command": "ib_read_lat -d rxe_vmhost1_a -x 1 -s 65536 -n 1000 -F --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 1000.0,
+            "t_min_us": 773.12,
+            "t_max_us": 4814.31,
+            "t_typical_us": 1196.93,
+            "t_avg_us": 1349.3,
+            "t_stdev_us": 507.78,
+            "p99_us": 3261.35,
+            "p999_us": 4814.31
+          },
+          "client_output": "---------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------\n                    RDMA_Read Latency Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Outstand reads  : 128\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0016 PSN 0xa8c0e2 OUT 0x80 RKey 0x000740 VAddr 0x007f9eb5bd8000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0016 PSN 0xb83c09 OUT 0x80 RKey 0x00072a VAddr 0x007fa834d5b000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]    t_avg[usec]    t_stdev[usec]   99% percentile[usec]   99.9% percentile[usec] \n 65536   1000          773.12         4814.31      1196.93  \t       1349.30     \t507.78 \t\t3261.35 \t\t4814.31\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": " GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n remote address: LID 0000 QPN 0x0016 PSN 0xa8c0e2 OUT 0x80 RKey 0x000740 VAddr 0x007f9eb5bd8000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n---------------------------------------------------------------------------------------",
+          "mpstat": null,
+          "mpstat_raw": null
+        }
+      ],
+      "iperf3_65536": [
+        {
+          "command": "iperf3 -c 10.210.0.22 -B 10.210.0.18 -t 3 -l 65536 --json",
+          "received_gbps": 2.186017704052876,
+          "sender_cpu_total": 8.9752687560321,
+          "receiver_cpu_total": 40.69045624697875
+        },
+        {
+          "command": "iperf3 -c 10.210.0.22 -B 10.210.0.18 -t 3 -l 65536 --json",
+          "received_gbps": 2.627114497560612,
+          "sender_cpu_total": 8.54015627879008,
+          "receiver_cpu_total": 50.4292514284821
+        },
+        {
+          "command": "iperf3 -c 10.210.0.22 -B 10.210.0.18 -t 3 -l 65536 --json",
+          "received_gbps": 2.717671679381489,
+          "sender_cpu_total": 9.483059965709174,
+          "receiver_cpu_total": 49.443152502935156
+        }
+      ],
+      "ib_write_bw_1048576": [
+        {
+          "server_command": "timeout 40 ib_write_bw -d rxe_vmhost2_a -x 1 -s 1048576 -D 3 --report_gbits -F",
+          "client_command": "ib_write_bw -d rxe_vmhost1_a -x 1 -s 1048576 -D 3 --report_gbits -F --cpu_util --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 221.0,
+            "bw_peak_gbps": 0.0,
+            "bw_avg_gbps": 0.62,
+            "msg_rate_mpps": 7.4e-05,
+            "extra": [
+              55.8
+            ]
+          },
+          "client_output": " WARNING: BW peak won't be measured in this run.\n---------------------------------------------------------------------------------------\n                    RDMA_Write BW Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 128\n CQ Moderation   : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Max inline data : 0[B]\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0017 PSN 0x6000e5 RKey 0x000868 VAddr 0x007f269dedc000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0017 PSN 0xde9be3 RKey 0x0008ee VAddr 0x007ffbd202c000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]    CPU_Util[%]\n 1048576    221              0.00               0.62   \t\t     0.000074\t    55.80\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": "---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]\n 1048576    221              0.00               0.62   \t\t     0.000074\n---------------------------------------------------------------------------------------",
+          "mpstat": {
+            "%usr": 29.59,
+            "%nice": 0.0,
+            "%sys": 5.37,
+            "%iowait": 0.16,
+            "%irq": 0.0,
+            "%soft": 7.15,
+            "%steal": 0.0,
+            "%guest": 0.0,
+            "%gnice": 0.0,
+            "%idle": 57.72
+          },
+          "mpstat_raw": "Linux 6.12.111+deb13-amd64 (vmhost1) \t10/16/26 \t_x86_64_\t(2 CPU)\n\n11:13:46     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n11:13:49     all   29.59    0.00    5.37    0.16    0.00    7.15    0.00    0.00    0.00   57.72\nAverage:     all   29.59    0.00    5.37    0.16    0.00    7.15    0.00    0.00    0.00   57.72\n"
+        },
+        {
+          "server_command": "timeout 40 ib_write_bw -d rxe_vmhost2_a -x 1 -s 1048576 -D 3 --report_gbits -F",
+          "client_command": "ib_write_bw -d rxe_vmhost1_a -x 1 -s 1048576 -D 3 --report_gbits -F --cpu_util --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 205.0,
+            "bw_peak_gbps": 0.0,
+            "bw_avg_gbps": 0.57,
+            "msg_rate_mpps": 6.8e-05,
+            "extra": [
+              55.82
+            ]
+          },
+          "client_output": " WARNING: BW peak won't be measured in this run.\n---------------------------------------------------------------------------------------\n                    RDMA_Write BW Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 128\n CQ Moderation   : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Max inline data : 0[B]\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0018 PSN 0x2332ca RKey 0x00097b VAddr 0x007f38085d9000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0018 PSN 0x643fc RKey 0x000948 VAddr 0x007fc37b09c000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]    CPU_Util[%]\n 1048576    205              0.00               0.57   \t\t     0.000068\t    55.82\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": "---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]\n 1048576    205              0.00               0.57   \t\t     0.000068\n---------------------------------------------------------------------------------------",
+          "mpstat": {
+            "%usr": 28.9,
+            "%nice": 0.0,
+            "%sys": 6.82,
+            "%iowait": 0.0,
+            "%irq": 0.0,
+            "%soft": 6.17,
+            "%steal": 0.16,
+            "%guest": 0.0,
+            "%gnice": 0.0,
+            "%idle": 57.95
+          },
+          "mpstat_raw": "Linux 6.12.111+deb13-amd64 (vmhost1) \t10/16/26 \t_x86_64_\t(2 CPU)\n\n11:13:55     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n11:13:58     all   28.90    0.00    6.82    0.00    0.00    6.17    0.16    0.00    0.00   57.95\nAverage:     all   28.90    0.00    6.82    0.00    0.00    6.17    0.16    0.00    0.00   57.95\n"
+        },
+        {
+          "server_command": "timeout 40 ib_write_bw -d rxe_vmhost2_a -x 1 -s 1048576 -D 3 --report_gbits -F",
+          "client_command": "ib_write_bw -d rxe_vmhost1_a -x 1 -s 1048576 -D 3 --report_gbits -F --cpu_util --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 213.0,
+            "bw_peak_gbps": 0.0,
+            "bw_avg_gbps": 0.6,
+            "msg_rate_mpps": 7.1e-05,
+            "extra": [
+              55.47
+            ]
+          },
+          "client_output": " WARNING: BW peak won't be measured in this run.\n---------------------------------------------------------------------------------------\n                    RDMA_Write BW Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 128\n CQ Moderation   : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Max inline data : 0[B]\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x0019 PSN 0x614a8b RKey 0x000a19 VAddr 0x007f4b26620000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x0019 PSN 0x2949d2 RKey 0x000ab1 VAddr 0x007f6a2cfd3000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]    CPU_Util[%]\n 1048576    213              0.00               0.60   \t\t     0.000071\t    55.47\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": "---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]\n 1048576    213              0.00               0.60   \t\t     0.000071\n---------------------------------------------------------------------------------------",
+          "mpstat": {
+            "%usr": 28.46,
+            "%nice": 0.0,
+            "%sys": 6.18,
+            "%iowait": 0.16,
+            "%irq": 0.0,
+            "%soft": 7.15,
+            "%steal": 0.0,
+            "%guest": 0.0,
+            "%gnice": 0.0,
+            "%idle": 58.05
+          },
+          "mpstat_raw": "Linux 6.12.111+deb13-amd64 (vmhost1) \t10/16/26 \t_x86_64_\t(2 CPU)\n\n11:14:03     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n11:14:06     all   28.46    0.00    6.18    0.16    0.00    7.15    0.00    0.00    0.00   58.05\nAverage:     all   28.46    0.00    6.18    0.16    0.00    7.15    0.00    0.00    0.00   58.05\n"
+        }
+      ],
+      "ib_read_lat_1048576": [
+        {
+          "server_command": "timeout 40 ib_read_lat -d rxe_vmhost2_a -x 1 -s 1048576 -n 1000 -F",
+          "client_command": "ib_read_lat -d rxe_vmhost1_a -x 1 -s 1048576 -n 1000 -F --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 1000.0,
+            "t_min_us": 8653.57,
+            "t_max_us": 19390.75,
+            "t_typical_us": 10764.46,
+            "t_avg_us": 10940.61,
+            "t_stdev_us": 1257.54,
+            "p99_us": 15561.14,
+            "p999_us": 19390.75
+          },
+          "client_output": "---------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------\n                    RDMA_Read Latency Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Outstand reads  : 128\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x001a PSN 0x6b5e9c OUT 0x80 RKey 0x000b9b VAddr 0x007fd74c919000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x001a PSN 0x6c15e8 OUT 0x80 RKey 0x000bb8 VAddr 0x007fb34dfbe000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]    t_avg[usec]    t_stdev[usec]   99% percentile[usec]   99.9% percentile[usec] \n 1048576 1000          8653.57        19390.75      10764.46  \t       10940.61     \t1257.54\t\t15561.14 \t\t19390.75\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": " GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n remote address: LID 0000 QPN 0x001a PSN 0x6b5e9c OUT 0x80 RKey 0x000b9b VAddr 0x007fd74c919000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n---------------------------------------------------------------------------------------",
+          "mpstat": null,
+          "mpstat_raw": null
+        },
+        {
+          "server_command": "timeout 40 ib_read_lat -d rxe_vmhost2_a -x 1 -s 1048576 -n 1000 -F",
+          "client_command": "ib_read_lat -d rxe_vmhost1_a -x 1 -s 1048576 -n 1000 -F --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 1000.0,
+            "t_min_us": 8679.27,
+            "t_max_us": 29058.44,
+            "t_typical_us": 11001.83,
+            "t_avg_us": 11224.85,
+            "t_stdev_us": 1308.58,
+            "p99_us": 15782.51,
+            "p999_us": 29058.44
+          },
+          "client_output": "---------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------\n                    RDMA_Read Latency Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Outstand reads  : 128\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x001b PSN 0x80afe4 OUT 0x80 RKey 0x000c5d VAddr 0x007f5d7decb000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x001b PSN 0x68ae22 OUT 0x80 RKey 0x000c4d VAddr 0x007f8fd832a000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]    t_avg[usec]    t_stdev[usec]   99% percentile[usec]   99.9% percentile[usec] \n 1048576 1000          8679.27        29058.44      11001.83  \t       11224.85     \t1308.58\t\t15782.51 \t\t29058.44\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": " GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n remote address: LID 0000 QPN 0x001b PSN 0x80afe4 OUT 0x80 RKey 0x000c5d VAddr 0x007f5d7decb000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n---------------------------------------------------------------------------------------",
+          "mpstat": null,
+          "mpstat_raw": null
+        },
+        {
+          "server_command": "timeout 40 ib_read_lat -d rxe_vmhost2_a -x 1 -s 1048576 -n 1000 -F",
+          "client_command": "ib_read_lat -d rxe_vmhost1_a -x 1 -s 1048576 -n 1000 -F --bind_source_ip 10.210.0.18  10.210.0.22",
+          "parsed": {
+            "iterations": 1000.0,
+            "t_min_us": 8789.6,
+            "t_max_us": 17532.93,
+            "t_typical_us": 10498.67,
+            "t_avg_us": 10780.51,
+            "t_stdev_us": 1249.78,
+            "p99_us": 15193.0,
+            "p999_us": 17532.93
+          },
+          "client_output": "---------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------\n                    RDMA_Read Latency Test\n Dual-port       : OFF\t\tDevice         : rxe_vmhost1_a\n Number of qps   : 1\t\tTransport type : IB\n Connection type : RC\t\tUsing SRQ      : OFF\n PCIe relax order: ON\t\tLock-free      : OFF\n ibv_wr* API     : OFF\t\tUsing DDP      : OFF\n TX depth        : 1\n Mtu             : 1024[B]\n Link type       : Ethernet\n GID index       : 1\n Outstand reads  : 128\n rdma_cm QPs\t : OFF\n Data ex. method : Ethernet\n---------------------------------------------------------------------------------------\n local address: LID 0000 QPN 0x001c PSN 0xa2ebac OUT 0x80 RKey 0x000d4f VAddr 0x007f9b093a7000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n remote address: LID 0000 QPN 0x001c PSN 0x4097ac OUT 0x80 RKey 0x000dc8 VAddr 0x007f778f625000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n---------------------------------------------------------------------------------------\n #bytes #iterations    t_min[usec]    t_max[usec]  t_typical[usec]    t_avg[usec]    t_stdev[usec]   99% percentile[usec]   99.9% percentile[usec] \n 1048576 1000          8789.60        17532.93      10498.67  \t       10780.51     \t1249.78\t\t15193.00 \t\t17532.93\n---------------------------------------------------------------------------------------\n",
+          "server_output_tail": " GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:22\n remote address: LID 0000 QPN 0x001c PSN 0xa2ebac OUT 0x80 RKey 0x000d4f VAddr 0x007f9b093a7000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:18\n---------------------------------------------------------------------------------------",
+          "mpstat": null,
+          "mpstat_raw": null
+        }
+      ],
+      "iperf3_1048576": [
+        {
+          "command": "iperf3 -c 10.210.0.22 -B 10.210.0.18 -t 3 -l 1048576 --json",
+          "received_gbps": 2.541140145917852,
+          "sender_cpu_total": 12.435075108683048,
+          "receiver_cpu_total": 51.45617881927165
+        },
+        {
+          "command": "iperf3 -c 10.210.0.22 -B 10.210.0.18 -t 3 -l 1048576 --json",
+          "received_gbps": 2.5583572775300945,
+          "sender_cpu_total": 12.695848447992178,
+          "receiver_cpu_total": 44.9902304613384
+        },
+        {
+          "command": "iperf3 -c 10.210.0.22 -B 10.210.0.18 -t 3 -l 1048576 --json",
+          "received_gbps": 2.464658219929712,
+          "sender_cpu_total": 12.45150616157006,
+          "receiver_cpu_total": 42.36549342924038
+        }
+      ]
+    },
+    "rxe_counters_after": {
+      "vmhost1:A": {
+        "sent_pkts": 1442515,
+        "rcvd_pkts": 3286439
+      },
+      "vmhost2:A": {
+        "sent_pkts": 3286439,
+        "rcvd_pkts": 1442236
       }
     }
   }
