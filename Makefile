@@ -202,7 +202,7 @@ probe-zero: ## 0->1 through zero-pool (KEDA does the scale): make probe-zero ARG
 > $(PY) autoscaling/scale-from-zero/probe_zero.py $(ARGS)
 
 # ---- AI fabric lab (fabric/README.md; EMULATED) ----------------------------------------------
-.PHONY: fabric-render fabric-up fabric-down fabric-test fabric-e1 fabric-e2 fabric-e3 fabric-e4 fabric-e5 telemetry-up telemetry-down
+.PHONY: fabric-render fabric-up fabric-down fabric-status fabric-test fabric-e1 fabric-e2 fabric-e3 fabric-e4 fabric-e5 telemetry-up telemetry-down
 FABRIC_PY := .venv/bin/python
 FABRIC_TOPO := fabric/build/topology.clab.yml
 FABRIC_RUNTIME ?= podman
@@ -218,6 +218,9 @@ fabric-up: fabric-render ## Deploy the EMULATED containerlab fabric
 
 fabric-down: ## Destroy the EMULATED containerlab fabric
 > containerlab destroy --runtime $(FABRIC_RUNTIME) -t $(FABRIC_TOPO)
+
+fabric-status: ## Read-only: lab nodes, BGP/BFD, shaping, hash policy, telemetry (incl. stray exporters), Batfish
+> $(FABRIC_PY) -m fabric.tools.status
 
 fabric-test: ## Validate fabric intent and running-lab state with pytest (run after fabric-up)
 > python3 -m venv .venv
