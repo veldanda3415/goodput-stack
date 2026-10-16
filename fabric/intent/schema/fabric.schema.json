@@ -12,6 +12,7 @@
         "hosts": {"type": "string"},
         "management": {"type": "string"},
         "tenants": {"type": "string"},
+        "fabric_p2p": {"type": "string"},
         "excluded": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false

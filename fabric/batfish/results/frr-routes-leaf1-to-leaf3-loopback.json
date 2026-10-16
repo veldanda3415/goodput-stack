@@ -1,0 +1,22 @@
+[
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "interface eth1 ip 169.254.0.1",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": null
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "interface eth2 ip 169.254.0.1",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": null
+ }
+]

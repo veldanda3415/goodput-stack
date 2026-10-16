@@ -1,0 +1,10 @@
+[
+ {
+  "Flow": "start=leaf1 interface=Ethernet1/3 [10.210.0.2:49152->10.210.0.10:4791 UDP]",
+  "Traces": [
+   "DELIVERED_TO_SUBNET\n1. node: leaf1\n  RECEIVED(Ethernet1/3)\n  FORWARDED(Forwarded out interface: Ethernet1/1 with resolved next-hop IP: 10.201.0.0, Routes: [bgp (Network: 10.210.0.8/30, Next Hop: ip 10.201.0.0)])\n  TRANSMITTED(Ethernet1/1)\n2. node: spine1\n  RECEIVED(Ethernet1/1)\n  FORWARDED(Forwarded out interface: Ethernet1/2 with resolved next-hop IP: 10.201.0.3, Routes: [bgp (Network: 10.210.0.8/30, Next Hop: ip 10.201.0.3)])\n  TRANSMITTED(Ethernet1/2)\n3. node: leaf2\n  RECEIVED(Ethernet1/1)\n  FORWARDED(Forwarded out interface: Ethernet1/3, Routes: [connected (Network: 10.210.0.8/30, Next Hop: interface Ethernet1/3)])\n  TRANSMITTED(Ethernet1/3)\n  DELIVERED_TO_SUBNET(Output Interface: Ethernet1/3, Resolved Next Hop IP: 10.210.0.10)",
+   "DELIVERED_TO_SUBNET\n1. node: leaf1\n  RECEIVED(Ethernet1/3)\n  FORWARDED(Forwarded out interface: Ethernet1/2 with resolved next-hop IP: 10.201.0.8, Routes: [bgp (Network: 10.210.0.8/30, Next Hop: ip 10.201.0.8)])\n  TRANSMITTED(Ethernet1/2)\n2. node: spine2\n  RECEIVED(Ethernet1/1)\n  FORWARDED(Forwarded out interface: Ethernet1/2 with resolved next-hop IP: 10.201.0.11, Routes: [bgp (Network: 10.210.0.8/30, Next Hop: ip 10.201.0.11)])\n  TRANSMITTED(Ethernet1/2)\n3. node: leaf2\n  RECEIVED(Ethernet1/2)\n  FORWARDED(Forwarded out interface: Ethernet1/3, Routes: [connected (Network: 10.210.0.8/30, Next Hop: interface Ethernet1/3)])\n  TRANSMITTED(Ethernet1/3)\n  DELIVERED_TO_SUBNET(Output Interface: Ethernet1/3, Resolved Next Hop IP: 10.210.0.10)"
+  ],
+  "TraceCount": 2
+ }
+]

@@ -67,7 +67,7 @@ def validate_semantics(intent: dict[str, Any]) -> None:
 
     all_networks: list[tuple[str, ipaddress.IPv4Network]] = []
     plan = intent["address_plan"]
-    for label in ("loopbacks", "hosts", "management", "tenants", "excluded"):
+    for label in ("loopbacks", "hosts", "management", "tenants", "fabric_p2p", "excluded"):
         if label not in plan:
             continue
         values = plan[label] if isinstance(plan[label], list) else [plan[label]]

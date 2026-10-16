@@ -1,0 +1,290 @@
+[
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65101,
+  "Local_Interface": "leaf1[eth2]",
+  "Local_IP": null,
+  "Remote_AS": "65000",
+  "Remote_Node": "spine2",
+  "Remote_Interface": "spine2[eth1]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65101,
+  "Local_Interface": "leaf1[eth1]",
+  "Local_IP": null,
+  "Remote_AS": "65000",
+  "Remote_Node": "spine1",
+  "Remote_Interface": "spine1[eth1]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65102,
+  "Local_Interface": "leaf2[eth2]",
+  "Local_IP": null,
+  "Remote_AS": "65000",
+  "Remote_Node": "spine2",
+  "Remote_Interface": "spine2[eth2]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65102,
+  "Local_Interface": "leaf2[eth1]",
+  "Local_IP": null,
+  "Remote_AS": "65000",
+  "Remote_Node": "spine1",
+  "Remote_Interface": "spine1[eth2]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65103,
+  "Local_Interface": "leaf3[eth2]",
+  "Local_IP": null,
+  "Remote_AS": "65000",
+  "Remote_Node": "spine2",
+  "Remote_Interface": "spine2[eth3]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65103,
+  "Local_Interface": "leaf3[eth1]",
+  "Local_IP": null,
+  "Remote_AS": "65000",
+  "Remote_Node": "spine1",
+  "Remote_Interface": "spine1[eth3]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65104,
+  "Local_Interface": "leaf4[eth2]",
+  "Local_IP": null,
+  "Remote_AS": "65000",
+  "Remote_Node": "spine2",
+  "Remote_Interface": "spine2[eth4]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65104,
+  "Local_Interface": "leaf4[eth1]",
+  "Local_IP": null,
+  "Remote_AS": "65000",
+  "Remote_Node": "spine1",
+  "Remote_Interface": "spine1[eth4]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65000,
+  "Local_Interface": "spine1[eth4]",
+  "Local_IP": null,
+  "Remote_AS": "65104",
+  "Remote_Node": "leaf4",
+  "Remote_Interface": "leaf4[eth1]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65000,
+  "Local_Interface": "spine1[eth3]",
+  "Local_IP": null,
+  "Remote_AS": "65103",
+  "Remote_Node": "leaf3",
+  "Remote_Interface": "leaf3[eth1]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65000,
+  "Local_Interface": "spine1[eth2]",
+  "Local_IP": null,
+  "Remote_AS": "65102",
+  "Remote_Node": "leaf2",
+  "Remote_Interface": "leaf2[eth1]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65000,
+  "Local_Interface": "spine1[eth1]",
+  "Local_IP": null,
+  "Remote_AS": "65101",
+  "Remote_Node": "leaf1",
+  "Remote_Interface": "leaf1[eth1]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65000,
+  "Local_Interface": "spine2[eth4]",
+  "Local_IP": null,
+  "Remote_AS": "65104",
+  "Remote_Node": "leaf4",
+  "Remote_Interface": "leaf4[eth2]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65000,
+  "Local_Interface": "spine2[eth3]",
+  "Local_IP": null,
+  "Remote_AS": "65103",
+  "Remote_Node": "leaf3",
+  "Remote_Interface": "leaf3[eth2]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65000,
+  "Local_Interface": "spine2[eth2]",
+  "Local_IP": null,
+  "Remote_AS": "65102",
+  "Remote_Node": "leaf2",
+  "Remote_Interface": "leaf2[eth2]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Session_VRF": "*",
+  "Local_AS": 65000,
+  "Local_Interface": "spine2[eth1]",
+  "Local_IP": null,
+  "Remote_AS": "65101",
+  "Remote_Node": "leaf1",
+  "Remote_Interface": "leaf1[eth2]",
+  "Remote_IP": null,
+  "Address_Families": [
+   "IPV4_UNICAST",
+   "EVPN"
+  ],
+  "Session_Type": "EBGP_UNNUMBERED",
+  "Established_Status": "ESTABLISHED"
+ }
+]

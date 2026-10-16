@@ -1,0 +1,12 @@
+[
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ }
+]

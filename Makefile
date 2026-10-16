@@ -268,9 +268,10 @@ fabric-e7: ## E7 EVPN-VXLAN tenant evidence and trap drills (EMULATED)
 fabric-e6: fabric-shape-on ## E6 failure drills under collective load (EMULATED, shaped)
 > $(FABRIC_PY) -m fabric.experiments.e6_drills all
 
-fabric-batfish: ## Render NX-OS from intent and validate it OFFLINE with Batfish (starts/stops the container)
+fabric-batfish: fabric-render ## Render NX-OS (+ FRR) from intent and validate OFFLINE with Batfish (starts/stops the container)
 > $(FABRIC_PY) -m pip install -q -r fabric/batfish/requirements.txt
 > $(FABRIC_PY) -m fabric.render.nxos
+> $(FABRIC_PY) -m fabric.batfish.frr_snapshot
 > $(FABRIC_PY) -m fabric.batfish.service up
 > $(FABRIC_PY) -m pytest -q fabric/batfish/tests; status=$$?; $(FABRIC_PY) -m fabric.batfish.service down; exit $$status
 

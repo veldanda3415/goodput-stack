@@ -1,0 +1,1202 @@
+[
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.1/32",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.2/32",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.12/32",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.12/32",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.14/32",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.200.0.14/32",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.0.8/30",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.0.8/30",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.0.12/30",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.0.12/30",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.0.20/30",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.0.20/30",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.1.0/30",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.1.0/30",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.1.4/30",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.1.4/30",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.1.8/30",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.1.8/30",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.1.12/30",
+  "Next_Hop": "ip 10.201.0.0",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Network": "10.210.1.12/30",
+  "Next_Hop": "ip 10.201.0.8",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.200.0.1/32",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.200.0.2/32",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.200.0.11/32",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.200.0.11/32",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.200.0.14/32",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.200.0.14/32",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.0.0/30",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.0.0/30",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.0.4/30",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.0.4/30",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.0.16/30",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.0.16/30",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.1.0/30",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.1.0/30",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.1.4/30",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.1.4/30",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.1.8/30",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.1.8/30",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.1.12/30",
+  "Next_Hop": "ip 10.201.0.2",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Network": "10.210.1.12/30",
+  "Next_Hop": "ip 10.201.0.10",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.200.0.1/32",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.200.0.2/32",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.200.0.11/32",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.200.0.11/32",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.200.0.12/32",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.200.0.12/32",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.200.0.14/32",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.200.0.14/32",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.0/30",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.0/30",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.4/30",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.4/30",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.8/30",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.8/30",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.12/30",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.12/30",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.16/30",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.16/30",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.20/30",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.0.20/30",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.1.8/30",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.1.8/30",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.1.12/30",
+  "Next_Hop": "ip 10.201.0.4",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Network": "10.210.1.12/30",
+  "Next_Hop": "ip 10.201.0.12",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.200.0.1/32",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.200.0.2/32",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.200.0.11/32",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.200.0.11/32",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.200.0.12/32",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.200.0.12/32",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.0/30",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.0/30",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.4/30",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.4/30",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.8/30",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.8/30",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.12/30",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.12/30",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.16/30",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.16/30",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.20/30",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.0.20/30",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.1.0/30",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.1.0/30",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.1.4/30",
+  "Next_Hop": "ip 10.201.0.6",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Network": "10.210.1.4/30",
+  "Next_Hop": "ip 10.201.0.14",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65000
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.200.0.11/32",
+  "Next_Hop": "ip 10.201.0.1",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65101
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.200.0.12/32",
+  "Next_Hop": "ip 10.201.0.3",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65102
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.5",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65103
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.200.0.14/32",
+  "Next_Hop": "ip 10.201.0.7",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65104
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.0.0/30",
+  "Next_Hop": "ip 10.201.0.1",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65101
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.0.4/30",
+  "Next_Hop": "ip 10.201.0.1",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65101
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.0.8/30",
+  "Next_Hop": "ip 10.201.0.3",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65102
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.0.12/30",
+  "Next_Hop": "ip 10.201.0.3",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65102
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.0.16/30",
+  "Next_Hop": "ip 10.201.0.1",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65101
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.0.20/30",
+  "Next_Hop": "ip 10.201.0.3",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65102
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.1.0/30",
+  "Next_Hop": "ip 10.201.0.5",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65103
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.1.4/30",
+  "Next_Hop": "ip 10.201.0.5",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65103
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.1.8/30",
+  "Next_Hop": "ip 10.201.0.7",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65104
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Network": "10.210.1.12/30",
+  "Next_Hop": "ip 10.201.0.7",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65104
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.200.0.11/32",
+  "Next_Hop": "ip 10.201.0.9",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65101
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.200.0.12/32",
+  "Next_Hop": "ip 10.201.0.11",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65102
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.200.0.13/32",
+  "Next_Hop": "ip 10.201.0.13",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65103
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.200.0.14/32",
+  "Next_Hop": "ip 10.201.0.15",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65104
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.0.0/30",
+  "Next_Hop": "ip 10.201.0.9",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65101
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.0.4/30",
+  "Next_Hop": "ip 10.201.0.9",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65101
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.0.8/30",
+  "Next_Hop": "ip 10.201.0.11",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65102
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.0.12/30",
+  "Next_Hop": "ip 10.201.0.11",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65102
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.0.16/30",
+  "Next_Hop": "ip 10.201.0.9",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65101
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.0.20/30",
+  "Next_Hop": "ip 10.201.0.11",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65102
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.1.0/30",
+  "Next_Hop": "ip 10.201.0.13",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65103
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.1.4/30",
+  "Next_Hop": "ip 10.201.0.13",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65103
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.1.8/30",
+  "Next_Hop": "ip 10.201.0.15",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65104
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Network": "10.210.1.12/30",
+  "Next_Hop": "ip 10.201.0.15",
+  "Protocol": "bgp",
+  "Metric": 0,
+  "Admin_Distance": 20,
+  "Tag": 65104
+ }
+]

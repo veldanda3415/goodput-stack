@@ -1,0 +1,266 @@
+[
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65199,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.1",
+  "Remote_AS": "65000",
+  "Remote_Node": null,
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.0",
+  "Address_Families": [],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "NOT_COMPATIBLE"
+ },
+ {
+  "Node": "leaf1",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65199,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.9",
+  "Remote_AS": "65000",
+  "Remote_Node": null,
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.8",
+  "Address_Families": [],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "NOT_COMPATIBLE"
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65102,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.3",
+  "Remote_AS": "65000",
+  "Remote_Node": "spine1",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.2",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf2",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65102,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.11",
+  "Remote_AS": "65000",
+  "Remote_Node": "spine2",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.10",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65103,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.5",
+  "Remote_AS": "65000",
+  "Remote_Node": "spine1",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.4",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf3",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65103,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.13",
+  "Remote_AS": "65000",
+  "Remote_Node": "spine2",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.12",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65104,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.7",
+  "Remote_AS": "65000",
+  "Remote_Node": "spine1",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.6",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "leaf4",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65104,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.15",
+  "Remote_AS": "65000",
+  "Remote_Node": "spine2",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.14",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65000,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.0",
+  "Remote_AS": "65101",
+  "Remote_Node": null,
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.1",
+  "Address_Families": [],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "NOT_COMPATIBLE"
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65000,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.2",
+  "Remote_AS": "65102",
+  "Remote_Node": "leaf2",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.3",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65000,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.4",
+  "Remote_AS": "65103",
+  "Remote_Node": "leaf3",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.5",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine1",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65000,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.6",
+  "Remote_AS": "65104",
+  "Remote_Node": "leaf4",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.7",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65000,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.8",
+  "Remote_AS": "65101",
+  "Remote_Node": null,
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.9",
+  "Address_Families": [],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "NOT_COMPATIBLE"
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65000,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.10",
+  "Remote_AS": "65102",
+  "Remote_Node": "leaf2",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.11",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65000,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.12",
+  "Remote_AS": "65103",
+  "Remote_Node": "leaf3",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.13",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ },
+ {
+  "Node": "spine2",
+  "VRF": "default",
+  "Session_VRF": null,
+  "Local_AS": 65000,
+  "Local_Interface": null,
+  "Local_IP": "10.201.0.14",
+  "Remote_AS": "65104",
+  "Remote_Node": "leaf4",
+  "Remote_Interface": null,
+  "Remote_IP": "10.201.0.15",
+  "Address_Families": [
+   "IPV4_UNICAST"
+  ],
+  "Session_Type": "EBGP_SINGLEHOP",
+  "Established_Status": "ESTABLISHED"
+ }
+]

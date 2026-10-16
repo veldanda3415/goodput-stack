@@ -4,6 +4,7 @@ address_plan:
   hosts: 10.210.0.0/16
   management: 10.253.0.0/24
   tenants: 10.220.0.0/16       # front-end tenant VRF subnets (EVPN-VXLAN)
+  fabric_p2p: 10.201.0.0/24    # /31 per fabric link, numbered NX-OS render only (lab runs unnumbered)
   excluded:
     - 10.42.0.0/16
     - 10.43.0.0/16

@@ -1,0 +1,297 @@
+{
+ "label": "OFFLINE-VALIDATED attempt: NX-OS unnumbered (interface) BGP render in Batfish 2026.08.27.3685",
+ "snapshot": "fabric/build/example/nxos/unnumbered",
+ "fileParseStatus": [
+  {
+   "File_Name": "configs/leaf1.cfg",
+   "Status": "PARTIALLY_UNRECOGNIZED",
+   "File_Format": "CISCO_NX",
+   "Nodes": [
+    "leaf1"
+   ]
+  },
+  {
+   "File_Name": "configs/leaf2.cfg",
+   "Status": "PARTIALLY_UNRECOGNIZED",
+   "File_Format": "CISCO_NX",
+   "Nodes": [
+    "leaf2"
+   ]
+  },
+  {
+   "File_Name": "configs/leaf3.cfg",
+   "Status": "PARTIALLY_UNRECOGNIZED",
+   "File_Format": "CISCO_NX",
+   "Nodes": [
+    "leaf3"
+   ]
+  },
+  {
+   "File_Name": "configs/leaf4.cfg",
+   "Status": "PARTIALLY_UNRECOGNIZED",
+   "File_Format": "CISCO_NX",
+   "Nodes": [
+    "leaf4"
+   ]
+  },
+  {
+   "File_Name": "configs/spine1.cfg",
+   "Status": "PARTIALLY_UNRECOGNIZED",
+   "File_Format": "CISCO_NX",
+   "Nodes": [
+    "spine1"
+   ]
+  },
+  {
+   "File_Name": "configs/spine2.cfg",
+   "Status": "PARTIALLY_UNRECOGNIZED",
+   "File_Format": "CISCO_NX",
+   "Nodes": [
+    "spine2"
+   ]
+  }
+ ],
+ "initIssues": [
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[64, 70]",
+    "configs/leaf2.cfg:[64, 70]",
+    "configs/leaf3.cfg:[56, 62]",
+    "configs/leaf4.cfg:[56, 62]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "remote-as 65000",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[80]",
+    "configs/spine2.cfg:[80]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "remote-as 65104",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[74]",
+    "configs/spine2.cfg:[74]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "remote-as 65103",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[68]",
+    "configs/spine2.cfg:[68]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "remote-as 65102",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[71]",
+    "configs/leaf2.cfg:[71]",
+    "configs/leaf3.cfg:[63]",
+    "configs/leaf4.cfg:[63]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "description spine2",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[66, 72]",
+    "configs/leaf2.cfg:[66, 72]",
+    "configs/leaf3.cfg:[58, 64]",
+    "configs/leaf4.cfg:[58, 64]",
+    "configs/spine1.cfg:[64, 70, 76, 82]",
+    "configs/spine2.cfg:[64, 70, 76, 82]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "timers 3 9",
+   "Parser_Context": "[rb_timers rb_proc_vrf_common router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[65]",
+    "configs/leaf2.cfg:[65]",
+    "configs/leaf3.cfg:[57]",
+    "configs/leaf4.cfg:[57]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "description spine1",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[62]",
+    "configs/spine2.cfg:[62]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "remote-as 65101",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[16, 27]",
+    "configs/leaf2.cfg:[16, 27]",
+    "configs/leaf3.cfg:[16, 27]",
+    "configs/leaf4.cfg:[16, 27]",
+    "configs/spine1.cfg:[16, 27, 38, 49]",
+    "configs/spine2.cfg:[16, 27, 38, 49]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "ipv6 address use-link-local-only",
+   "Parser_Context": "[iip6_address i_ipv6 s_interface_regular s_interface statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[75]",
+    "configs/spine2.cfg:[75]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "description leaf3",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[73]",
+    "configs/spine2.cfg:[73]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "neighbor Ethernet1/3",
+   "Parser_Context": "[rb_neighbor rb_proc_vrf_common router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[17, 28]",
+    "configs/leaf2.cfg:[17, 28]",
+    "configs/leaf3.cfg:[17, 28]",
+    "configs/leaf4.cfg:[17, 28]",
+    "configs/spine1.cfg:[17, 28, 39, 50]",
+    "configs/spine2.cfg:[17, 28, 39, 50]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "ipv6 link-local use-bia",
+   "Parser_Context": "[s_interface_regular s_interface statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[81]",
+    "configs/spine2.cfg:[81]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "description leaf4",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[79]",
+    "configs/spine2.cfg:[79]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "neighbor Ethernet1/4",
+   "Parser_Context": "[rb_neighbor rb_proc_vrf_common router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[63]",
+    "configs/spine2.cfg:[63]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "description leaf1",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[63]",
+    "configs/leaf2.cfg:[63]",
+    "configs/leaf3.cfg:[55]",
+    "configs/leaf4.cfg:[55]",
+    "configs/spine1.cfg:[61]",
+    "configs/spine2.cfg:[61]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "neighbor Ethernet1/1",
+   "Parser_Context": "[rb_neighbor rb_proc_vrf_common router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/spine1.cfg:[69]",
+    "configs/spine2.cfg:[69]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "description leaf2",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[69]",
+    "configs/leaf2.cfg:[69]",
+    "configs/leaf3.cfg:[61]",
+    "configs/leaf4.cfg:[61]",
+    "configs/spine1.cfg:[67]",
+    "configs/spine2.cfg:[67]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "neighbor Ethernet1/2",
+   "Parser_Context": "[rb_neighbor rb_proc_vrf_common router_bgp s_router statement cisco_nxos_configuration]"
+  },
+  {
+   "Nodes": null,
+   "Source_Lines": [
+    "configs/leaf1.cfg:[67, 73]",
+    "configs/leaf2.cfg:[67, 73]",
+    "configs/leaf3.cfg:[59, 65]",
+    "configs/leaf4.cfg:[59, 65]",
+    "configs/spine1.cfg:[65, 71, 77, 83]",
+    "configs/spine2.cfg:[65, 71, 77, 83]"
+   ],
+   "Type": "Parse warning",
+   "Details": "This syntax is unrecognized",
+   "Line_Text": "bfd",
+   "Parser_Context": "[router_bgp s_router statement cisco_nxos_configuration]"
+  }
+ ],
+ "bgpPeerConfiguration_rows": 0,
+ "bgpSessionCompatibility_rows": 0
+}
