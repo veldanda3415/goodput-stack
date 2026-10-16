@@ -1,0 +1,280 @@
+{
+  "devices": {
+    "rdma_system": "netns shared privileged-qkey off monitor on copy-on-fork on\n",
+    "rdma_link_host1": "link rxe0/1 state ACTIVE physical_state LINK_UP \nlink rxe_host4_a/1 state ACTIVE physical_state LINK_UP \nlink rxe_host1_a/1 state ACTIVE physical_state LINK_UP netdev eth1 \nlink rxe_host2_a/1 state ACTIVE physical_state LINK_UP \nlink rxe_host3_a/1 state ACTIVE physical_state LINK_UP \nlink rxe_host4_b/1 state ACTIVE physical_state LINK_UP \nlink rxe_host1_b/1 state ACTIVE physical_state LINK_UP netdev eth2 \nlink rxe_host3_b/1 state ACTIVE physical_state LINK_UP \nlink rxe_host2_b/1 state ACTIVE physical_state LINK_UP \n",
+    "host1:A": {
+      "host": "host1",
+      "rail": "A",
+      "ip": "10.210.0.2",
+      "interface": "eth1",
+      "leaf": "leaf1",
+      "device": "rxe_host1_a",
+      "roce_v2_gid_index": 1,
+      "gids": [
+        {
+          "index": 0,
+          "gid": "fe80::a8c1:abff:fe2a:a554",
+          "type": "RoCE v2"
+        },
+        {
+          "index": 1,
+          "gid": "::ffff:10.210.0.2",
+          "type": "RoCE v2"
+        }
+      ],
+      "ibv_devinfo_excerpt": "hca_id:\trxe_host1_a\n\ttransport:\t\t\tInfiniBand (0)\n\tfw_ver:\t\t\t\t0.0.0\n\tnode_guid:\t\t\ta8c1:abff:fe2a:a554\n\tsys_image_guid:\t\t\ta8c1:abff:fe2a:a554\n\tvendor_id:\t\t\t0xffffff\n\tvendor_part_id:\t\t\t0\n\thw_ver:\t\t\t\t0x0\n\tphys_port_cnt:\t\t\t1\n\tmax_mr_size:\t\t\t0xffffffffffffffff\n\tpage_size_cap:\t\t\t0xfffff000\n\tmax_qp:\t\t\t\t1048560\n\tmax_qp_wr:\t\t\t1048576\n\tdevice_cap_flags:\t\t0x01223c76\n\t\t\t\t\tBAD_PKEY_CNTR\n\t\t\t\t\tBAD_QKEY_CNTR\n\t\t\t\t\tAUTO_PATH_MIG\n\t\t\t\t\tCHANGE_PHY_PORT\n\t\t\t\t\tUD_AV_PORT_ENFORCE\n\t\t\t\t\tPORT_ACTIVE_EVENT\n\t\t\t\t\tSYS_IMAGE_GUID\n\t\t\t\t\tRC_RNR_NAK_GEN\n\t\t\t\t\tSRQ_RESIZE\n\t\t\t\t\tMEM_WINDOW\n\t\t\t\t\tMEM_MGT_EXTENSIONS\n\t\t\t\t\tMEM_WINDOW_TYPE_2B\n\tmax_sge:\t\t\t32\n\tmax_sge_rd:\t\t\t32\n\tmax_cq:\t\t\t\t1048576\n\tmax_cqe:\t\t\t32767\n\tmax_mr:\t\t\t\t524287\n\tmax_pd:\t\t\t\t1048576\n\tmax_qp_rd_atom:\t\t\t128\n\tmax_ee_rd_atom:\t\t\t0\n\tmax_res_rd_atom:\t\t258048\n\tmax_qp_init_rd_atom:\t\t128\n\tmax_ee_init_rd_atom:\t\t0\n\tatomic_cap:\t\t\tATOMIC_HCA (1)\n\tmax_ee:\t\t\t\t0\n\tmax_rdd:\t\t\t0"
+    },
+    "host1:B": {
+      "host": "host1",
+      "rail": "B",
+      "ip": "10.210.1.2",
+      "interface": "eth2",
+      "leaf": "leaf3",
+      "device": "rxe_host1_b",
+      "roce_v2_gid_index": 1,
+      "gids": [
+        {
+          "index": 0,
+          "gid": "fe80::a8c1:abff:fece:703a",
+          "type": "RoCE v2"
+        },
+        {
+          "index": 1,
+          "gid": "::ffff:10.210.1.2",
+          "type": "RoCE v2"
+        }
+      ]
+    },
+    "host2:A": {
+      "host": "host2",
+      "rail": "A",
+      "ip": "10.210.0.6",
+      "interface": "eth1",
+      "leaf": "leaf1",
+      "device": "rxe_host2_a",
+      "roce_v2_gid_index": 1,
+      "gids": [
+        {
+          "index": 0,
+          "gid": "fe80::a8c1:abff:fe3b:316e",
+          "type": "RoCE v2"
+        },
+        {
+          "index": 1,
+          "gid": "::ffff:10.210.0.6",
+          "type": "RoCE v2"
+        }
+      ]
+    },
+    "host2:B": {
+      "host": "host2",
+      "rail": "B",
+      "ip": "10.210.1.6",
+      "interface": "eth2",
+      "leaf": "leaf3",
+      "device": "rxe_host2_b",
+      "roce_v2_gid_index": 1,
+      "gids": [
+        {
+          "index": 0,
+          "gid": "fe80::a8c1:abff:fe1a:77fa",
+          "type": "RoCE v2"
+        },
+        {
+          "index": 1,
+          "gid": "::ffff:10.210.1.6",
+          "type": "RoCE v2"
+        }
+      ]
+    },
+    "host3:A": {
+      "host": "host3",
+      "rail": "A",
+      "ip": "10.210.0.10",
+      "interface": "eth1",
+      "leaf": "leaf2",
+      "device": "rxe_host3_a",
+      "roce_v2_gid_index": 1,
+      "gids": [
+        {
+          "index": 0,
+          "gid": "fe80::a8c1:abff:fe0c:b31b",
+          "type": "RoCE v2"
+        },
+        {
+          "index": 1,
+          "gid": "::ffff:10.210.0.10",
+          "type": "RoCE v2"
+        }
+      ]
+    },
+    "host3:B": {
+      "host": "host3",
+      "rail": "B",
+      "ip": "10.210.1.10",
+      "interface": "eth2",
+      "leaf": "leaf4",
+      "device": "rxe_host3_b",
+      "roce_v2_gid_index": 1,
+      "gids": [
+        {
+          "index": 0,
+          "gid": "fe80::a8c1:abff:fed7:25ef",
+          "type": "RoCE v2"
+        },
+        {
+          "index": 1,
+          "gid": "::ffff:10.210.1.10",
+          "type": "RoCE v2"
+        }
+      ]
+    },
+    "host4:A": {
+      "host": "host4",
+      "rail": "A",
+      "ip": "10.210.0.14",
+      "interface": "eth1",
+      "leaf": "leaf2",
+      "device": "rxe_host4_a",
+      "roce_v2_gid_index": 1,
+      "gids": [
+        {
+          "index": 0,
+          "gid": "fe80::a8c1:abff:fe51:8f81",
+          "type": "RoCE v2"
+        },
+        {
+          "index": 1,
+          "gid": "::ffff:10.210.0.14",
+          "type": "RoCE v2"
+        }
+      ]
+    },
+    "host4:B": {
+      "host": "host4",
+      "rail": "B",
+      "ip": "10.210.1.14",
+      "interface": "eth2",
+      "leaf": "leaf4",
+      "device": "rxe_host4_b",
+      "roce_v2_gid_index": 1,
+      "gids": [
+        {
+          "index": 0,
+          "gid": "fe80::a8c1:abff:fe19:6804",
+          "type": "RoCE v2"
+        },
+        {
+          "index": 1,
+          "gid": "::ffff:10.210.1.14",
+          "type": "RoCE v2"
+        }
+      ]
+    }
+  },
+  "timestamps": {
+    "devices": "2026-10-16T01:35:21+00:00",
+    "qos": "2026-10-16T01:37:10+00:00"
+  },
+  "feasibility_failure": {
+    "client_command": "ib_write_bw -d rxe_host1_a -x 1 -s 65536 -n 100 -F --bind_source_ip 10.210.0.2 10.210.0.6",
+    "server_command": "ib_write_bw -d rxe_host2_a -x 1 -s 65536 -n 100 -F",
+    "client_result_tail": "ddress: LID 0000 QPN 0x0013 PSN 0xfc418d RKey 0x00046f VAddr 0x007a8f8e103000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:02\n remote address: LID 0000 QPN 0x0013 PSN 0x8c10da RKey 0x000414 VAddr 0x0074cc11519000\n GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:210:00:06\n---------------------------------------------------------------------------------------\n #bytes     #iterations    BW peak[MiB/sec]    BW average[MiB/sec]   MsgRate[Mpps]\n\nstderr= Completion with error at client\n Failed status 5: wr_id 0 syndrom 0x0\nscnt=100, ccnt=0\n Failed to complete run_iter_bw function successfully\n",
+    "host1_before": {
+      "hw": {
+        "sent_pkts": 0,
+        "rcvd_pkts": 0,
+        "duplicate_request": 0,
+        "out_of_seq_request": 0,
+        "rcvd_seq_err": 0,
+        "retry_exceeded_err": 0,
+        "completer_retry_err": 0,
+        "send_err": 0,
+        "rdma_sends": 0
+      },
+      "eth1_tx_packets": 51,
+      "eth1_rx_packets": 35,
+      "udp_InDatagrams": 0,
+      "udp_NoPorts": 0
+    },
+    "host1_after": {
+      "hw": {
+        "sent_pkts": 0,
+        "rcvd_pkts": 0,
+        "duplicate_request": 0,
+        "out_of_seq_request": 0,
+        "rcvd_seq_err": 0,
+        "retry_exceeded_err": 0,
+        "completer_retry_err": 0,
+        "send_err": 0,
+        "rdma_sends": 0
+      },
+      "eth1_tx_packets": 63,
+      "eth1_rx_packets": 45,
+      "udp_InDatagrams": 0,
+      "udp_NoPorts": 0
+    },
+    "host2_before": {
+      "hw": {
+        "sent_pkts": 0,
+        "rcvd_pkts": 0,
+        "duplicate_request": 0,
+        "out_of_seq_request": 0,
+        "rcvd_seq_err": 0,
+        "retry_exceeded_err": 0,
+        "completer_retry_err": 0,
+        "send_err": 0,
+        "rdma_sends": 0
+      },
+      "eth1_tx_packets": 37,
+      "eth1_rx_packets": 47,
+      "udp_InDatagrams": 0,
+      "udp_NoPorts": 15
+    },
+    "host2_after": {
+      "hw": {
+        "sent_pkts": 0,
+        "rcvd_pkts": 0,
+        "duplicate_request": 0,
+        "out_of_seq_request": 0,
+        "rcvd_seq_err": 0,
+        "retry_exceeded_err": 0,
+        "completer_retry_err": 0,
+        "send_err": 0,
+        "rdma_sends": 0
+      },
+      "eth1_tx_packets": 47,
+      "eth1_rx_packets": 59,
+      "udp_InDatagrams": 0,
+      "udp_NoPorts": 15
+    }
+  },
+  "qos": {
+    "qdisc": "qdisc prio 1: root refcnt 17 bands 3 priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2\n",
+    "filters": "filter parent 1: protocol ip pref 1 flower chain 0 \nfilter parent 1: protocol ip pref 1 flower chain 0 handle 0x1 classid 1:1 \n  eth_type ipv4\n  ip_tos 192/0xfc\n  not_in_hw\nfilter parent 1: protocol ip pref 2 flower chain 0 \nfilter parent 1: protocol ip pref 2 flower chain 0 handle 0x1 classid 1:2 \n  eth_type ipv4\n  ip_tos 104/0xfc\n  not_in_hw\n",
+    "unmarked": {
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -t 2 --tos 0 --json",
+      "class_packet_delta": {
+        "1:1": 0,
+        "1:2": 0,
+        "1:3": 220662
+      }
+    },
+    "dscp26_tos104": {
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -t 2 --tos 104 --json",
+      "class_packet_delta": {
+        "1:1": 0,
+        "1:2": 221835,
+        "1:3": 14
+      }
+    },
+    "dscp48_tos192": {
+      "command": "iperf3 -c 10.210.0.10 -B 10.210.0.2 -t 2 --tos 192 --json",
+      "class_packet_delta": {
+        "1:1": 208937,
+        "1:2": 0,
+        "1:3": 16
+      }
+    }
+  }
+}
