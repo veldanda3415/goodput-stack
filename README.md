@@ -4,6 +4,10 @@ Serve open-weight LLMs on Kubernetes within a latency SLO using the fewest GPUs.
 The goal: SLO-aware routing, queue-driven autoscaling, GPU sharing and a lossless AI fabric,
 measured by TTFT, ITL and cost per million tokens.
 
+A solo portfolio project by [Ravi Veldanda](https://www.linkedin.com/in/ravi-veldanda/) (distributed systems and
+networking engineer, working on AI infrastructure). Built on a CPU-only workstation and free Kaggle T4 GPUs, so every
+result carries a label saying what was real, simulated or emulated. Write-ups: see [Articles](#articles).
+
 Routing is not built here. This repo **integrates, probes and documents the gaps in** an existing stack:
 [agentgateway](https://agentgateway.dev) (v1.6.0) + the [Gateway API Inference Extension](https://gateway-api-inference-extension.sigs.k8s.io/)
 (InferencePool) + the endpoint picker (EPP) from [llm-d](https://github.com/llm-d) (`llm-d-router-gateway` v0.9.0).
@@ -150,3 +154,12 @@ probes P1–P3, P7 (`make probe-p7`), P8 (`make probe-p8`), P9 (`make probe-burs
 - Every benchmark number comes from a recorded run (date, hardware, versions, config).
 - Anything simulated or intent-only (vLLM simulator, fake GPUs, PFC/DCQCN) is labelled as such.
 - Third-party versions are pinned exactly, one release behind latest.
+- Issue numbers (`#19`, `#26`, `#32`, ...) refer to the gap log in [docs/open-issues.md](docs/open-issues.md), not to GitHub PRs.
+
+## Articles
+Component write-ups, published as they go out:
+- *Overview: building an inference platform on a laptop and a free T4* (coming soon)
+
+## License
+[Apache License 2.0](LICENSE). Third-party components (agentgateway, llm-d, vLLM, llama.cpp, KEDA, Kueue, FRR,
+containerlab, Batfish and others) keep their own licenses; this repo pins and configures them, it does not vendor them.
