@@ -16,6 +16,7 @@ The choice of agentgateway + Gateway API Inference Extension + the llm-d EPP ove
 top-level [README](../README.md) and in [router/README.md](../router/README.md).
 
 ## Other
+- [open-issues.md](open-issues.md): the gap log. Every `#N` reference in this repo points here.
 - [environment.md](environment.md): pinned versions (T4/Kaggle engine track, models, local lab), each linked to the run it was read from.
 - [upstream/](upstream/): drafts of upstream issues found by the probes (agentgateway ext_proc 10 s cut; EPP decision-latency
   and gateway TTFT metrics). **Drafts, not filed.**
