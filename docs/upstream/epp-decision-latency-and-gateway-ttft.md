@@ -1,4 +1,4 @@
-# DRAFT (not filed): hop-cost and TTFT observability for gateway + EPP (#28)
+# DRAFT (not filed): hop-cost and TTFT observability for gateway + EPP
 
 Two small asks from this repo's measurements. Versions: agentgateway v1.6.0, llm-d-router v0.9.0.
 

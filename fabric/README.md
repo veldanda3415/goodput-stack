@@ -34,7 +34,7 @@ make fabric-shape-off     # remove shaping and any even-split pins
 make fabric-shape-status  # shaped ports and pin rules
 make fabric-e5-shaped     # E5 rerun with shaped uplinks + measured even-split baseline
 make fabric-e6            # E6 failure drills under collective load (shaped)
-.venv/bin/python -m fabric.experiments.e6_restore --repeats 3   # E6 #32: instrumented spine restore (shaped)
+.venv/bin/python -m fabric.experiments.e6_restore --repeats 3   # E6: instrumented spine restore (shaped)
 .venv/bin/python -m fabric.experiments.e6_restore_report        # its per-run restore timeline
 make fabric-e7            # E7 EVPN-VXLAN tenant evidence + trap drills
 make fabric-batfish       # render NX-OS (+FRR) and validate OFFLINE with Batfish
@@ -123,13 +123,13 @@ outputs.
   ring collective, with per-rail/per-tenant blast radius, FIB reconvergence
   timestamps, and telemetry-based detection of the degraded link (partial:
   2/3 runs).
-- [E6 restore transient (#32)](experiments/E6-failure-drills.md#restore-transient-32):
+- [E6 restore transient](experiments/E6-failure-drills.md#restore-transient):
   instrumented spine-loss restore (×3, one clock). zebra puts the restored
   spine back in the leaves' kernel ECMP group at link-up (+0.2 s), before
   BGP is up. Loss starts when the leaf resolves the spine's link-local
   address and ends when the spine's FIB has the route (1.3–1.6 s on rail B).
   `bgp update-delay` doesn't apply (process restart only); no knob added;
-  #32 still open.
+  Still open.
 - [E7 — EVPN-VXLAN tenancy](experiments/E7-evpn-tenancy.md): two tenant VRFs
   (symmetric IRB, explicit RTs, anycast gateway MAC) on the front end;
   reachability, isolation (including two tenants on one leaf), VNI captures,
@@ -192,7 +192,7 @@ source references are recorded in [E3](experiments/E3-soft-roce.md).
 | Linux RED/ECN bottleneck | EMULATED `tc` qdisc; E4 measures TCP marks and SOFT-ROCE CE packets, not switch ECN/DCQCN |
 | PFC headroom (`tools/headroom.py`) | INTENT-ONLY arithmetic with cited sources |
 
-**Issue #31:** VM endpoints resolve the experiment blocker by giving each
+**Soft-RoCE in containers ([gaps](../docs/gaps.md#fabric-rdma-and-roce)):** VM endpoints resolve the experiment blocker by giving each
 `rdma_rxe` device its own kernel's initial network namespace. The original
 container-host rxe endpoints remain unable to send on this WSL2 Linux 6.18
 kernel; this is not a kernel namespace fix.

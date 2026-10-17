@@ -117,7 +117,7 @@ is up, before the spine has learned routes from every other leaf, so some
 hashed flows briefly hit a spine without the route. FRR mitigations to test
 next: `bgp update-delay` / `bgp max-med on-startup` on spines, or holding the
 link out of ECMP until the spine has a full table.
-Tested later: see [Restore transient (#32)](#restore-transient-32). The
+Tested later: see [Restore transient](#restore-transient). The
 hypothesis as worded is refuted; the black hole on the spine is confirmed.
 
 ### Silent degradation: finding it without being told
@@ -175,9 +175,9 @@ What this shows:
 Verdict on "show how to find it": **partially achieved**. The query set found
 the link in 2 of 3 runs, but only run 1 had a clear margin. Recorded as such.
 
-## Restore transient (#32)
+## Restore transient
 
-**Label: EMULATED, SHAPED 500 Mbit/s.** Issue #32: in the spine-loss drill
+**Label: EMULATED, SHAPED 500 Mbit/s.** In the spine-loss drill
 every cross-spine probe lost 1.0–2.7 s about 4 s *after* spine1's links came
 back, more than at the failure. This section tests the hypothesis above.
 
@@ -305,7 +305,7 @@ interface is up, independent of BGP. If H2 holds:
 Test H2 with the same drill and the same timeline before adding any intent
 knob.
 
-**Issue #32 status: still open.** Hypothesis "BGP selects the restored
+**Status: still open.** Hypothesis "BGP selects the restored
 spine before it has the table" is refuted. Measured mechanism: zebra
 reinstates spine1 in the leaf's kernel ECMP group at link-up; the loss
 starts when the leaf resolves spine1's link-local address and ends when

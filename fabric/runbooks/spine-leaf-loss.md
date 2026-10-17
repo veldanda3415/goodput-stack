@@ -41,7 +41,7 @@ the others, and the front-end tenants on other leaves saw nothing (tb2→tb4: 0 
 - **Spine:** no action needed for routing (remaining spines carry everything at
   reduced capacity). Repair, then return it carefully: E6's spine-loss loss
   windows (1.0–2.7 s) all came ≈ 4 s **after** the links came back.
-  Instrumented rerun ([E6 #32](../experiments/E6-failure-drills.md#restore-transient-32)):
+  Instrumented rerun ([E6 restore transient](../experiments/E6-failure-drills.md#restore-transient)):
   leaves put the spine back in their kernel ECMP group at link-up, before
   BGP is up. The loss runs from the leaf resolving the spine's link-local
   address until the spine's FIB has the route (1.3–1.6 s on rail B).
@@ -64,7 +64,7 @@ suite after each fault type.
   is why host1 kept rail B through leaf1's loss).
 - Scheduler awareness: map jobs to rails/pods so one leaf failure takes out as
   few jobs as possible. Test restore behavior, not just failure.
-- Restore transient (#32): **no tested prevention yet.** `bgp update-delay`
+- Restore transient: **no tested prevention yet.** `bgp update-delay`
   doesn't apply: it acts only on bgpd restart or `clear ip bgp *`, and here
   bgpd keeps running. Until H2 in E6 is tested, bring a spine back in a
   maintenance window, or bring its BGP sessions up while its leaf-facing

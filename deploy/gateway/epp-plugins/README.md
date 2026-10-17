@@ -1,4 +1,4 @@
-# Token-aware scoring on sim-pool (#23, ADR 0003)
+# Token-aware scoring on sim-pool (ADR 0003)
 
 **No plugin is built here.** llm-d-router v0.9.0 already ships `inflight-load-producer` + `token-load-scorer`, so this
 directory only holds documentation; the configuration is [`../epp-sim-token-load.values.yaml`](../epp-sim-token-load.values.yaml).

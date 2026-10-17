@@ -137,7 +137,7 @@ Raw scrapes: [idle](20261014-215653_baseline/results/baseline/logs/metrics-idle.
 [under c=16 load](20261014-215653_baseline/results/baseline/logs/metrics-load.txt) (running 16, waiting 0,
 KV 0.030), [after](20261014-215653_baseline/results/baseline/logs/metrics-after.txt).
 
-**Where TTFT is measured (#3).** At c=16 the client TTFT (first streamed chunk, timed from just before the POST)
+**Where TTFT is measured** ([observability](../../../observability/README.md#who-measures-ttft)). At c=16 the client TTFT (first streamed chunk, timed from just before the POST)
 minus the server's own `time_to_first_token_seconds` mean was **5.4 ms** (`ttft_minus_srv_ttft_ms_mean`, `load-c16`
 row): direct to the engine on localhost, HTTP + streaming adds a few ms. A gateway hop would show up in this gap.
 
@@ -166,7 +166,7 @@ own log line (`Maximum concurrency for N tokens per request`): from **30.37×** 
 ## Task 4 — concurrency sweep
 
 Qwen2.5-3B FP16, vLLM 0.31.0, the harness (`benchmarks/harness`, `/v1/completions` streamed), 256 unique random
-prompt tokens (uuid prefix) **and** `--no-enable-prefix-caching` (#1: both), 128 ± 25 % output tokens, ignore_eos.
+prompt tokens (uuid prefix) **and** `--no-enable-prefix-caching` (both), 128 ± 25 % output tokens, ignore_eos.
 Full table and charts: [summary.md](summary.md#task-4--concurrency-sweep).
 
 | | default `--max-num-seqs` | `--max-num-seqs 8` |
@@ -206,7 +206,7 @@ tokens, 128 output, ignore_eos, no jitter, 20 / 64 requests.
 | 16 | harness | 1,215.7 / 1,570.5 | 38.2 | 41.4 | 316.1 | 754 MHz |
 | 16 | vllm bench serve | 1,574.6 / **10,510.6** | 38.4 | 39.6 | 234.1 | 762 MHz |
 
-- **Where TTFT is measured (#3).** Both tools time it the same way: clock started just before the HTTP POST,
+- **Where TTFT is measured.** Both tools time it the same way: clock started just before the HTTP POST,
   stopped at the first SSE chunk carrying `choices` (harness `one_request`; vLLM 0.31.0
   `vllm/benchmarks/lib/endpoint_request_func.py:202–240`). The server's own `vllm:time_to_first_token_seconds` mean
   for the harness runs is 106.7 ms (c=1) and 1,156 ms (c=16), within 5–60 ms of the client numbers. At c=16 that
@@ -237,7 +237,7 @@ tokens, 128 output, ignore_eos, no jitter, 20 / 64 requests.
   matched to log lines.
 - **Practical reading:** the harness and `vllm bench serve` agree when both send greedy requests. On this T4 the
   first concurrent wave of *sampled* requests on a fresh server can cost ~12 s TTFT, which matters for
-  scale-from-zero (#10).
+  scale-from-zero ([autoscaling](../../../autoscaling/README.md#scale-from-zero-gapsmd-p6)).
 - **Power capping.** In this session NVML's "SW Power Capping" throttle counter grew by 86.4 s during the 107 s
   harness c=1 run and 117.4 s during bench c=1, with the SM clock near 500 MHz. In the quant session the same
   counters stayed at 0 for all 20 decode runs, with clocks at 964–1,231 MHz. **Session-to-session speed differences
@@ -357,10 +357,9 @@ wheel goes to a private `--target` dir, plus a version assert.
   anchored to the edge of the sweep, not to a measured saturation knee.
 - **Single repeat per point** for the sweep. Spread is only measured for batch-1 decode (5 runs).
 - **lm-eval at --limit 250, no chat template**: good enough to catch a broken quantization, too small to rank close ones.
-- **Issues #1, #3, #12** are private and `gh` isn't installed here, so they were read only by title: #1 handled
-  (unique prompts and prefix caching off), #3 answered (cross-check above), #12 (harness load factor) did not
-  block anything. The harness only gained open-loop arrivals (`arrival_rate`, `arrival_seed`; closed-loop
-  behaviour unchanged), so nothing about #12 was changed.
+- **Benchmark hygiene:** prefix caching is defeated (unique prompts, prefix caching off) and the TTFT cross-check is
+  above. The harness only gained open-loop arrivals (`arrival_rate`, `arrival_seed`; closed-loop behaviour unchanged);
+  its model of the simulator's load factor was not changed.
 - Nothing here is simulated. The k3s vLLM simulator is not involved in any T4 number.
 
 ## Reproduce

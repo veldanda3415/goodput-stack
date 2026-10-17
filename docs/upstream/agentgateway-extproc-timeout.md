@@ -1,4 +1,4 @@
-# DRAFT (not filed): agentgateway - ext_proc call is cancelled at 10 s and `AgentgatewayPolicy` extProc has no timeout field (#26)
+# DRAFT (not filed): agentgateway - ext_proc call is cancelled at 10 s and `AgentgatewayPolicy` extProc has no timeout field
 
 Target repo: agentgateway/agentgateway. Version: v1.6.0. Evidence is from this repo (SIMULATED backend, daily k3s).
 

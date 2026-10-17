@@ -75,7 +75,7 @@ Proof (`alert_test.py --epp sim-pool-epp`, raw `evidence/alert-test-20261014-221
 (36.0 s after the scale), EPP restored at 22:17:43 → alerts gone 8.0 s after the EPP was Ready. Client: 176/176 HTTP 200
 (55 baseline, 103 while the EPP was down, 18 after).
 
-## Who measures TTFT (#3)
+## Who measures TTFT
 
 Three components can time a request, and they measure different things. Measured on the k3s lab
 2026-10-14 (sim-pool is **SIMULATED**):

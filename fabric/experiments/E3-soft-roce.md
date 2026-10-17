@@ -4,7 +4,7 @@
 **SOFT-ROCE** in separate guest kernels across the **EMULATED** fabric and
 complete RC verbs traffic across a spine. Task 2 wire decode is complete.
 Linux 6.18's initial-netns limitation still blocks the original container
-hosts, but VM endpoints provide a working path for issue #31's experiment.
+hosts, but VM endpoints provide a working path for the experiment ([gaps](../../docs/gaps.md#fabric-rdma-and-roce)).
 
 Labels used here:
 
