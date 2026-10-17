@@ -221,7 +221,7 @@ Each one answers a question. Write your prediction down **before** running, then
 3. **Long prompts change the knee.**
    `make bench-engine EXP=saturation ARGS='--set client.prompt_tokens=1024 --set "client.concurrency=[1,2,4,8]" --set repeats=1'`
    Prefill is compute-bound on CPU and competes with everyone's decode. Expect TTFT to fail the
-   SLO earlier and the optimum to drop to 1 client. Useful for routing: route long prompts differently (#11).
+   SLO earlier and the optimum to drop to 1 client. Useful for routing: route long prompts differently ([GAPS.md P5](../../deploy/gateway/GAPS.md#p5--pool-choice-by-prompt-size--latency-slo)).
 
 4. **Does a looser SLO move the operating point?**
    `make bench-engine EXP=saturation ARGS='--set slo.tpot_ms=100 --set slo.ttft_ms=3000 --set "client.concurrency=[1,2,4,8]" --set repeats=1'`

@@ -90,7 +90,7 @@ Readings:
   (`kubectl describe node`: 5630m of 16 CPU requested before the test).
 - Fix: `maxReplicaCount: 3`, query smoothed with `avg_over_time(...[30s])`. Rerun: 1→3→1 with no extra step, 206/206 ok.
 
-## Scale-from-zero (#10, GAPS.md P6)
+## Scale-from-zero (GAPS.md P6)
 
 Problem: at 0 replicas nothing holds requests and there are no engine metrics to trigger on.
 

@@ -613,7 +613,7 @@ re-entered ECMP. That is a hypothesis to test next with `bgp update-delay` /
   validator catches plan errors (ASN scheme, overlapping ranges, MTU budget).
   Post-deploy `make fabric-test` (65 checks) remains the second gate for what
   models miss (BFD, EVPN, MTU, convergence).
-- **Restoring a spine is riskier than losing it** (E6 #32, EMULATED): leaves
+- **Restoring a spine is riskier than losing it** ([E6](experiments/E6-failure-drills.md#restore-transient), EMULATED): leaves
   hash traffic onto a returning spine about 1.3 s before that spine has
   programmed its routes. The transient comes from zebra's nexthop-group
   reinstall at link-up, not from BGP, so BGP startup knobs (`update-delay`)

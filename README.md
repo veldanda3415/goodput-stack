@@ -58,7 +58,7 @@ flowchart LR
 - **Gateway** ([deploy/gateway/](deploy/gateway/)): agentgateway + Gateway API Inference Extension + the llm-d EPP, integrated, not built here. The Gateway is in the `inf` chart.
   Each InferencePool has its own `llm-d-router-gateway` v0.9.0 release (EPP + HTTPRoute),
   [ADR 0002](docs/adr/0002-gateway-in-chart.md). What it does and doesn't do: [GAPS.md](deploy/gateway/GAPS.md).
-- **Gateway extension** ([GAPS.md P8](deploy/gateway/GAPS.md#p8--is-the-epp-size-blind-23), [ADR 0003](docs/adr/0003-token-aware-scorer.md)):
+- **Gateway extension** ([GAPS.md P8](deploy/gateway/GAPS.md#p8--is-the-epp-size-blind), [ADR 0003](docs/adr/0003-token-aware-scorer.md)):
   the stock EPP counts queued *requests*, not queued prompt tokens. With a few long prompts on one pod and more short ones on the other,
   it sent 8 of 8 probes to the long-prompt pod (TTFT p50 7.75 s vs 0.53 s). llm-d already ships `token-load-scorer`, but its default
   threshold makes it inert at this scale; tuned (opt-in on sim-pool, `make epp-plugin-on`) it picked the right pod 8 of 8 (0.56 s)
@@ -66,7 +66,7 @@ flowchart LR
 - **Observability** ([observability/](observability/)): kube-prometheus-stack 92.6.0, monitors for the gateway, both EPPs and
   both engines (19/19 targets up), an inference dashboard (TTFT, ITL, queue time, tok/s, KV, replicas) and EPP alerts.
 - **Autoscaling** ([autoscaling/](autoscaling/)): KEDA 2.20.2 scales both pools on queue depth (running + waiting), not CPU.
-  Scale-from-zero works through EPP flow control (requests held, not refused), bounded by agentgateway's 10 s ext_proc cut (#26).
+  Scale-from-zero works through EPP flow control (requests held, not refused), bounded by agentgateway's 10 s ext_proc cut ([upstream draft](docs/upstream/agentgateway-extproc-timeout.md)).
 - **GPU scheduling** ([scheduling/](scheduling/)): k3d cluster with Run:ai's fake-gpu-operator (SIMULATED GPUs): GPU
   exhaustion, device plugin vs DRA, Kueue quotas / borrowing / preemption / gang / topology-aware placement, and a GPU node
   health controller (fence, evict, requeue, return to service). Time-slicing is not demonstrated (the fake operator doesn't honour it).
@@ -93,9 +93,9 @@ Selected; every row links its source. Full tables: [RESULTS.md](RESULTS.md).
 | Does the EPP route around a busy pod? | 20 / 20 requests to the idle pod (P1) | SIMULATED |
 | What if the EPP dies? | FailOpen: 150 / 150 requests served, routing goes load-blind; alert fires in 36 s (P2) | SIMULATED |
 | Is routing size-aware? | Stock: no (8 / 8 to the long-prompt pod, TTFT 7.75 s). Tuned `token-load-scorer`: 0 / 8, 0.56 s (P8) | SIMULATED |
-| Does a client disconnect free the engine slot through the gateway? | No, not within 15 s (P3, open gap #19) | workstation CPU |
+| Does a client disconnect free the engine slot through the gateway? | No, not within 15 s ([P3](deploy/gateway/GAPS.md#p3--does-a-client-disconnect-free-the-engine-slot), open gap) | workstation CPU |
 | Does queue-depth autoscaling help TTFT? | sim-pool 1 → 4 replicas: client TTFT p50 2.7 s → 81–93 ms (one cycle) | SIMULATED |
-| Can a pool scale from zero without errors? | Yes for fast-start pods: 0 / 5 errors, first token 4.5–4.8 s; held requests die at 10 s (#26) | SIMULATED |
+| Can a pool scale from zero without errors? | Yes for fast-start pods: 0 / 5 errors, first token 4.5–4.8 s; held requests die at 10 s ([upstream draft](docs/upstream/agentgateway-extproc-timeout.md)) | SIMULATED |
 | How much KV cache fits on a T4? | Llama-3.2-3B FP16 at 0.90 memory: 53,904 tokens measured vs ≈ 55,000 predicted (−2 %) | Kaggle T4, real |
 | Cost per 1M output tokens (Qwen2.5-3B, 16 clients, T4 on-demand $0.526/h) | FP16 $0.428 · AWQ INT4 $0.272 · GGUF Q4_K_M $0.480 | Kaggle T4, real; calculated cost |
 | What happens when a GPU node fails? | Pods Ready on the healthy node in 3.8–6.7 s after fencing (3 runs) | SIMULATED GPUs |
@@ -103,8 +103,8 @@ Selected; every row links its source. Full tables: [RESULTS.md](RESULTS.md).
 | What does BFD buy when a link fails silently? | Loss window 0.5–0.6 s with BFD vs 7.4–9.1 s without (E2) | EMULATED |
 | Is a flapping link worse than a dead one? | Yes: a 2 s flap every 20 s cost > 30 s of step time vs ≈ 8 s for a dead link; one leaf down stalled the whole ring (E6) | EMULATED |
 | Can config drift be caught before deploy? | A one-device ASN change in the NX-OS render showed up as 4 half-open sessions in Batfish (≈ 9 s) | OFFLINE-VALIDATED |
-| What does the gateway cost? | ≤ 16 concurrent: −2.7 to −4.7 % rps, +4–11 ms p50 vs direct; above that the single load generator saturates first (#21) | SIMULATED |
-| Why did recovery lose more than failure? | Not BGP: leaves re-added the restored spine to ECMP at link-up and black-holed traffic until its FIB had routes (#32, still open) | EMULATED |
+| What does the gateway cost? | ≤ 16 concurrent: −2.7 to −4.7 % rps, +4–11 ms p50 vs direct; above that the single load generator saturates first ([gaps](docs/gaps.md#gpus-and-nodes)) | SIMULATED |
+| Why did recovery lose more than failure? | Not BGP: leaves re-added the restored spine to ECMP at link-up and black-holed traffic until its FIB had routes ([E6](fabric/experiments/E6-failure-drills.md#restore-transient), still open) | EMULATED |
 | What does NCCL do between two T4s? | All-reduce 3.89 GB/s at 1 GiB via host shared memory (PHB topology, P2P declined by default); Tree beats the default Ring by 15 % | Kaggle 2×T4, real |
 
 ## Repository
@@ -117,7 +117,7 @@ Selected; every row links its source. Full tables: [RESULTS.md](RESULTS.md).
 | [docs/](docs/) | ADRs, pinned environment, upstream issue drafts | in use |
 | [router/](router/) | README only: why there is no custom router (agentgateway + Gateway API Inference Extension + the llm-d EPP instead) | not built, by decision |
 | [observability/](observability/) | kube-prometheus-stack, monitors for gateway/EPPs/engines, inference dashboard, EPP alerts | in use (lab) |
-| [autoscaling/](autoscaling/) | KEDA on queue depth (both pools), step load generator, scale-from-zero experiment (#10) | in use (lab) |
+| [autoscaling/](autoscaling/) | KEDA on queue depth (both pools), step load generator, scale-from-zero experiment | in use (lab) |
 | [scheduling/](scheduling/) | fake GPUs, device plugin vs DRA, Kueue quotas, GPU node health (k3d multi-node, SIMULATED GPUs) | in use (simulated) |
 | [fabric/](fabric/) | intent → FRR / NX-OS render, containerlab leaf-spine (eBGP unnumbered, ECMP, BFD, EVPN-VXLAN), Soft-RoCE VMs, experiments E1–E7, Batfish, runbooks, telemetry exporter, DESIGN.md + sizing/collective calculators; PFC/DCQCN design only | EMULATED lab in use |
 
@@ -154,7 +154,7 @@ probes P1–P3, P7 (`make probe-p7`), P8 (`make probe-p8`), P9 (`make probe-burs
 - Every benchmark number comes from a recorded run (date, hardware, versions, config).
 - Anything simulated or intent-only (vLLM simulator, fake GPUs, PFC/DCQCN) is labelled as such.
 - Third-party versions are pinned exactly, one release behind latest.
-- Issue numbers (`#19`, `#26`, `#32`, ...) refer to the gap log in [docs/open-issues.md](docs/open-issues.md), not to GitHub PRs.
+- What could not be done on this hardware, or is blocked upstream, is listed in [docs/gaps.md](docs/gaps.md).
 
 ## Articles
 Component write-ups, published as they go out:

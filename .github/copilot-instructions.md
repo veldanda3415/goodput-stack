@@ -93,7 +93,7 @@ Two pools today:
 - `llamacpp-pool`: llama.cpp on CPU (real numbers), selected with header `x-pool: cpu`. No KV
   metric, so its EPP scores on queue and prefix only.
 
-Size-aware routing (#23) is handled by llm-d's own `token-load-scorer`, enabled and tuned on
+Size-aware routing ([ADR 0003](../docs/adr/0003-token-aware-scorer.md)) is handled by llm-d's own `token-load-scorer`, enabled and tuned on
 sim-pool (ADR 0003); no custom EPP plugin or router is built. vLLM runs only on a Kaggle T4 outside
 the cluster (benchmarked directly, not behind the gateway). Models are fetched at deployment time and
 must not be baked into images.

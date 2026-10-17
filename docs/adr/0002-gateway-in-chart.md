@@ -37,7 +37,7 @@ Goal: `helm upgrade inf … -f values-k3s.yaml` reproduces the gateway side decl
 
 The EPP reads its plugins ConfigMap only at startup. v0.9.0 has no `checksum/config` annotation and no `podAnnotations` value (the deployment template has no annotation hook), so a checksum roll is not possible without forking the chart. Instead, `make epp-deploy` always runs `make epp-restart` (`kubectl rollout restart` of both EPPs). The upstream fix is a checksum annotation on the EPP pod template.
 
-## https:443 (#17)
+## https:443
 
 The 443 listener is removed from the lab values. Without a certificate agentgateway still reported it `Programmed=True`, but the TLS handshake failed: `curl -sk https://192.168.117.204/v1/models` → "unexpected eof while reading", curl exit 35. It looked healthy but couldn't serve. `values-k3s.yaml` carries a commented listener + cert-manager `Certificate` block for when TLS is needed.
 

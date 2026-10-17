@@ -9,15 +9,15 @@ does and does not do, tested on the k3s lab (single node `ravi-home`, ns `infere
 
 | # | Gap | Verdict | Status |
 |---|---|---|---|
-| P1 | Load-aware routing | works (sim-pool) | closes #18 |
+| P1 | Load-aware routing | works (sim-pool) | verified on both pools |
 | P2 | EPP outage | FailOpen works, routing goes load-blind silently | mitigation open |
 | P3 | Client disconnect | **not propagated by the gateway within 15 s** | new issue (upstream draft below) |
-| P4 | llama.cpp KV / capacity signal | missing; KV scorer contributes nothing | #15 |
-| P5 | Pool choice by prompt size / SLO | header only | #11 (design) |
-| P6 | Admission / scale-from-zero | default: engine queues, gateway doesn't. EPP flow control (experimental) holds requests at 0 replicas and exports a queue KEDA can activate on; agentgateway cuts a held request at 10 s | #10 (works on a scratch pool, autoscaling/README.md) |
-| P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s. 1 replica: ~1 s of refused connections; **2 replicas + PDB: 0 failed new requests**, the killed pod's stream is still lost | #20 (2 replicas in chart), HA → #19 |
-| P8 | Size-blind routing (few long vs many short prompts) | **stock EPP picks the long-prompt pod 16/16 (TTFT p50 7.75 s vs 0.53 s on the other pod)**; upstream `token-load-scorer` fixes it when the EPP dispatched the load (8/8 short pod, 0.56 s); blind to load it didn't dispatch (SIMULATED) | #23 |
-| P9 | Burst inside one EPP metrics refresh | no 8/0 herding; per-run split up to 7/1 vs always 4/4 when spaced (sim-pool, SIMULATED) | #22 |
+| P4 | llama.cpp KV / capacity signal | missing; KV scorer contributes nothing | [gaps](../../docs/gaps.md#upstream-limits) |
+| P5 | Pool choice by prompt size / SLO | header only | design below |
+| P6 | Admission / scale-from-zero | default: engine queues, gateway doesn't. EPP flow control (experimental) holds requests at 0 replicas and exports a queue KEDA can activate on; agentgateway cuts a held request at 10 s | works on a scratch pool, [autoscaling](../../autoscaling/README.md#scale-from-zero-gapsmd-p6) |
+| P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s. 1 replica: ~1 s of refused connections; **2 replicas + PDB: 0 failed new requests**, the killed pod's stream is still lost | 2 replicas in chart; node is still a SPOF |
+| P8 | Size-blind routing (few long vs many short prompts) | **stock EPP picks the long-prompt pod 16/16 (TTFT p50 7.75 s vs 0.53 s on the other pod)**; upstream `token-load-scorer` fixes it when the EPP dispatched the load (8/8 short pod, 0.56 s); blind to load it didn't dispatch (SIMULATED) | [ADR 0003](../../docs/adr/0003-token-aware-scorer.md) |
+| P9 | Burst inside one EPP metrics refresh | no 8/0 herding; per-run split up to 7/1 vs always 4/4 when spaced (sim-pool, SIMULATED) | see P9 |
 
 ---
 
@@ -39,7 +39,7 @@ does and does not do, tested on the k3s lab (single node `ravi-home`, ns `infere
 
 The first control attempt (earlier) was invalid: A was still draining (running 2 / waiting 4). That is why the guard exists.
 
-**Verdict.** The EPP scrapes engine metrics and the queue-scorer steers. **Closes #18 for sim-pool.** llamacpp-pool was shown earlier with `scripts/probe_epp_scrape.sh`: the EPP reads `llamacpp:requests_*` via the pod label `llm-d.ai/engine-type=llamacpp`.
+**Verdict.** The EPP scrapes engine metrics and the queue-scorer steers. **Verified for sim-pool.** llamacpp-pool was shown earlier with `scripts/probe_epp_scrape.sh`: the EPP reads `llamacpp:requests_*` via the pod label `llm-d.ai/engine-type=llamacpp`.
 
 **Caveat.** This proves steering away from a backed-up pod. It says nothing about balance quality at moderate load or with real prefix reuse.
 
@@ -140,11 +140,11 @@ There is **no KV-cache usage** gauge and **no total-slot** gauge. `n_busy_slots_
 
 **Verdict.** In the llamacpp-pool engineConfig `kvUsageSpec: ""`, so the kv-cache-utilization-scorer contributes nothing (kept at weight 2 on purpose to show that). The EPP also can't tell a 2-slot server from an 8-slot one: `requests_processing=2` means "full" on one and "25 %" on the other.
 
-**Mitigation.** (a) A `/slots` scraper data-source plugin for the EPP (slot count, busy slots, per-slot ctx). (b) An upstream llama.cpp metric (`kv_cache_usage_ratio`, `n_slots`). → **#15**, upstream PR after the break.
+**Mitigation.** (a) A `/slots` scraper data-source plugin for the EPP (slot count, busy slots, per-slot ctx). (b) An upstream llama.cpp metric (`kv_cache_usage_ratio`, `n_slots`). → upstream PR after the break ([gaps](../../docs/gaps.md#upstream-limits)).
 
 ---
 
-## P5 — Pool choice by prompt size / latency SLO (#11)
+## P5 — Pool choice by prompt size / latency SLO
 
 **Question.** Can a request be sent to the right *pool* (CPU llama.cpp vs GPU/sim) based on its size or latency SLO?
 
@@ -162,7 +162,7 @@ There is **no KV-cache usage** gauge and **no total-slot** gauge. `n_busy_slots_
 
 ---
 
-## P6 — Admission control / scale-from-zero (#10)
+## P6 — Admission control / scale-from-zero
 
 **Question.** Under overload, or with 0 replicas, where does a request wait?
 
@@ -183,7 +183,7 @@ llamacpp-pool stay at minReplicaCount 1.
 
 ---
 
-## P7 — Gateway pod killed mid-stream (#20)
+## P7 — Gateway pod killed mid-stream
 
 **Question.** If the single agentgateway pod dies while a stream is in flight, what does the client see, does the engine slot free up, and how fast does the gateway come back?
 
@@ -212,9 +212,9 @@ In every run `requests_processing` was 1 at the first sample after the kill. The
 - **Hard kill (OOM kill, crash, SIGKILL after grace): the stream is lost.** The client gets a protocol error about 2.2 s after the delete is issued, after ~120 more tokens. The **engine slot is freed** ~0.3 s later: when the gateway process dies its upstream socket closes, llama.cpp's next write fails and it cancels. That is the opposite of P3, where a *downstream* close is not passed upstream while the gateway lives.
 - **Recovery** took 2.4–3.3 s to a new Ready pod. With 1 replica there was a window of refused connections (2 failed pings per run; first failure → first 200: 1.02 / 1.02 / 1.18 s), and the first 200 came 3.5–3.8 s after the delete.
 - **An in-flight stream can't be resumed.** There is no resume protocol across OpenAI-style SSE: a client retry regenerates the whole response from the prompt and spends the prefill + decode compute twice (here, the ~140 tokens already generated are thrown away).
-- **More gateway replicas (#19) are not HA on this lab.** Two agentgateway replicas would remove the refused-connection window for a single pod kill, and a client retry would land on the survivor. But both replicas run on the one node `ravi-home`: the node, k3s ServiceLB and the LB IP are still a single point of failure. And replicas don't save the stream on the pod that died.
+- **More gateway replicas are not HA on this lab.** Two agentgateway replicas would remove the refused-connection window for a single pod kill, and a client retry would land on the survivor. But both replicas run on the one node `ravi-home`: the node, k3s ServiceLB and the LB IP are still a single point of failure. And replicas don't save the stream on the pod that died.
 
-**Rerun with 2 gateway replicas (2026-10-14, #20).** The chart now renders an `AgentgatewayParameters` (`gateway.proxy` in
+**Rerun with 2 gateway replicas (2026-10-14).** The chart now renders an `AgentgatewayParameters` (`gateway.proxy` in
 `deploy/charts/inference/values*.yaml`; `values-k3s.yaml`: `replicas: 2`) referenced from the Gateway's `spec.infrastructure.parametersRef`:
 Deployment `replicas: 2`, soft pod anti-affinity on `kubernetes.io/hostname`, and a PodDisruptionBudget `minAvailable: 1`
 (`kubectl -n inference get deploy inference-gateway` → 2/2; `get pdb` → MIN AVAILABLE 1, ALLOWED DISRUPTIONS 1).
@@ -239,13 +239,13 @@ An earlier series the same day (`…/20261014-224832.jsonl`, 20/19/20 pings, 0 f
   delete, ~170 tokens thrown away, slot freed ~0.3 s later. Replicas do not make a stream survive its pod; there is no
   resume for OpenAI-style SSE, so a client retry regenerates from the prompt.
 - **This is still not HA.** Both replicas run on the single node `ravi-home` (soft anti-affinity has nowhere else to
-  go): the node, k3s ServiceLB and the LB IP 192.168.117.204 remain a single point of failure (#19).
+  go): the node, k3s ServiceLB and the LB IP 192.168.117.204 remain a single point of failure ([gaps](../../docs/gaps.md#gpus-and-nodes)).
 
-**Mitigation.** Done here: gateway replicas = 2 + PodDisruptionBudget (#20) removes the refused-connection window of a single pod kill. Keep a grace period longer than the longest legitimate stream so rollouts drain. Clients retry on connection errors and on truncated streams (no `[DONE]` / no `finish_reason`) and accept that the retry pays the full compute again. Real HA needs ≥ 2 nodes.
+**Mitigation.** Done here: gateway replicas = 2 + PodDisruptionBudget removes the refused-connection window of a single pod kill. Keep a grace period longer than the longest legitimate stream so rollouts drain. Clients retry on connection errors and on truncated streams (no `[DONE]` / no `finish_reason`) and accept that the retry pays the full compute again. Real HA needs ≥ 2 nodes.
 
 ---
 
-## P8 — Is the EPP size-blind? (#23)
+## P8 — Is the EPP size-blind?
 
 **Question.** Pod A holds a FEW LONG prompts (more queued prefill work), pod B MORE SHORT ones. Does the stock EPP see that A is the worse choice?
 
@@ -280,11 +280,11 @@ llamacpp-pool is untouched. No real engine tested: the llama.cpp / T4 behaviour 
 
 **Overhead (SIMULATED, n=100 sequential, `scripts/probe_epp_overhead.py`).** Client p50 35.5 ms off / 39.2 ms on (stdev ~13 ms: within noise); EPP
 `scheduler_e2e_duration` mean 0.032 ms off / 0.112 ms on. **Regression:** `probe_p1_saturation.py` with the plugin on: 20/20 to the idle pod.
-**Burst (#22 follow-up):** see P9.
+**Burst follow-up:** see P9.
 
 ---
 
-## P9 — Burst inside one EPP metrics refresh (#22)
+## P9 — Burst inside one EPP metrics refresh
 
 **Question.** The EPP scores pods on scraped metrics. If N requests reach it faster than it refreshes those metrics, are they all scored against the same snapshot and herded onto one pod?
 
@@ -323,14 +323,14 @@ All 208 requests returned 200. Worst burst run (3-repeat series, #2): 0.3 s afte
 
 ---
 
-## #19 / #21 follow-ups (2026-10-15)
+## Disconnect and capacity follow-ups (2026-10-15)
 
-**#19 (source read, agentgateway v1.6.0 at the tag; not exhaustive).** Timeouts that exist: `requestTimeout`, `backendRequestTimeout`,
+**Client disconnect (source read, agentgateway v1.6.0 at the tag; not exhaustive).** Timeouts that exist: `requestTimeout`, `backendRequestTimeout`,
 `responseIdleTimeout` (`controller/api/v1alpha1/agentgateway/agentgateway_policy_types.go` ~l.2624; `crates/agentgateway/src/http/timeout.rs`).
 A grep for a setting that propagates a downstream disconnect to the upstream found none; P3 measured no propagation within 15 s. A request
 deadline therefore exists (`requestTimeout`/`backendRequestTimeout`) but is not a disconnect substitute for a long stream.
 
-**#21 capacity (SIMULATED, `scripts/probe_capacity.py`, p8-pool with max-num-seqs 256 x 2 pods, short non-streaming requests, 10 s per level, raw `benchmarks/results/probes/capacity/`).**
+**Gateway capacity (SIMULATED, `scripts/probe_capacity.py`, p8-pool with max-num-seqs 256 x 2 pods, short non-streaming requests, 10 s per level, raw `benchmarks/results/probes/capacity/`).**
 Gateway p50 vs direct-to-pod-IP p50 (plugin on / off), rps in brackets:
 
 | conc | direct | gateway on | gateway off |
@@ -422,9 +422,9 @@ compiled client) that stays below one core per process at the bend.
 
 ---
 
-## Gateway smoke and #13 (2026-10-12)
+## Gateway smoke and stream usage (2026-10-12)
 
-**#13: `usage` in the final stream chunk via the gateway (llamacpp-pool).** `curl -sSN http://192.168.117.204/v1/chat/completions -H 'x-pool: cpu'` with `stream: true`, `max_tokens 16`, `stream_options: {"include_usage": true}` → HTTP 200, 13 `data:` lines. Last 2 chunks:
+**`usage` in the final stream chunk via the gateway (llamacpp-pool).** `curl -sSN http://192.168.117.204/v1/chat/completions -H 'x-pool: cpu'` with `stream: true`, `max_tokens 16`, `stream_options: {"include_usage": true}` → HTTP 200, 13 `data:` lines. Last 2 chunks:
 
 ```
 data: {"choices":[],"created":1791855606,"id":"chatcmpl-brf3AbQEYoNnujFFWYc6u3qEpWEWIyzb","model":"qwen2.5-0.5b-instruct","system_fingerprint":"b11146-7fe450e19","object":"chat.completion.chunk","usage":{"completion_tokens":10,"prompt_tokens":34,"total_tokens":44,"prompt_tokens_details":{"cached_tokens":24}},"timings":{"cache_n":24,"prompt_n":10,"prompt_ms":515.418,"prompt_per_token_ms":51.5418,"prompt_per_second":19.401728305957494,"predicted_n":10,"predicted_ms":161.151,"predicted_per_token_ms":17.90566666666667,"predicted_per_second":55.84824171119013}}
@@ -472,5 +472,5 @@ All need `kubectl` access to ns `inference` and the gateway LB reachable from th
 - P1 on llamacpp-pool with 2+ replicas (only 1 replica today); balance quality at moderate load.
 - BBR on agentgateway.
 - EPP Flow Control on the live pools (only the scratch `zero-pool` has it); its behaviour under saturation (not just 0 endpoints).
-- TLS on :443 (no cert; #17).
+- TLS on :443 (no cert; [ADR 0002](../../docs/adr/0002-gateway-in-chart.md)).
 - P7: a stream longer than the gateway's 60 s grace period; HTTP/2 clients; which pod served the pings during a graceful drain; a graceful (default-grace) delete with 2 replicas.

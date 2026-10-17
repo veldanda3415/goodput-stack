@@ -1,4 +1,4 @@
-# ADR 0003 — Token-aware scoring for sim-pool/llamacpp-pool (#23)
+# ADR 0003 — Token-aware scoring for sim-pool/llamacpp-pool
 
 - **Status:** part 1 (upstream survey) done 2026-10-15. Part 2 (design) below.
 - **Decision (from the survey): do not build a scorer. Configure and evaluate the upstream
@@ -39,7 +39,7 @@ How the scores behave (read, then measured in P8):
 - `kv-cache-utilization-scorer` = `1 − kv_cache_usage_perc`.
 - `prefix-cache-scorer` scores the approximate prefix match; unique prompts neutralise it (as in P1).
 
-### 2. Is anything already size- or token-aware? **Yes. #23 is covered upstream.**
+### 2. Is anything already size- or token-aware? **Yes. Size-blind routing is covered upstream.**
 
 - **`inflight-load-producer`** (`requestcontrol/dataproducer/inflightload/producer.go`): `PreRequest` adds the
   request's estimated **uncached prompt tokens** to a per-endpoint counter when the EPP dispatches it; they are
@@ -50,7 +50,7 @@ How the scores behave (read, then measured in P8):
 - **`token-load-scorer`** (`scheduling/scorer/tokenload/token_load.go`): `score = 1 − min(1, tokens / queueThresholdTokens)`,
   `queueThresholdTokens` default **4 194 304** (128 requests × 32K). Category `Distribution`.
 - `active-request-scorer` (same producer, request counts), `context-length-aware` (routes by prompt length to pods
-  labelled with a length range — a size-based pool/pod routing, relates to #11), `latency-scorer` +
+  labelled with a length range — a size-based pool/pod routing, relates to [GAPS.md P5](../../deploy/gateway/GAPS.md#p5--pool-choice-by-prompt-size--latency-slo)), `latency-scorer` +
   `predicted-latency-producer` (XGBoost TTFT/TPOT predictor trained by sidecar servers; the chart has a
   `latencyPredictor` section; needs training + prediction server images), `latency-slo-admitter`,
   `slo-headroom-tier-filter`.
@@ -121,14 +121,14 @@ token loads it is near zero and the queue/prefix scorers decide as before. The w
   scorer is blind to them until they finish and new ones are counted.
 - Several EPP replicas: state is per replica. Each replica sees only the traffic it dispatched, so with N replicas each
   under-counts by up to (N-1)/N. We run 1 replica per pool. Load sent straight to pods is invisible too (P8 `on-direct`).
-- Client disconnect (#19 / P3): `ResponseBodyProcessor` has no disconnect signal. Tokens are released at the first chunk,
+- Client disconnect ([GAPS.md P3](../../deploy/gateway/GAPS.md#p3--does-a-client-disconnect-free-the-engine-slot)): `ResponseBodyProcessor` has no disconnect signal. Tokens are released at the first chunk,
   so a disconnect after first token leaks nothing; one before it, or a stream that never produces a chunk, is held until
   the plugin-state janitor reaps it (`stalenessThreshold` 5 min, `cleanupInterval` 1 min,
   `interface/plugin/plugin_state.go`). A leaked entry therefore biases scoring for at most ~5 min. This is the TTL.
 - Backend that never completes: same TTL.
 
 **Alternatives.**
-- Size-based pool routing (#11): needs a router in the path or client cooperation and static size classes; the scorer
+- Size-based pool routing (GAPS.md P5): needs a router in the path or client cooperation and static size classes; the scorer
   works at the existing EPP hook with no new component.
 - Chunked prefill: an engine-side mitigation that lowers the cost of mixing long and short prompts on one pod; does not
   place requests. Complementary, not evaluated (the simulator has no such model).
