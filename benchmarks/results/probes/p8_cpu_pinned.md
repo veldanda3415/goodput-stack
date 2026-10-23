@@ -137,3 +137,83 @@ from the cluster, not assumed.
 
 Prediction check: allocatable 16 → 14 and cpusets 2-5 / 6-9 as predicted; the CFS question came out as "no quota".
 Sim pods kept at 2: they used 0.023 CPU each in Task 0 (`kubectl top`), so they don't compete.
+
+## Task 3 — measured runs, pinned
+
+### Interference, pinned
+
+**Prediction (before the run).** Probes alone: as unpinned (TTFT p50 ≈ 0.59 s, decode ≈ 56–57 tok/s), since 4
+threads on 4 dedicated vCPUs vs 4 threads free to roam an idle 16 should be about the same. Neighbour busy: smaller
+penalty than unpinned (+36 % / +48 % TTFT p50), because the pods no longer share sibling vCPUs; not zero, because L3,
+memory bandwidth and the Windows-side scheduling of the vCPUs are still shared.
+
+**Measured (10:10–10:20 EDT, git c7cf2a5, direct to pod, not routed through the EPP; client under `taskset -c 0-1,10-15`).**
+
+Calibration pinned (`p8_cpu/calibration-pinned.jsonl`, pod on 2-5): long prefill 13.86 / 13.84 s = 218.8 / 218.7 tok/s,
+decode 37.1 / 39.7 tok/s; short 270.6 / 259.9 tok/s prefill, decode 53.7 / 57.0 tok/s — the same as unpinned.
+
+| set (pinned) | n | probe TTFT p50 / p95 / max (s) | decode p50 (tok/s) | e2e p50 (s) | neighbour busy CPUs | host busy CPUs | raw |
+|---|---|---|---|---|---|---|---|
+| S alone | 12 | 0.602 / 0.647 / 0.647 | 55.2 | 1.17 | 0.01 | 1.7 | `p8_cpu/20261023-141051-p-S-alone.jsonl` |
+| S, L busy (2 long) | 12 | 0.869 / 0.986 / 0.986 | 48.6 | 1.52 | 3.94–3.95 | 5.8 | `p8_cpu/20261023-141159-p-S-Lbusy.jsonl` |
+| L alone | 12 | 0.600 / 0.623 / 0.623 | 55.2 | 1.16 | 0.01 | 1.7 | `p8_cpu/20261023-141352-p-L-alone.jsonl` |
+| L, S busy (3 short) | 12 | 0.894 / 0.968 / 0.968 | 48.1 | 1.55 | 3.97–3.98 | 5.3 | `p8_cpu/20261023-141514-p-L-Sbusy.jsonl` |
+
+Shared pool (gateway + llamacpp EPP pods) 0.03 CPU; `cpu.max` `max 100000`, `nr_throttled` / `throttled_usec` deltas
+0 / 0 on both pinned pods in every block. Prediction partly wrong: alone held (0.60 s, 55 tok/s), but the neighbour
+penalty did **not** shrink: +0.267 s (+44 %) on S and +0.294 s (+49 %) on L pinned vs +36 % / +48 % unpinned.
+
+### P8 conditions, pinned — predictions (all written before the first P8 run, 10:25 EDT)
+
+Inputs: calibration above; Task 1 background logs (`p8_cpu/*-u-S-Lbusy.bg.jsonl`, `*-u-L-Sbusy.bg.jsonl`): with 2 long
+prompts sharing a pod, first chunk after 18.6–29.4 s and e2e 30.5–32.2 s; 3 short prompts on 2 slots, e2e 3.4–4.4 s.
+bytes/4 estimates (`est_tokens`, llm-d-router v0.9.0 estimate backend) vs llama.cpp `usage.prompt_tokens`: long 954 vs
+3,056–3,060; short 77 vs 253–261; probe 44 vs 155–161. Stock profile: queue ×2, kv ×2, prefix ×3; kv is "" for
+llama.cpp, so both pods score the same on it.
+
+1. **Idle, through the gateway.** Queue and kv tie. If the prefix scorer matches the shared chat-template prefix, picks
+   stick to whichever pod served the previous probe; otherwise they split at random. TTFT ≈ 0.60 s on either pod plus
+   the gateway hop.
+2. **Stock, load direct.** L 2 running / 0 deferred, S 2 running / 1 deferred → queue scorer L = 1, S = 0: L wins by 2.
+   Predict L for every probe where the EPP's last scrape showed S's deferred request (≥ 11 / 12). Cost on L: the probe
+   waits for a long request to finish (one frees every ~15 s on average with two desynchronised 31 s requests), then
+   prefills next to a long prefill: TTFT p50 ≈ 8–16 s, max ≈ 30 s.
+3. **Forced S:** 1 deferred ahead and both slots busy → wait for two short completions, then ~0.9 s prefill:
+   TTFT ≈ 1.5–4.5 s. **Forced L:** as in 2.
+4. **Token-load on, load through the gateway (pinned per pod by session-affinity-filter).** While L's two long requests
+   are prefilling, the scorer holds 2 × 954 = 1,908 tokens on L and ≤ 3 × 77 = 231 on S: token scores 0.767 vs 0.972,
+   × 4 → S +0.82, less than the queue scorer's +2 for L. **Predict L again (≥ 11 / 12).** With real counts (6,116 vs
+   ~770) S would get +2.62 and win: the bytes/4 undercount decides it, as in Build 11 (23 / 24 to L).
+
+### P8 conditions 1–3, pinned — measured (10:21–10:53 EDT, git c7cf2a5 + harness fixes in the next commit)
+
+llamacpp-pool EPP: stock profile (`epp-llamacpp.values.yaml`) with `--v=4` (`make epp-cpu-token-off EPP_V=4`).
+Pick = the EPP's "Completed running picker" line for the probe's `x-request-id`; cross-check = the agentgateway access
+log (`endpoint=`, matched by start time and duration, P9's method): **agreed on 12 / 12 (idle) and 12 / 12 (stock)**.
+
+| condition | via EPP | n | picks L / S | TTFT p50 / max (s) | TTFT p50 on L / on S (s) | e2e p50 (s) | mid-L-prefill | raw |
+|---|---|---|---|---|---|---|---|---|
+| 1. idle | yes | 12 | 6 / 6 | 0.606 / 0.808 | 0.604 / 0.609 | 1.18 | 0 / 12 | `p8_cpu/20261023-142143-idle-gw.jsonl` |
+| 2. stock, load direct | yes | 12 | **8 / 4** | 15.903 / 40.480 | **20.921 / 4.330** | 29.55 | 12 / 12 | `p8_cpu/20261023-142326-stock-direct.jsonl` |
+| 3a. forced to L | no (direct) | 12 | 12 / 0 | 19.795 / 30.527 | 19.795 / — | 33.65 | 12 / 12 | `p8_cpu/20261023-143413-force-L.jsonl` |
+| 3b. forced to S | no (direct) | 12 | 0 / 12 | 3.944 / 5.284 | — / 3.944 | 6.00 | 10 / 12 | `p8_cpu/20261023-144651-force-S.jsonl` |
+
+- **Why 8 / 4 and not 12 / 0: the queue signal flickers.** Per the EPP's own queue-scorer scores (v=4 "Calculated
+  score" lines, `p8_cpu/epp-stock-direct-b0.log` / `-b1.log`, 36 lines each): in 5 / 12 probes S had its deferred request
+  (queue L 1 / S 0) and **all 5 went to L**; in 7 / 12 S showed 0 deferred, the queue scores tied (1 / 1) and the
+  max-score picker's random tie-break sent 3 to L and 4 to S. kv and prefix were tied in every probe (kv 1 / 1,
+  prefix 0 / 0). The client's own scrape just before each send agrees (S deferred 1 in the same 5 probes). With three
+  closed-loop short requests on two slots, S has a deferred request only part of the time.
+- **Cost of the L pick.** On L the probe waits for a long request to end, then prefills and decodes next to a long
+  prefill: decode p50 1.5 tok/s, e2e p50 38.3 s (picked L) vs 23.2 tok/s and 6.1 s (picked S). Forced, the
+  difference is 19.795 − 3.944 = **15.85 s TTFT p50** and 33.65 − 6.00 = 27.65 s e2e p50.
+- Prediction: 1 held (split, 0.60 s; the prefix scorer did not match the shared chat-template prefix). 2 **wrong on the
+  split** (predicted ≥ 11 / 12 to L, measured 8 / 4: I assumed S's deferred request would be visible almost all the
+  time) and **low on the cost** (predicted L p50 8–16 s, measured 19.8–20.9 s). 3b held (1.5–4.5 s predicted, 3.94 s).
+- Hold gate: the exact-count gate (processing + deferred = workers for 3 s) never held, because S's count dips between a
+  short request's end and its re-send; each block started after the 120 s gate timeout (`gate.ok` false in the rows).
+  The load was in place anyway (both pods' gauges just before every send: L 2 running, S 2 running + 0–1 deferred).
+  From condition 4 on, S may be one below its worker count during the hold.
+- Shared pool and throttling: host busy 8.7–8.8 CPUs (8 of them the two pinned pods), loadavg 8.3–9.5, gateway +
+  EPP pods 0.033 CPU; the 8-CPU shared pool was not saturated. Pinned pods: `cpu.max` `max 100000`,
+  `nr_throttled` delta 0 in every block.

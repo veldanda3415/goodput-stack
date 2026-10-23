@@ -402,6 +402,29 @@ def cpu_epp_decisions(log: str) -> dict:
     return out
 
 
+GW_RE = re.compile(r'^(\S+)\s.*\sroute=inference/llamacpp-pool\sendpoint=([0-9.]+):\d+\s.*\sduration=([0-9.]+)(ms|s|µs|us)\b')
+
+
+def gateway_picks(since: str, rows: list[dict], ip2pod: dict) -> None:
+    """Cross-check of the EPP pick (P9's method, probe_burst.py): the agentgateway access log has endpoint= and
+    duration= per request but no request id, so a probe is matched by its start at the gateway (log time - duration)
+    within 0.5 s of its send time and duration within 0.5 s of its client e2e. Sets r["gw_log_pick"] (pod name)."""
+    lines = []
+    for pod in json.loads(kubectl("get", "pods", "-l", "gateway.networking.k8s.io/gateway-name=inference-gateway",
+                                  "-o", "json"))["items"]:
+        for l in kubectl("logs", pod["metadata"]["name"], f"--since-time={since}").splitlines():
+            if m := GW_RE.match(l):
+                d = float(m[3]) * {"ms": 1e-3, "s": 1.0, "µs": 1e-6, "us": 1e-6}[m[4]]
+                end = dt.datetime.fromisoformat(m[1].replace("Z", "+00:00")).timestamp()
+                lines.append((end - d, d, m[2]))
+    for r in rows:
+        if r.get("t_send") is None:
+            continue
+        hit = [ip for st, d, ip in lines if abs(st - r["t_send"]) < 0.5 and abs(d - r["e2e_s"]) < 0.5]
+        r["gw_log_pick"] = ip2pod.get(hit[0]) if len(hit) == 1 else None
+        r["gw_log_matches"] = len(hit)
+
+
 async def cpu_bg_request(c, url, headers, prompt_, max_tokens, rec):
     """Streamed request that writes t_send / t_first_chunk / t_end into `rec` as they happen, so a request cancelled
     at the end of a block still shows whether it was past its prefill when a probe went out."""
@@ -455,11 +478,14 @@ async def cpu_block(c, a, blk, L, S, prov, bodies, rng, out_f, bg_f, run_dir):
         for w in range(n):
             meta = {"block": blk, "role": role, "pod": pod["name"], "worker": w, "target_tokens": tok, "load_path": a.load_path}
             tasks.append(asyncio.create_task(cpu_bg_worker(c, url, h, bodies[tok], a.bg_max_tokens, stop, bg, meta)))
-    # hold: each pod's processing + deferred == its worker count for --hold-s (placement check, not assumed)
+    # hold: each pod's processing + deferred == its worker count for --hold-s (placement check, not assumed). S may be
+    # one below: a closed-loop short request leaves the count for the moment between its end and the re-send
+    # (stock-direct 10:23 run: the exact-count hold never held for 3 s and timed out after 120 s each block).
     t0, held, gate = time.monotonic(), None, {"ok": want == {"L": 0, "S": 0}}
     while want != {"L": 0, "S": 0}:
         g = await asyncio.gather(*(lc_gauges(c, p["url"]) for p in ps))
-        ok = all(x.get("requests_processing", 0) + x.get("requests_deferred", 0) == want[r] for r, x in zip("LS", g))
+        inflight = [x.get("requests_processing", 0) + x.get("requests_deferred", 0) for x in g]
+        ok = inflight[0] == want["L"] and want["S"] - (1 if want["S"] > 1 else 0) <= inflight[1] <= want["S"]
         now = time.monotonic()
         held = (held or now) if ok else None
         if held and now - held >= a.hold_s:
@@ -504,6 +530,8 @@ async def cpu_block(c, a, blk, L, S, prov, bodies, rng, out_f, bg_f, run_dir):
     log = kubectl("logs", f"deploy/{CPU_EPP}", f"--since-time={t_block.strftime('%Y-%m-%dT%H:%M:%SZ')}")
     (run_dir / f"epp-{a.label}-b{blk}.log").write_text(log)
     decs = cpu_epp_decisions(log)
+    if a.probe == "gateway":
+        gateway_picks(t_block.strftime('%Y-%m-%dT%H:%M:%SZ'), rows, {p["ip"]: p["name"] for p in ps})
     for r in rows:
         d = decs.get(r["probe_id"], {})
         r["epp_pick_pod"] = d.get("pick")
