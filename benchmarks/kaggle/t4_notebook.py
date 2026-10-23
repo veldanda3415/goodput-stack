@@ -202,18 +202,25 @@ def hf_access(repo: str) -> dict:
 
 # ---------------------------------------------------------------- vLLM install + server
 
-def pip_install_vllm(version: str, logs: Path) -> dict:
+def pip_install_vllm(version: str, logs: Path, installer: str = "pip") -> dict:
     t0 = time.time()
     # Kaggle preinstalls torchaudio/torchcodec/torchvision built for its torch (cu128). vLLM brings its own
     # torch (cu130 in baseline run 1), and `import vllm` then dies on the CUDA mismatch with torchaudio.
     # Remove them first; vLLM reinstalls the torchvision it pins.
     sh([sys.executable, "-m", "pip", "uninstall", "-y", "torchaudio", "torchcodec", "torchvision"], timeout=300,
        out=logs / f"pip-uninstall-before-vllm-{version}.txt")
-    rc, out = sh([sys.executable, "-m", "pip", "install", "-q", f"vllm=={version}"], timeout=1500,
-                 out=logs / f"pip-install-vllm-{version}.txt")
+    used = "pip"
+    if installer == "uv":
+        # opt-in (p8x2): uv downloads in parallel; pip install took ~17 min in session 20261022-211450. pip on failure.
+        rc, out = sh(f"{sys.executable} -m pip install -q uv && {sys.executable} -m uv pip install --python {sys.executable} --system -q vllm=={version}",
+                     timeout=1500, out=logs / f"uv-install-vllm-{version}.txt")
+        used = "uv" if rc == 0 else "uv failed -> pip"
+    if used != "uv":
+        rc, out = sh([sys.executable, "-m", "pip", "install", "-q", f"vllm=={version}"], timeout=1500,
+                     out=logs / f"pip-install-vllm-{version}.txt")
     rc2, ver = sh(["vllm", "--version"], timeout=180)
     rc3, torch_v = sh([sys.executable, "-c", "import torch;print(torch.__version__, torch.version.cuda)"], timeout=120)
-    return {"vllm_version_requested": version, "pip_rc": rc, "pip_s": round(time.time() - t0, 1), "vllm_import_rc": rc2,
+    return {"vllm_version_requested": version, "installer": used, "pip_rc": rc, "pip_s": round(time.time() - t0, 1), "vllm_import_rc": rc2,
             "pip_tail": out.strip()[-800:] if rc else "", "vllm_version_reported": ver.strip().splitlines()[-1] if rc2 == 0 else ver[-300:],
             "torch_after_install": torch_v.strip() if rc3 == 0 else torch_v[-300:]}
 
@@ -638,8 +645,8 @@ STAGE_ARGS["baseline"] = [
     lambda p: p.add_argument("--decode-max-tokens", type=int, default=256),
 ]
 
-def install_pinned(st: Stage, version: str) -> dict:
-    inst = pip_install_vllm(version, st.logs)
+def install_pinned(st: Stage, version: str, installer: str = "pip") -> dict:
+    inst = pip_install_vllm(version, st.logs, installer)
     if inst["pip_rc"] != 0 or inst["vllm_import_rc"] != 0:
         raise RuntimeError(f"vllm=={version} not usable: {inst['pip_tail'] or inst['vllm_version_reported']}")
     return inst
@@ -1486,12 +1493,13 @@ def stage_p8x2(a) -> None:
     samplers = [GpuSampler(st.dir / f"gpu{i}.csv", 1.0, i).start() for i in (0, 1)]
     srvs: list[VllmServer] = []
     try:
-        inst = install_pinned(st, a.vllm_version)
+        inst = install_pinned(st, a.vllm_version, a.installer)
+        st.write("install", {"kind": "install", **inst})
         help_text = serve_help(st.logs, a.vllm_version)
         rev = full_revision(a.model, a.revision)
         flags = ["--dtype", "half", "--gpu-memory-utilization", str(a.gpu_mem), "--max-model-len", str(a.max_model_len),
                  "--no-enable-prefix-caching"] + (["--revision", rev] if rev else [])
-        missing = require_flags(help_text, ["--dtype", "--gpu-memory-utilization", "--max-model-len",
+        missing = require_flags(help_text, ["--dtype", "--gpu-memory-utilization", "--max-model-len", "--max-num-seqs",
                                             "--no-enable-prefix-caching", "--revision", "--served-model-name", "--port"])
         prov = {"label": label, "model": a.model, "model_revision": rev, "model_revision_requested": a.revision,
                 "vllm_version": a.vllm_version, "vllm_version_reported": inst.get("vllm_version_reported"),
@@ -1551,10 +1559,14 @@ def stage_p8x2(a) -> None:
                 "probe_tokens": a.probe_tokens, "probe_max_tokens": a.probe_max_tokens}
         plan = [base | {"name": "idle", "background": {}, "bg_max_tokens": 0},
                 base | {"name": "main", "background": {"L": (2, a.long_tokens), "S": (3, a.short_tokens)}, "bg_max_tokens": 64},
-                base | {"name": "longout", "background": {"L": (2, a.long_tokens), "S": (3, a.short_tokens)}, "bg_max_tokens": 512}]
+                base | {"name": "longout", "background": {"L": (2, a.long_tokens), "S": (3, a.short_tokens)}, "bg_max_tokens": 512},
+                # P8's simulator shape: 2 slots per replica, so L's probe queues behind 2 long requests and S holds 1 waiting.
+                # Not vLLM's default; the servers are restarted with this flag for this condition only.
+                base | {"name": "mns2", "background": {"L": (2, a.long_tokens), "S": (3, a.short_tokens)}, "bg_max_tokens": 64,
+                        "serve_extra": ["--max-num-seqs", "2"]}]
         plan = [c for c in plan if c["name"] in a.conditions.split(",")]
         sweep = []
-        for cell in a.sweep_cells.split(","):
+        for cell in (a.sweep_cells.split(",") if a.sweep else []):
             size, k = cell.split("x")
             sweep.append(base | {"name": f"sweep-{size}x{k}", "background": {"L": (int(k), int(size)), "S": (3, a.short_tokens)},
                                  "bg_max_tokens": 64, "probe_servers": ("L",), "sweep": True})
@@ -1570,6 +1582,7 @@ def stage_p8x2(a) -> None:
                 for _ in range(2):
                     await asyncio.gather(*(p8.stream_chat(c, u, a.model, p8.unique_prompt(bodies[n]), 16)
                                            for u in run.servers.values() for n in sizes + [a.short_tokens] * 2))
+                extra_now: list[str] = []
                 for cond in plan + sweep:
                     key = f"cond-{cond['name']}"
                     deadline = sweep_stop if cond.get("sweep") else hard
@@ -1577,13 +1590,37 @@ def stage_p8x2(a) -> None:
                         st.write(key, {"kind": "skipped", "condition": cond["name"],
                                        "reason": f"session at {session_elapsed_h():.3f} h, past the {'sweep ' if cond.get('sweep') else ''}stop"}, **prov)
                         continue
+                    want = cond.get("serve_extra", [])
+                    if want != extra_now:   # restart both servers with this condition's flags (blocking, off the loop)
+                        run.condition = f"restart-{cond['name']}"
+                        tag = cond["name"]
+                        def restart() -> list[dict]:
+                            for s_ in srvs:
+                                s_.stop()
+                            srvs[:] = [VllmServer(a.model, flags + want, st.logs / f"server-{n}-{tag}.log", port=8000 + i, gpu=str(i))
+                                       for i, n in enumerate(names)]
+                            return start_parallel(srvs)
+                        starts2 = await asyncio.to_thread(restart)
+                        for n, s_, r in zip(names, srvs, starts2):
+                            st.write(f"startup-{n}-{tag}", {"kind": "startup", "server": n, **r,
+                                                            "serve_cmd": f"CUDA_VISIBLE_DEVICES={s_.gpu} " + shlex.join(s_.cmd),
+                                                            **{k: v for k, v in parse_startup(s_.log_text()).items() if k != "startup_lines"},
+                                                            **chunked_prefill_info(s_.log_text(), help_text)}, **prov)
+                        if not all(r.get("started") for r in starts2):
+                            st.write(key, {"kind": "skipped", "condition": cond["name"], "reason": f"restart failed: {starts2}"}, **prov)
+                            break
+                        extra_now = want
+                        run.condition = "warmup"
+                        await asyncio.gather(*(p8.stream_chat(c, u, a.model, p8.unique_prompt(bodies[n]), 16)
+                                               for u in run.servers.values() for n in (a.probe_tokens, a.short_tokens, a.long_tokens)))
                     log(f"condition {cond['name']} (session {session_elapsed_h():.3f} h)")
                     w = await p8.run_condition(run, c, cond, deadline)
                     probes = p8.read_jsonl(st.dir / "probes.jsonl")
                     bg = p8.read_jsonl(st.dir / "background.jsonl")
                     samples = [x for x in p8.read_jsonl(st.dir / "metrics_1hz.jsonl") if "error" not in x]
                     summ = p8.summarize_condition(w, probes, bg, samples, {"L": st.dir / "gpu0.csv", "S": st.dir / "gpu1.csv"})
-                    st.write(key, {"kind": "condition_window", **w, "config": cond, "session_h_at_end": round(session_elapsed_h(), 3),
+                    st.write(key, {"kind": "condition_window", **w, "config": cond, "serving_flags_condition": flags + extra_now,
+                                   "session_h_at_end": round(session_elapsed_h(), 3),
                                    "summary": summ}, **prov, client=client)
                 stop.set()
                 await samp
@@ -1620,12 +1657,14 @@ STAGE_ARGS["p8x2"] = [
     lambda p: p.add_argument("--gate-mode", choices=["hold", "once"], default="once",
                              help="hold = re-hold before every probe (phase-locked run 20261022-211450); once = hold once per condition"),
     lambda p: p.add_argument("--jitter-s", type=float, default=8.0, help="gate-mode once: uniform random delay before each probe"),
-    lambda p: p.add_argument("--conditions", default="idle,main,longout", help="subset of idle,main,longout to run"),
+    lambda p: p.add_argument("--conditions", default="idle,main,longout,mns2", help="subset of idle,main,longout,mns2, run in that order"),
+    lambda p: p.add_argument("--installer", choices=["pip", "uv"], default="pip"),
     lambda p: p.add_argument("--sweep-sizes", default="1000,3000,6000"),
     # 3000x2 is the main condition; the rest in priority order
     lambda p: p.add_argument("--sweep-cells", default="3000x4,1000x2,6000x2,1000x4,6000x4"),
     lambda p: p.add_argument("--sweep-stop-h", type=float, default=0.4, help="no sweep probe after this session time"),
     lambda p: p.add_argument("--stop-h", type=float, default=0.5, help="no probe at all after this session time"),
+    lambda p: p.add_argument("--no-sweep", dest="sweep", action="store_false"),
 ]
 
 
