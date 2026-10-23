@@ -288,28 +288,36 @@ busbw = algbw × 2(N−1)/N for all-reduce, (N−1)/N for all-gather / reduce-sc
 
 ## P8 on 2 × T4 — size-blind routing (real engines)
 
-**Kaggle 2×T4, real engines; routing not exercised.** Run 20261022-211450_p8x2, raw [p8x2.jsonl](../../../benchmarks/results/t4/20261022-211450_p8x2/results/p8x2/p8x2.jsonl), probes [probes.jsonl](../../../benchmarks/results/t4/20261022-211450_p8x2/results/p8x2/probes.jsonl). Narrative and prediction: [p8_t4x2.md](p8_t4x2.md).
+**Kaggle 2×T4, real engines; routing not exercised.** Run 20261022-221119_p8x2, raw [p8x2.jsonl](../../../benchmarks/results/t4/20261022-221119_p8x2/results/p8x2/p8x2.jsonl), probes [probes.jsonl](../../../benchmarks/results/t4/20261022-221119_p8x2/results/p8x2/probes.jsonl). Narrative and prediction: [p8_t4x2.md](p8_t4x2.md).
 
-Engine: vLLM 0.31.0, chunked prefill None, max_num_batched_tokens 2048, max_num_seqs 256 (row `engine-config`); KV pool L/S 175,056 / 175,056 tokens (startup log).
+Engine: vLLM None, chunked prefill None, max_num_batched_tokens 2048, max_num_seqs 256 (row `engine-config`); KV pool L/S 175,056 / 175,056 tokens (startup log).
 
 | condition | server | probes ok | TTFT p50 / p95 / max (s) | ITL p50 / p95 (ms) | e2e p50 (s) | bg out tok/s (client) | prompt tok/s (server) | running / waiting / KV mean | SM clock mean (MHz) | GPU util mean |
 |---|---|---:|---|---|---:|---:|---:|---|---:|---:|
-| idle | L | 12/12 | 0.110 / 0.111 / 0.111 | 32.0 / 38.0 | 4.17 | 0.0 | 7.9 | 0.20 / 0.00 / 0.0003 | 652.0 | 20.4 |
-| idle | S | 12/12 | 0.110 / 0.111 / 0.111 | 44.0 / 47.0 | 5.65 | 0.0 | 7.9 | 0.27 / 0.00 / 0.0004 | 570.2 | 28.5 |
-| main | L | 5/5 | 0.186 / 0.193 / 0.193 | 38.0 / 77.0 | 15.39 | 16.2 | 801.3 | 2.07 / 0.00 / 0.0284 | 1,258.4 | 100.0 |
-| main | S | 5/5 | 0.138 / 0.141 / 0.141 | 31.0 / 32.0 | 4.55 | 85.5 | 347.6 | 2.96 / 0.00 / 0.0049 | 957.1 | 99.5 |
+| idle | L | 12/12 | 0.111 / 0.112 / 0.113 | 45.0 / 108.0 | 5.85 | 0.0 | 6.3 | 0.28 / 0.00 / 0.0004 | 552.7 | 27.2 |
+| idle | S | 12/12 | 0.112 / 0.113 / 0.113 | 79.0 / 110.0 | 10.75 | 0.0 | 6.3 | 0.40 / 0.00 / 0.0005 | 500.6 | 40.0 |
+| main | L | 12/12 | 2.313 / 5.176 / 5.221 | 39.0 / 44.0 | 14.31 | 15.9 | 788.1 | 2.23 / 0.00 / 0.0286 | 1,225.4 | 99.8 |
+| main | S | 12/12 | 0.143 / 0.153 / 0.155 | 32.0 / 61.0 | 4.78 | 81.4 | 332.6 | 3.04 / 0.00 / 0.0050 | 813.1 | 99.4 |
+| longout | L | 12/12 | 0.182 / 2.543 / 5.402 | 40.0 / 42.0 | 5.29 | 38.7 | 266.0 | 2.29 / 0.00 / 0.0354 | 1,210.3 | 100.0 |
+| longout | S | 12/12 | 0.140 / 0.155 / 0.156 | 33.0 / 34.0 | 4.33 | 83.9 | 53.6 | 3.16 / 0.00 / 0.0090 | 865.7 | 100.0 |
+| mns2 | L | 12/12 | 2.382 / 4.703 / 5.271 | 35.0 / 41.0 | 12.04 | 14.9 | 728.0 | 1.96 / 0.32 / 0.0243 | 1,222.4 | 100.0 |
+| mns2 | S | 12/12 | 1.444 / 2.289 / 2.337 | 31.0 / 32.0 | 5.47 | 53.6 | 220.5 | 1.93 / 1.10 / 0.0029 | 820.0 | 99.9 |
 
 | condition | median TTFT L (s) | median TTFT S (s) | gap L − S (s) | 95 % bootstrap CI of gap (s) | ratio | n L / S | median e2e L / S (s) | L prefilling (share of window) | L probes sent during an L prefill |
 |---|---:|---:|---:|---|---:|---|---|---:|---|
-| idle | 0.110 | 0.110 | **0.000** | -0.001 … 0.001 | 1.0 | 12 / 12 | 4.17 / 5.65 | 0.000 | 0 / 12 |
-| main | 0.186 | 0.138 | **0.047** | 0.022 … 0.061 | 1.34 | 5 / 5 | 15.39 / 4.55 | 0.676 | 0 / 5 |
+| idle | 0.111 | 0.112 | **-0.000** | -0.001 … 0.000 | 1.0 | 12 / 12 | 5.85 / 10.75 | 0.000 | 0 / 12 |
+| main | 2.313 | 0.143 | **2.170** | 0.382 … 4.055 | 16.17 | 12 / 12 | 14.31 / 4.78 | 0.674 | 9 / 12 |
+| longout | 0.182 | 0.141 | **0.041** | 0.032 … 0.063 | 1.29 | 12 / 12 | 5.29 / 4.33 | 0.204 | 1 / 12 |
+| mns2 | 2.382 | 1.444 | **0.938** | -0.262 … 2.123 | 1.65 | 12 / 12 | 12.04 / 5.47 | 0.796 | 9 / 12 |
 
 **What a router would have seen** — computed offline from real engine metrics (pre-send /metrics of both servers per probe; formulas from llm-d-router v0.9.0, see [p8_t4x2.md](p8_t4x2.md#what-a-router-would-have-seen)). Stock = queue ×2 + kv-cache ×2 + prefix ×3, max-score-picker; token-load = stock + token-load ×4, threshold 8192, token load rebuilt from the background log (bytes/4 estimate, released at first chunk).
 
 | condition | n | L running / waiting / KV (mean) | S running / waiting / KV (mean) | stock picks L / S / tie | stock margin (median) | token-load picks L / S / tie |
 |---|---:|---|---|---|---:|---|
 | idle | 24 | 0.00 / 0.00 / 0.0000 | 0.00 / 0.00 / 0.0000 | 0 / 0 / 24 | 0.0000 | 0 / 0 / 24 |
-| main | 10 | 2.00 / 0.00 / 0.0355 | 3.00 / 0.00 / 0.0051 | 0 / 10 / 0 | 0.0611 | 1 / 9 / 0 |
+| main | 24 | 1.75 / 0.00 / 0.0269 | 2.96 / 0.00 / 0.0049 | 0 / 24 / 0 | 0.0598 | 0 / 24 / 0 |
+| longout | 24 | 1.96 / 0.00 / 0.0370 | 3.00 / 0.00 / 0.0086 | 0 / 24 / 0 | 0.0576 | 0 / 24 / 0 |
+| mns2 | 24 | 1.92 / 0.00 / 0.0285 | 1.96 / 0.88 / 0.0030 | 21 / 3 / 0 | 1.9464 | 23 / 1 / 0 |
 
 ![p8x2_ttft.png](charts/p8x2_ttft.png)
 ![p8x2_itl.png](charts/p8x2_itl.png)
@@ -343,5 +351,6 @@ Engine: vLLM 0.31.0, chunked prefill None, max_num_batched_tokens 2048, max_num_
 | 20261016-153016_nccl | nccl | complete | 722.6 | 0.201 | 0.215 |
 | 20261016-154427_nccl | nccl | complete | 429.5 | 0.119 | 0.128 |
 | 20261022-211450_p8x2 | p8x2 | complete | 1,822.8 | 0.506 | 0.520 |
-| **total** | | | | **5.917** | **6.368** |
+| 20261022-221119_p8x2 | p8x2 | complete | 1,889.9 | 0.525 | 0.537 |
+| **total** | | | | **6.442** | **6.905** |
 

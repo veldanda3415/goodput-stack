@@ -478,6 +478,8 @@ def section_nccl(out: list[str], base: Path) -> None:
 # ---------------------------------------------------------------- P8 on 2 x T4 (stage p8x2)
 
 P8_LABEL = "Kaggle 2×T4, real engines; routing not exercised"
+P8_COND = {"idle": "idle, no background", "main": "main: L 2×3K / S 3×200 prompts, 64 out, vLLM defaults",
+            "longout": "long-output: as main, 512 out", "mns2": "mns2: as main, both servers --max-num-seqs 2 (P8 sim slots, not default)"}
 P8_STYLE = {"L": (SERIES[0], "o", "L (long prompts, GPU 0)"), "S": (SERIES[1], "s", "S (short prompts, GPU 1)")}
 
 
@@ -761,18 +763,18 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
             ci = h["gap_ci95_bootstrap_s"]
             if c["condition"] != "idle" and h.get("e2e_gap_s") is not None:
                 eci = h["e2e_gap_ci95_bootstrap_s"]
-                rows.append((f"P8 probe e2e (128 tokens) gap L − S, condition `{c['condition']}` ({P8_LABEL})",
+                rows.append((f"P8 probe e2e (128 tokens) gap L − S, {P8_COND.get(c['condition'], c['condition'])} ({P8_LABEL})",
                              f"{h['e2e_gap_s']:.2f} s (median {h['median_e2e_L_s']:.2f} vs {h['median_e2e_S_s']:.2f} s"
                              + (f"; 95 % bootstrap CI {eci[0]:.2f} … {eci[1]:.2f} s" if eci else "") + ")", r["model"], r))
-            rows.append((f"P8 probe TTFT gap L − S, condition `{c['condition']}` ({P8_LABEL})",
+            rows.append((f"P8 probe TTFT gap L − S, {P8_COND.get(c['condition'], c['condition'])} ({P8_LABEL})",
                          f"{h['gap_s']:.3f} s (median {h['median_ttft_L_s']:.3f} vs {h['median_ttft_S_s']:.3f} s, ×{h['ratio']}; "
                          f"95 % bootstrap CI {ci[0]:.3f} … {ci[1]:.3f} s; n {h['n_L']} / {h['n_S']})" if ci else f"{h['gap_s']:.3f} s",
                          r["model"], r))
         for rt in res["router"]:
             r = pr.get(f"cond-{rt['condition']}")
-            if rt["n"] and r and rt["condition"] == "main":
+            if rt["n"] and r and rt["condition"] in ("main", "mns2"):
                 sp, tp = rt["stock_picks"], rt["token_picks"]
-                rows.append(("P8 stock EPP profile on real gauges, condition `main` (computed offline from real engine metrics)",
+                rows.append((f"P8 stock EPP profile on real gauges, {P8_COND[rt['condition']]} (computed offline from real engine metrics)",
                              f"higher score: L {sp['L']} / S {sp['S']} / tie {sp['tie']} of {rt['n']} probes; median margin "
                              f"{rt['stock_margin_median']:.4f}; token-load profile L {tp['L']} / S {tp['S']} / tie {tp['tie']}", r["model"], r))
     out = ["# RESULTS", "", "One row per headline number. Every number is from a recorded run; the link is the raw JSONL row "
