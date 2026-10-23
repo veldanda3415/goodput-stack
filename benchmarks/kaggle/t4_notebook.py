@@ -1413,9 +1413,49 @@ def chunked_prefill_info(log_text: str, help_text: str) -> dict:
             "max_num_batched_tokens_log": sorted({int(x) for x in m}),
             "enable_chunked_prefill_log": sorted(set(ch)),
             "chunked_prefill_enabled_msg": any(re.search(r"chunked prefill is enabled", l, re.I) for l in lines),
-            "help_default_max_num_batched_tokens": help_default(help_text, "--max-num-batched-tokens"),
-            "help_default_enable_chunked_prefill": help_default(help_text, "--enable-chunked-prefill"),
-            "help_default_max_num_seqs": help_default(help_text, "--max-num-seqs")}
+            **{f"help_default_{f.strip('-').replace('-', '_')}": flag_default(help_text, f)
+               for f in ("--max-num-batched-tokens", "--enable-chunked-prefill", "--max-num-seqs")}}
+
+
+def flag_default(help_text: str, flag: str) -> str | None:
+    """'(default: X)' inside one flag's own help block (up to the next option line) of `vllm serve --help=all`."""
+    m = re.search(r"^\s*" + re.escape(flag) + r"(?![\w-]).*?(?=^\s{2}-{1,2}\w|\Z)", help_text, re.S | re.M)
+    d = re.search(r"\(default:\s*([^)]*)\)", m.group(0), re.I) if m else None
+    return d.group(1).strip() if d else None
+
+
+ENGINE_CFG_PY = r"""
+import json, sys
+from vllm.engine.arg_utils import AsyncEngineArgs
+from vllm.usage.usage_lib import UsageContext
+try:
+    from vllm.entrypoints.openai.cli_args import make_arg_parser
+    from vllm.utils.argparse_utils import FlexibleArgumentParser
+    ns = make_arg_parser(FlexibleArgumentParser()).parse_args(sys.argv[1:])
+    ea, path = AsyncEngineArgs.from_cli_args(ns), "make_arg_parser + AsyncEngineArgs.from_cli_args"
+except Exception as exc:
+    print("cli path failed:", type(exc).__name__, exc, file=sys.stderr)
+    a = sys.argv[1:]
+    ea = AsyncEngineArgs(model=a[0], dtype="half", gpu_memory_utilization=float(a[a.index("--gpu-memory-utilization") + 1]),
+                         max_model_len=int(a[a.index("--max-model-len") + 1]), enable_prefix_caching=False,
+                         revision=a[a.index("--revision") + 1] if "--revision" in a else None)
+    path = "AsyncEngineArgs(...) built by hand"
+sc = ea.create_engine_config(UsageContext.OPENAI_API_SERVER).scheduler_config
+keys = ("max_num_batched_tokens", "max_num_seqs", "chunked_prefill_enabled", "enable_chunked_prefill",
+        "long_prefill_token_threshold", "max_num_partial_prefills", "policy")
+print("ENGINECFG " + json.dumps({"path": path, **{k: getattr(sc, k, None) for k in keys}}, default=str))
+"""
+
+
+def engine_config_probe(model: str, flags: list[str], logs: Path) -> dict:
+    """Scheduler config vLLM resolves for these serve flags (OPENAI_API_SERVER usage context), built in a separate
+    process before the servers start: the startup log does not print max_num_batched_tokens."""
+    rc, out = sh([sys.executable, "-c", ENGINE_CFG_PY, model, *flags], timeout=600, out=logs / "engine-config-probe.txt",
+                 env=dict(os.environ, CUDA_VISIBLE_DEVICES="0"))
+    m = re.search(r"^ENGINECFG (.*)$", out, re.M)
+    return {"engine_config_probe_rc": rc, "source": "EngineArgs.create_engine_config(UsageContext.OPENAI_API_SERVER)"
+            ".scheduler_config, same flags, in-session (logs/engine-config-probe.txt)",
+            **(json.loads(m.group(1)) if m else {"error_tail": out[-600:]})}
 
 
 def start_parallel(servers: list[VllmServer]) -> list[dict]:
@@ -1461,6 +1501,7 @@ def stage_p8x2(a) -> None:
             st.write("abort", {"kind": "abort", "reason": f"flags missing {missing}" if missing else
                                f"no commit of {a.model} starts with {a.revision}"}, **prov)
             sys.exit(4)
+        st.write("engine-config", {"kind": "engine_config", **engine_config_probe(a.model, flags, st.logs)}, **prov)
         srvs = [VllmServer(a.model, flags, st.logs / "server-L.log", port=8000, gpu="0"),
                 VllmServer(a.model, flags, st.logs / "server-S.log", port=8001, gpu="1")]
         names = ("L", "S")
