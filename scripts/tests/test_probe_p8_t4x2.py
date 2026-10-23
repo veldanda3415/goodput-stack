@@ -173,3 +173,39 @@ def test_run_condition_end_to_end(tmp_path):
     assert s["servers"]["L"]["ttft_s"]["n"] == 3 and s["headline"]["gap_s"] > 0.02
     rt = p8.router_table(probes, bg, "main")
     assert rt["n"] == 6 and sum(rt["stock_picks"].values()) == 6
+
+
+def test_busy_fraction_and_prefill_phase():
+    assert p8.busy_fraction([(0, 2), (1, 3), (5, 6)], 0, 10) == 0.4
+    assert p8.busy_fraction([(-5, 1)], 0, 10) == 0.1
+    assert p8.busy_fraction([], 0, 10) == 0.0
+    cond = {"condition": "main", "t_start": 0.0, "t_end": 10.0}
+    bg = [{"server": "L", "t_send": 0.0, "t_first_chunk": 4.0}, {"server": "L", "t_send": 5.0, "t_first_chunk": 9.0}]
+    probes = [{"condition": "main", "server": "L", "t_send": 4.5}, {"condition": "main", "server": "L", "t_send": 6.0}]
+    assert p8.prefill_phase(cond, probes, bg) == {"server": "L", "prefill_share_of_window": 0.8,
+                                                  "probes_sent_in_prefill": 1, "probes": 2}
+
+
+def test_gate_mode_once_end_to_end(tmp_path):
+    engines = {8000: FakeEngine(0.02, 0.001), 8001: FakeEngine(0.01, 0.001)}
+
+    def handler(req: httpx.Request):
+        e = engines[req.url.port]
+        if req.url.path == "/metrics":
+            return httpx.Response(200, text=e.metrics())
+        return httpx.Response(200, content=e.stream(json.loads(req.content)))
+
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            run = p8.Run({"L": "http://x:8000", "S": "http://x:8001"}, "m", tmp_path, {5: "a b c d e", 2: "a b"})
+            cond = {"name": "main", "background": {"L": (2, 5), "S": (3, 2)}, "bg_max_tokens": 4, "n": 2, "seed": 1,
+                    "hold_s": 0.2, "min_gap_s": 0.01, "gate_timeout_s": 5, "probe_tokens": 2, "probe_max_tokens": 3,
+                    "gate_mode": "once", "jitter_s": 0.1}
+            w = await p8.run_condition(run, c, cond)
+            run.close()
+            return w
+
+    assert asyncio.run(go())["probes_sent"] == 4
+    probes = p8.read_jsonl(tmp_path / "probes.jsonl")
+    assert all(p["gate_mode"] == "once" and p["gate_ok"] for p in probes)
+    assert [p["gate_first_probe"] for p in probes] == [True, False, False, False]

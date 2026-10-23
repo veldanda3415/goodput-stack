@@ -1543,13 +1543,16 @@ def stage_p8x2(a) -> None:
         client = {"endpoint": "/v1/chat/completions", "stream": True, "stream_options.include_usage": True, "temperature": 0,
                   "ignore_eos": True, "probe_tokens": a.probe_tokens, "probe_max_tokens": a.probe_max_tokens,
                   "short_tokens": a.short_tokens, "long_tokens": a.long_tokens, "n_per_server": a.n, "hold_s": a.hold_s,
-                  "min_gap_s": a.min_gap_s, "gate_timeout_s": a.gate_timeout_s, "seed": a.seed,
+                  "min_gap_s": a.min_gap_s, "gate_timeout_s": a.gate_timeout_s, "seed": a.seed, "gate_mode": a.gate_mode,
+                  "jitter_s": a.jitter_s,
                   "ttft_definition": "POST -> first chunk with non-empty delta.content (client perf_counter)"}
         base = {"n": a.n, "seed": a.seed, "hold_s": a.hold_s, "min_gap_s": a.min_gap_s, "gate_timeout_s": a.gate_timeout_s,
+                "gate_mode": a.gate_mode, "jitter_s": a.jitter_s,
                 "probe_tokens": a.probe_tokens, "probe_max_tokens": a.probe_max_tokens}
         plan = [base | {"name": "idle", "background": {}, "bg_max_tokens": 0},
                 base | {"name": "main", "background": {"L": (2, a.long_tokens), "S": (3, a.short_tokens)}, "bg_max_tokens": 64},
                 base | {"name": "longout", "background": {"L": (2, a.long_tokens), "S": (3, a.short_tokens)}, "bg_max_tokens": 512}]
+        plan = [c for c in plan if c["name"] in a.conditions.split(",")]
         sweep = []
         for cell in a.sweep_cells.split(","):
             size, k = cell.split("x")
@@ -1614,6 +1617,10 @@ STAGE_ARGS["p8x2"] = [
     lambda p: p.add_argument("--min-gap-s", type=float, default=2.0),
     lambda p: p.add_argument("--gate-timeout-s", type=float, default=60.0),
     lambda p: p.add_argument("--seed", type=int, default=8),
+    lambda p: p.add_argument("--gate-mode", choices=["hold", "once"], default="once",
+                             help="hold = re-hold before every probe (phase-locked run 20261022-211450); once = hold once per condition"),
+    lambda p: p.add_argument("--jitter-s", type=float, default=8.0, help="gate-mode once: uniform random delay before each probe"),
+    lambda p: p.add_argument("--conditions", default="idle,main,longout", help="subset of idle,main,longout to run"),
     lambda p: p.add_argument("--sweep-sizes", default="1000,3000,6000"),
     # 3000x2 is the main condition; the rest in priority order
     lambda p: p.add_argument("--sweep-cells", default="3000x4,1000x2,6000x2,1000x4,6000x4"),

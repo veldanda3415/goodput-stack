@@ -14,6 +14,8 @@ counted one token per word; Qwen's tokenizer splits the digits, so 3,000 such wo
 Probe: one unique short prompt, streamed with stream_options.include_usage, temperature 0, ignore_eos, max_tokens
 128. Sent only after both servers have held their background in-flight count (running + waiting, minus our own
 probe still on that server) for >= --hold-s, and >= --min-gap-s after the previous probe; one probe at a time.
+gate_mode "hold" (run 20261022-211450) re-holds before every probe, which phase-locked the L probes; "once" holds
+once per condition and then sends each probe after a seeded random delay (see run_condition).
 Order: pairs of L/S, each pair in random order (seeded). Per probe: send time, TTFT (POST -> first non-empty
 delta.content, as benchmarks/kaggle/t4_notebook.py chat()), every inter-token gap, e2e, usage, and both servers'
 /metrics gauges just before the send. /metrics of both servers is sampled at 1 Hz for the whole run; every
@@ -349,11 +351,21 @@ async def run_condition(run: Run, c, cond: dict, deadline_unix: float | None = N
     t_start = time.time()
     order = probe_order(cond["n"], cond["seed"], tuple(cond.get("probe_servers", ("L", "S"))))
     sent, last_send, stopped = 0, 0.0, None
+    # gate_mode "hold" re-holds before every probe. In run 20261022-211450 that phase-locked the L probes to the
+    # decode-only part of L's cycle (a finishing long request resets the hold). "once" holds once per condition, then
+    # waits a seeded uniform delay in [0, jitter_s) per probe, independent of the background cycle.
+    mode = cond.get("gate_mode", "hold")
+    jit = random.Random(cond["seed"] + 1)
+    first = await run.gate(c, targets, cond["hold_s"], cond["gate_timeout_s"]) if mode == "once" else None
     for i, server in enumerate(order):
         if deadline_unix and time.time() > deadline_unix:
             stopped = f"session budget reached after {sent} probes"
             break
-        g = await run.gate(c, targets, cond["hold_s"], cond["gate_timeout_s"])
+        if mode == "once":
+            await asyncio.sleep(jit.uniform(0, cond.get("jitter_s", 8.0)))
+            g = {**first, "gate_mode": "once", "gate_first_probe": i == 0}
+        else:
+            g = await run.gate(c, targets, cond["hold_s"], cond["gate_timeout_s"])
         wait = cond["min_gap_s"] - (time.time() - last_send)
         if wait > 0:
             await asyncio.sleep(wait)
@@ -376,6 +388,35 @@ def read_jsonl(p: Path) -> list[dict]:
     return [json.loads(l) for l in p.read_text().splitlines() if l.strip()] if p.exists() else []
 
 
+def busy_fraction(intervals: list[tuple[float, float]], t0: float, t1: float) -> float | None:
+    """Share of [t0, t1] covered by the union of the intervals."""
+    if t1 <= t0:
+        return None
+    tot, cur = 0.0, None
+    for a, b in sorted((max(a, t0), min(b, t1)) for a, b in intervals):
+        if b <= a:
+            continue
+        if cur and a <= cur[1]:
+            cur[1] = max(cur[1], b)
+        else:
+            tot += (cur[1] - cur[0]) if cur else 0.0
+            cur = [a, b]
+    tot += (cur[1] - cur[0]) if cur else 0.0
+    return round(tot / (t1 - t0), 4)
+
+
+def prefill_phase(cond: dict, probes: list[dict], bg: list[dict], server: str = "L") -> dict:
+    """Was the probe timing independent of the background cycle? Share of the window in which `server` had a
+    background request dispatched but not yet streaming (in prefill or queued), vs how many probes to `server` were
+    sent inside such a phase. A large share with few probes inside it means the probes were phase-locked."""
+    t0, t1 = cond["t_start"], cond["t_end"]
+    iv = [(b["t_send"], b["t_first_chunk"]) for b in bg if b["server"] == server and b.get("t_first_chunk")]
+    pr = [p for p in probes if p["condition"] == cond["condition"] and p["server"] == server]
+    inside = sum(1 for p in pr if any(a <= p["t_send"] < b for a, b in iv))
+    return {"server": server, "prefill_share_of_window": busy_fraction(iv, t0, t1), "probes_sent_in_prefill": inside,
+            "probes": len(pr)}
+
+
 def summarize_condition(cond: dict, probes: list[dict], bg: list[dict], samples: list[dict], gpu_csvs: dict) -> dict:
     """Per server: probe TTFT/ITL/e2e, background tok/s, gauge means, GPU clocks; plus the L-S headline."""
     t0, t1 = cond["t_start"], cond["t_end"]
@@ -391,7 +432,7 @@ def summarize_condition(cond: dict, probes: list[dict], bg: list[dict], samples:
                "itl_s": dist([g for p in ok for g in p.get("itl_s", [])], 5),
                "probe_prompt_tokens": sorted({p.get("prompt_tokens") for p in ok}),
                "probe_completion_tokens": sorted({p.get("completion_tokens") for p in ok}),
-               "bg_requests_done": len(bgs),
+               "bg_requests_done": len(bgs), "bg_ttft_s": dist([b["ttft_s"] for b in bgs if b.get("ttft_s") is not None]),
                "bg_prompt_tokens_mean": round(statistics.fmean([b["prompt_tokens"] for b in bgs if b.get("prompt_tokens")]), 1)
                if any(b.get("prompt_tokens") for b in bgs) else None,
                "bg_output_tok_s_client": round(sum(b.get("completion_tokens") or 0 for b in bgs) / (t1 - t0), 2) if t1 > t0 else None,
@@ -410,7 +451,12 @@ def summarize_condition(cond: dict, probes: list[dict], bg: list[dict], samples:
         ml, ms = statistics.median(ttl), statistics.median(tts)
         out["headline"] = {"median_ttft_L_s": round(ml, 4), "median_ttft_S_s": round(ms, 4), "gap_s": round(ml - ms, 4),
                            "ratio": round(ml / ms, 2) if ms else None, "gap_ci95_bootstrap_s": bootstrap_median_diff(ttl, tts),
-                           "n_L": len(ttl), "n_S": len(tts)}
+                           "n_L": len(ttl), "n_S": len(tts), "phase_L": prefill_phase(cond, probes, bg, "L")}
+        el = [p["e2e_s"] for p in probes if p["condition"] == cond["condition"] and p["server"] == "L" and p.get("ttft_s") is not None]
+        es = [p["e2e_s"] for p in probes if p["condition"] == cond["condition"] and p["server"] == "S" and p.get("ttft_s") is not None]
+        out["headline"] |= {"median_e2e_L_s": round(statistics.median(el), 3), "median_e2e_S_s": round(statistics.median(es), 3),
+                            "e2e_gap_s": round(statistics.median(el) - statistics.median(es), 3),
+                            "e2e_gap_ci95_bootstrap_s": bootstrap_median_diff(el, es)}
     return out
 
 
