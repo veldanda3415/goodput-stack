@@ -217,3 +217,47 @@ log (`endpoint=`, matched by start time and duration, P9's method): **agreed on 
 - Shared pool and throttling: host busy 8.7–8.8 CPUs (8 of them the two pinned pods), loadavg 8.3–9.5, gateway +
   EPP pods 0.033 CPU; the 8-CPU shared pool was not saturated. Pinned pods: `cpu.max` `max 100000`,
   `nr_throttled` delta 0 in every block.
+
+### P8 condition 4 — token-load-scorer on, load through the gateway (10:54–10:59 EDT)
+
+`make epp-cpu-token-on` (`deploy/gateway/epp-llamacpp-token-load.values.yaml`: stock llamacpp profile +
+session-affinity-filter + inflight-load-producer + token-load-scorer, threshold 8192, weight 4, `--v=4`). Background
+sent through the gateway with `x-session-token` per pod (Build 4's placement method). **Placement verified, not
+assumed:** the hold gate held (`gate.ok` true in both blocks) and the gauges just before every probe show L 2
+processing / 0 deferred and S 2 processing / 0–1 deferred; 16 L-role and 126 S-role background requests completed or
+were cut at block end (`p8_cpu/20261023-145402-token-pin.bg.jsonl`). Pick cross-check: gateway log = EPP log 12 / 12.
+
+| condition | via EPP | n | picks L / S | TTFT p50 / max (s) | TTFT p50 on L / on S (s) | e2e p50 on L / on S (s) | mid-L-prefill | raw |
+|---|---|---|---|---|---|---|---|---|
+| 4. token-load, load via gateway | yes | 12 | **5 / 7** | 4.967 / 24.547 | 15.658 / 4.683 | 31.80 / 6.68 | 12 / 12 | `p8_cpu/20261023-145402-token-pin.jsonl` |
+
+**Scores per probe** (v=4 "Calculated score" and `tokenload/token_load.go:125 "TokenLoadScorer scoring" … tokenLoad`
+lines, `p8_cpu/epp-token-pin-b0.log`, `-b1.log`):
+- 5 / 12 probes: S showed its deferred request → queue L 1 / S 0 (+2 for L); token scores L 0.758 or 0.875 vs S 0.977
+  or 0.961 → +0.41 to +0.88 for S. **All 5 went to L.**
+- 7 / 12 probes: queue tied → token-load broke the tie: **all 7 went to S** (vs a random 3 / 4 with the stock profile).
+
+**Token estimate in the request path vs llama.cpp's count** (`tokenLoad` values over all 300+ scoring lines in the run,
+by pod role; real = `usage.prompt_tokens` of the same requests):
+
+| request | client bytes | bytes/4 (`est_tokens`) | scorer's per-request step | llama.cpp prompt tokens | scorer / real |
+|---|---|---|---|---|---|
+| long | 3,810 | 954 | 960 (L: 960, 1,920 = 1 or 2 longs) | 3,055–3,060 | 0.31 |
+| short | 302 | 77 | 128 (S: 128, 256, 384) | 253–261 | 0.50 |
+| probe | 169 | 44 | 64 (+64 on every endpoint at a probe's own decision: L 1,024 / 1,984, S 192 / 320) | 151–160 | 0.41 |
+
+The steps are bytes/4 rounded up to a multiple of 64 (954 → 960, 77 → 128, 44 → 64); that rounding is read off the
+logged values, not from the source. Counterfactual, **computed, not run**: with llama.cpp's real counts L would hold
+2 × 3,058 + 158 ≈ 6,274 → token score 0.234, S ≈ 2 × 257 + 158 = 672 → 0.918; × 4 → +2.74 for S, more than the queue
+scorer's +2, so S would win all 12.
+
+Prediction (L ≥ 11 / 12) **wrong**: it assumed S's deferred request would show at nearly every decision (as in
+condition 2's prediction). The bytes/4 undercount did decide the 5 queue-split probes, as predicted. Shared pool:
+gateway + EPP 0.07 CPU, host busy 8.75–8.78 CPUs, loadavg 9.0–9.5; pinned pods `nr_throttled` delta 0.
+
+### P8 condition 5 (optional) — parallel 4 — prediction (before the run)
+
+`values-k3s-p8cpu-np4.yaml`: `--parallel 4 -c 16384` (4,096 per slot, as before), stock EPP at `--v=4`, load direct.
+L 2 running / 0 deferred, S 3 running / 0 deferred → the queue scorer ties every time → picks split at random
+(≈ 6 / 6). A probe on L gets a slot at once but shares each batch with the long prefills: TTFT on L ≈ 1–10 s
+(up to one 2,048-token batch at ~219 tok/s); on S ≈ 1–2 s.
