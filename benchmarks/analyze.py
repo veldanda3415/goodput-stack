@@ -512,7 +512,7 @@ def p8x2_charts(d: Path, res: dict) -> list[str]:
     samples = [s for s in p8.read_jsonl(d / "metrics_1hz.jsonl") if "error" not in s]
     conds = [c["condition"] for c in res["conditions"]]
     made = []
-    # 1. TTFT per probe, L vs S, per condition (log y: idle ~0.1 s and loaded tails ~1 s share one axis)
+    # 1. TTFT per probe, L vs S, per condition
     fig, ax = plt.subplots(figsize=(7.5, 4), facecolor=SURFACE)
     for xi, cond in enumerate(conds):
         for s, off in (("L", -0.16), ("S", 0.16)):
@@ -524,11 +524,9 @@ def p8x2_charts(d: Path, res: dict) -> list[str]:
                        edgecolor=SURFACE, linewidth=0.8, label=name if xi == 0 else None, zorder=3)
             med = sorted(v)[len(v) // 2] if len(v) % 2 else sum(sorted(v)[len(v) // 2 - 1:len(v) // 2 + 1]) / 2
             ax.hlines(med, xi + off - 0.1, xi + off + 0.1, color=INK, linewidth=2, zorder=4)
-    ax.set_yscale("log")
-    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
-    ax.yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax.set_ylim(bottom=0)
     ax.set_xticks(range(len(conds)), conds)
-    style(ax, "Probe TTFT on L vs S per condition (bar = median)", f"condition — {P8_LABEL}", "TTFT (s, log)")
+    style(ax, "Probe TTFT on L vs S per condition (bar = median)", f"condition — {P8_LABEL}", "TTFT (s)")
     ax.legend(frameon=False, fontsize=8, labelcolor=INK, loc="upper left", bbox_to_anchor=(1.0, 1.0))
     fig.tight_layout()
     fig.savefig(CHARTS / "p8x2_ttft.png", dpi=130)
@@ -545,6 +543,9 @@ def p8x2_charts(d: Path, res: dict) -> list[str]:
                 ax.plot(g, [(i + 1) / len(g) for i in range(len(g))], color=col, linewidth=2,
                         linestyle="-" if s == "L" else "--", label=name)
         ax.set_xscale("log")
+        ax.xaxis.set_major_locator(matplotlib.ticker.LogLocator(base=10, subs=(1.0, 3.0)))
+        ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+        ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
         style(ax, cond, "probe inter-token gap (ms, log)", "fraction of gaps ≤ x" if ax is axes[0][0] else "")
     axes[0][0].legend(frameon=False, fontsize=7, labelcolor=INK, loc="lower right")
     fig.suptitle(f"Probe ITL per server — {P8_LABEL}", x=0.01, ha="left", fontsize=10, color=INK)
@@ -610,14 +611,16 @@ def section_p8x2(out: list[str], base: Path) -> dict | None:
                        f"{fmt(r['e2e_s'].get('p50'), 2)} | {fmt(r['bg_output_tok_s_client'])} | {fmt(r['srv_prompt_tok_s'])} | "
                        f"{fmt(r.get('gauge_running_mean'), 2)} / {fmt(r.get('gauge_waiting_mean'), 2)} / {fmt(r.get('gauge_kv_mean'), 4)} | "
                        f"{fmt(g.get('sm_clock_mhz_mean'))} | {fmt(g.get('util_gpu_pct_mean'))} |")
-    out += ["", "| condition | median TTFT L (s) | median TTFT S (s) | gap L − S (s) | 95 % bootstrap CI of gap (s) | ratio | n L / S |",
-            "|---|---:|---:|---:|---|---:|---|"]
+    out += ["", "| condition | median TTFT L (s) | median TTFT S (s) | gap L − S (s) | 95 % bootstrap CI of gap (s) | ratio | n L / S | median e2e L / S (s) | L prefilling (share of window) | L probes sent during an L prefill |",
+            "|---|---:|---:|---:|---|---:|---|---|---:|---|"]
     for c in res["conditions"]:
         h = c.get("headline")
         if h:
             ci = h["gap_ci95_bootstrap_s"]
             out.append(f"| {c['condition']} | {h['median_ttft_L_s']:.3f} | {h['median_ttft_S_s']:.3f} | **{h['gap_s']:.3f}** | "
-                       f"{f'{ci[0]:.3f} … {ci[1]:.3f}' if ci else '—'} | {h['ratio']} | {h['n_L']} / {h['n_S']} |")
+                       f"{f'{ci[0]:.3f} … {ci[1]:.3f}' if ci else '—'} | {h['ratio']} | {h['n_L']} / {h['n_S']} | "
+                       f"{h['median_e2e_L_s']:.2f} / {h['median_e2e_S_s']:.2f} | {fmt(h['phase_L']['prefill_share_of_window'], 3)} | "
+                       f"{h['phase_L']['probes_sent_in_prefill']} / {h['phase_L']['probes']} |")
     out += ["", "**What a router would have seen** — computed offline from real engine metrics (pre-send /metrics of both servers "
             "per probe; formulas from llm-d-router v0.9.0, see [p8_t4x2.md](p8_t4x2.md#what-a-router-would-have-seen)). "
             "Stock = queue ×2 + kv-cache ×2 + prefix ×3, max-score-picker; token-load = stock + token-load ×4, threshold 8192, "
@@ -747,7 +750,20 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
             clk = {k: (v.get("gpu") or {}).get("sm_clock_mhz_mean") for k, v in c["servers"].items()}
             if clk.get("L") and clk.get("S") and abs(clk["L"] - clk["S"]) / max(clk["L"], clk["S"]) > 0.15:
                 r["_session_note"] = f"SM clock L {clk['L']:.0f} vs S {clk['S']:.0f} MHz in this window"
+            ph = h.get("phase_L") or {}
+            if (ph.get("prefill_share_of_window") or 0) > 0.2 and ph.get("probes") and ph["probes_sent_in_prefill"] == 0:
+                r = dict(r, _session_note=(r.get("_session_note", "") + "; " if r.get("_session_note") else "") +
+                         f"phase-locked: 0 / {ph['probes']} L probes sent while L was prefilling "
+                         f"({ph['prefill_share_of_window']:.0%} of the window) — best-case L TTFT, not random arrival")
+            if h.get("n_L", 0) < 12:
+                r["_session_note"] = (r.get("_session_note", "") + "; " if r.get("_session_note") else "") + \
+                    f"n {h['n_L']} / {h['n_S']} < 12 planned (session budget)"
             ci = h["gap_ci95_bootstrap_s"]
+            if c["condition"] != "idle" and h.get("e2e_gap_s") is not None:
+                eci = h["e2e_gap_ci95_bootstrap_s"]
+                rows.append((f"P8 probe e2e (128 tokens) gap L − S, condition `{c['condition']}` ({P8_LABEL})",
+                             f"{h['e2e_gap_s']:.2f} s (median {h['median_e2e_L_s']:.2f} vs {h['median_e2e_S_s']:.2f} s"
+                             + (f"; 95 % bootstrap CI {eci[0]:.2f} … {eci[1]:.2f} s" if eci else "") + ")", r["model"], r))
             rows.append((f"P8 probe TTFT gap L − S, condition `{c['condition']}` ({P8_LABEL})",
                          f"{h['gap_s']:.3f} s (median {h['median_ttft_L_s']:.3f} vs {h['median_ttft_S_s']:.3f} s, ×{h['ratio']}; "
                          f"95 % bootstrap CI {ci[0]:.3f} … {ci[1]:.3f} s; n {h['n_L']} / {h['n_S']})" if ci else f"{h['gap_s']:.3f} s",

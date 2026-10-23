@@ -241,14 +241,12 @@ A then B on one server (A on a cold server, B warm); C and D each on a fresh ser
 
 | variant | engine | model | batch-1 decode tok/s (median, spread) | c=16 steady tok/s | c=16 TTFT p50 ms | PPL (wikitext-2, 40×512, 2nd half) | gsm8k | hellaswag | $/1M out tok @ c=16 | rows |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| fp16 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct` | 37.16 (1.0 %) | 341.7 | 196 | 8.018 | flexible-extract 0.656 ± 0.030<br>strict-match 0.116 ± 0.020 | acc 0.536 ± 0.032<br>acc_norm 0.656 ± 0.030 | 0.428 | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
-| awq-int4 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct-AWQ` | 84.06 (1.9 %) | 536.6 | 144 | 8.659 | flexible-extract 0.624 ± 0.031<br>strict-match 0.120 ± 0.021 | acc 0.512 ± 0.032<br>acc_norm 0.628 ± 0.031 | 0.272 | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
-| gguf-q8_0 | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q8_0.gguf` | 60.04 (2.2 %) | 284.7 | 245 | 8.137 | flexible-extract 0.692 ± 0.029<br>strict-match 0.248 ± 0.027 | failed (rc 0) | 0.513 | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
-| gguf-q4_k_m | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf` | 76.61 (2.0 %) | 304.5 | 241 | 8.410 | flexible-extract 0.676 ± 0.030<br>strict-match 0.332 ± 0.030 | failed (rc 0) | 0.480 | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
+| fp16 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct` | 37.16 (1.0 %) | 341.7 | 196 | 8.018 | flexible-extract 0.656 ± 0.030<br>strict-match 0.116 ± 0.020 | acc 0.536 ± 0.032<br>acc_norm 0.656 ± 0.030 | — | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
+| awq-int4 | vLLM 0.31.0 | `Qwen/Qwen2.5-3B-Instruct-AWQ` | 84.06 (1.9 %) | 536.6 | 144 | 8.659 | flexible-extract 0.624 ± 0.031<br>strict-match 0.120 ± 0.021 | acc 0.512 ± 0.032<br>acc_norm 0.628 ± 0.031 | — | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
+| gguf-q8_0 | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q8_0.gguf` | 60.04 (2.2 %) | 284.7 | 245 | 8.137 | flexible-extract 0.692 ± 0.029<br>strict-match 0.248 ± 0.027 | failed (rc 0) | — | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
+| gguf-q4_k_m | llama.cpp b11146 (CUDA 12.8 prebuilt) | `Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf` | 76.61 (2.0 %) | 304.5 | 241 | 8.410 | flexible-extract 0.676 ± 0.030<br>strict-match 0.332 ± 0.030 | failed (rc 0) | — | [20261014-234235_quant](../../../benchmarks/results/t4/20261014-234235_quant/results/quant/quant.jsonl) |
 
 lm-eval 0.4.12 `local-completions`, --limit 250 (first N docs), command in the row (`lmeval_cmd`).
-
-Cost: Azure Standard_NC4as_T4_v3 US East Linux on-demand 0.526 USD/1 Hour; fetched 2026-10-15T01:46:38Z from: https://prices.azure.com/api/retail/prices?$filter=armSkuName eq 'Standard_NC4as_T4_v3' and armRegionName eq 'eastus' and priceType eq 'Consumption'. Formula `$ / 1M = $/h ÷ (tok/s × 3600) × 1e6` (benchmarks/cost.py).
 
 ![decode](charts/quant_decode.png)
 
@@ -288,6 +286,35 @@ busbw = algbw × 2(N−1)/N for all-reduce, (N−1)/N for all-gather / reduce-sc
 
 ![all-reduce busbw](charts/nccl-allreduce-busbw.png)
 
+## P8 on 2 × T4 — size-blind routing (real engines)
+
+**Kaggle 2×T4, real engines; routing not exercised.** Run 20261022-211450_p8x2, raw [p8x2.jsonl](../../../benchmarks/results/t4/20261022-211450_p8x2/results/p8x2/p8x2.jsonl), probes [probes.jsonl](../../../benchmarks/results/t4/20261022-211450_p8x2/results/p8x2/probes.jsonl). Narrative and prediction: [p8_t4x2.md](p8_t4x2.md).
+
+Engine: vLLM 0.31.0, chunked prefill None, max_num_batched_tokens 2048, max_num_seqs 256 (row `engine-config`); KV pool L/S 175,056 / 175,056 tokens (startup log).
+
+| condition | server | probes ok | TTFT p50 / p95 / max (s) | ITL p50 / p95 (ms) | e2e p50 (s) | bg out tok/s (client) | prompt tok/s (server) | running / waiting / KV mean | SM clock mean (MHz) | GPU util mean |
+|---|---|---:|---|---|---:|---:|---:|---|---:|---:|
+| idle | L | 12/12 | 0.110 / 0.111 / 0.111 | 32.0 / 38.0 | 4.17 | 0.0 | 7.9 | 0.20 / 0.00 / 0.0003 | 652.0 | 20.4 |
+| idle | S | 12/12 | 0.110 / 0.111 / 0.111 | 44.0 / 47.0 | 5.65 | 0.0 | 7.9 | 0.27 / 0.00 / 0.0004 | 570.2 | 28.5 |
+| main | L | 5/5 | 0.186 / 0.193 / 0.193 | 38.0 / 77.0 | 15.39 | 16.2 | 801.3 | 2.07 / 0.00 / 0.0284 | 1,258.4 | 100.0 |
+| main | S | 5/5 | 0.138 / 0.141 / 0.141 | 31.0 / 32.0 | 4.55 | 85.5 | 347.6 | 2.96 / 0.00 / 0.0049 | 957.1 | 99.5 |
+
+| condition | median TTFT L (s) | median TTFT S (s) | gap L − S (s) | 95 % bootstrap CI of gap (s) | ratio | n L / S | median e2e L / S (s) | L prefilling (share of window) | L probes sent during an L prefill |
+|---|---:|---:|---:|---|---:|---|---|---:|---|
+| idle | 0.110 | 0.110 | **0.000** | -0.001 … 0.001 | 1.0 | 12 / 12 | 4.17 / 5.65 | 0.000 | 0 / 12 |
+| main | 0.186 | 0.138 | **0.047** | 0.022 … 0.061 | 1.34 | 5 / 5 | 15.39 / 4.55 | 0.676 | 0 / 5 |
+
+**What a router would have seen** — computed offline from real engine metrics (pre-send /metrics of both servers per probe; formulas from llm-d-router v0.9.0, see [p8_t4x2.md](p8_t4x2.md#what-a-router-would-have-seen)). Stock = queue ×2 + kv-cache ×2 + prefix ×3, max-score-picker; token-load = stock + token-load ×4, threshold 8192, token load rebuilt from the background log (bytes/4 estimate, released at first chunk).
+
+| condition | n | L running / waiting / KV (mean) | S running / waiting / KV (mean) | stock picks L / S / tie | stock margin (median) | token-load picks L / S / tie |
+|---|---:|---|---|---|---:|---|
+| idle | 24 | 0.00 / 0.00 / 0.0000 | 0.00 / 0.00 / 0.0000 | 0 / 0 / 24 | 0.0000 | 0 / 0 / 24 |
+| main | 10 | 2.00 / 0.00 / 0.0355 | 3.00 / 0.00 / 0.0051 | 0 / 10 / 0 | 0.0611 | 1 / 9 / 0 |
+
+![p8x2_ttft.png](charts/p8x2_ttft.png)
+![p8x2_itl.png](charts/p8x2_itl.png)
+![p8x2_gauges.png](charts/p8x2_gauges.png)
+
 ## Kaggle runs (GPU time)
 
 | run | stage | status | script session s | GPU-h (script) | GPU-h (push→done, upper bound) |
@@ -315,5 +342,6 @@ busbw = algbw × 2(N−1)/N for all-reduce, (N−1)/N for all-gather / reduce-sc
 | 20261016-152535_nccl | nccl | complete | 125.6 | 0.035 | 0.047 |
 | 20261016-153016_nccl | nccl | complete | 722.6 | 0.201 | 0.215 |
 | 20261016-154427_nccl | nccl | complete | 429.5 | 0.119 | 0.128 |
-| **total** | | | | **5.411** | **5.848** |
+| 20261022-211450_p8x2 | p8x2 | complete | 1,822.8 | 0.506 | 0.520 |
+| **total** | | | | **5.917** | **6.368** |
 

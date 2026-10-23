@@ -278,6 +278,8 @@ With threshold 8192 and weight 4 the token scores were 0 (long pod) vs 0.890625 
 restart is invisible (`token-load / direct` is unchanged, as predicted). Token counts are bytes/4 estimates (about +20% on the probe prompts). Leaked entries (client gone before first token) live ≤5 min.
 llamacpp-pool is untouched. No real engine tested: the llama.cpp / T4 behaviour is unproven.
 
+**Real engines (Kaggle 2×T4, real engines; routing not exercised):** [benchmarks/results/t4/p8_t4x2.md](../../benchmarks/results/t4/p8_t4x2.md). With vLLM defaults nothing queues, so the stock profile, computed offline from real gauges, scores the short-prompt replica higher (10 / 10, margin 0.061, kv scorer only). A 128-token probe on the long-prompt replica took 15.4 vs 4.6 s end to end. Its TTFT gap (0.047 s) is from phase-locked probes and is not a valid forced-to-L number yet.
+
 **Overhead (SIMULATED, n=100 sequential, `scripts/probe_epp_overhead.py`).** Client p50 35.5 ms off / 39.2 ms on (stdev ~13 ms: within noise); EPP
 `scheduler_e2e_duration` mean 0.032 ms off / 0.112 ms on. **Regression:** `probe_p1_saturation.py` with the plugin on: 20/20 to the idle pod.
 **Burst follow-up:** see P9.
