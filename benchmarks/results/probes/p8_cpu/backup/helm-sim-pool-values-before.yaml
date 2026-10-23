@@ -1,0 +1,51 @@
+httpRoute:
+  create: true
+  inferenceGatewayName: inference-gateway
+provider:
+  name: none
+router:
+  epp:
+    pluginsConfigFile: token-load.yaml
+    pluginsCustomConfig:
+      token-load.yaml: |
+        apiVersion: llm-d.ai/v1alpha1
+        kind: EndpointPickerConfig
+        plugins:
+        - type: queue-scorer
+        - type: kv-cache-utilization-scorer
+        - type: prefix-cache-scorer
+        - type: inflight-load-producer
+        - type: token-load-scorer
+          parameters:
+            queueThresholdTokens: 8192
+        - type: metrics-data-source
+          parameters:
+            scheme: "http"
+            path: "/metrics"
+            insecureSkipVerify: true
+        - type: core-metrics-extractor
+        schedulingProfiles:
+        - name: default
+          plugins:
+          - pluginRef: queue-scorer
+            weight: 2
+          - pluginRef: kv-cache-utilization-scorer
+            weight: 2
+          - pluginRef: prefix-cache-scorer
+            weight: 3
+          - pluginRef: token-load-scorer
+            weight: 4
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  modelServers:
+    matchLabels:
+      app.kubernetes.io/instance: inf
+      app.kubernetes.io/name: vllm-sim
+  monitoring:
+    prometheus:
+      auth:
+        enabled: false

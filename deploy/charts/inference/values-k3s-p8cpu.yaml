@@ -1,0 +1,21 @@
+# values-k3s-p8cpu.yaml — probe P8 on real llama.cpp (benchmarks/results/probes/p8_cpu_pinned.md).
+# Overlay on values-k3s.yaml, used in BOTH phases (unpinned control and pinned), so the only difference
+# between them is values-k3s-pinned.yaml + the kubelet CPU manager policy:
+#   OVERLAYS="values-k3s-p8cpu.yaml" deploy/release.sh all k3s
+# Replicas: the KEDA ScaledObject is paused at 2 (autoscaling.keda.sh/paused-replicas=2), not set here.
+# Flag names from `llama-server --help` in the b11146 image.
+
+llamacpp:
+  server:
+    # With an explicit --parallel, kv_unified defaults to off and -c is split per slot
+    # (pod log: "n_slots = 2, n_ctx_slot = 2048, kv_unified = 'false'" at -c 4096).
+    # 8192 / 2 = 4096 per slot: holds a ~3,000-token prompt + probe + output.
+    ctxSize: 8192
+    parallel: 2
+    threads: 4
+    extraArgs:
+      - "--threads-batch"   # prefill threads; default is "same as --threads", set explicitly so it's recorded
+      - "4"
+      - "--no-cache-prompt" # no prompt reuse between requests (prompts are unique anyway)
+      - "--cache-ram"       # host-RAM prompt cache, default 8192 MiB: would grow RSS past a memory limit
+      - "0"

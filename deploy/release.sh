@@ -33,6 +33,8 @@ case "$ENV" in
   *) echo "unknown env '$ENV' (k3s|k3d)" >&2; exit 2 ;;
 esac
 VALUES=(-f "$CHART/values.yaml" -f "$CHART/values-$ENV.yaml")
+# OVERLAYS="values-k3s-p8cpu.yaml values-k3s-pinned.yaml": experiment overlays on top, in order (chart-relative).
+for o in ${OVERLAYS:-}; do VALUES+=(-f "$CHART/$o"); done
 HELM=(helm --kube-context "$CTX" -n "$NS")
 KUBECTL=(kubectl --context "$CTX" -n "$NS")
 
