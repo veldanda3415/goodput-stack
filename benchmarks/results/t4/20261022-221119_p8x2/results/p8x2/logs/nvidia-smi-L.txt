@@ -1,0 +1,4 @@
+$ nvidia-smi -L
+# rc=0
+GPU 0: Tesla T4 (UUID: GPU-353911f4-c69c-5671-200d-32eed0b08c3b)
+GPU 1: Tesla T4 (UUID: GPU-3819d86f-6177-e9f8-00f1-106efd3dd026)

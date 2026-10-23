@@ -1,0 +1,34 @@
+$ /usr/bin/python3 -c '
+import json, sys
+from vllm.engine.arg_utils import AsyncEngineArgs
+from vllm.usage.usage_lib import UsageContext
+try:
+    from vllm.entrypoints.openai.cli_args import make_arg_parser
+    from vllm.utils.argparse_utils import FlexibleArgumentParser
+    ns = make_arg_parser(FlexibleArgumentParser()).parse_args(sys.argv[1:])
+    ea, path = AsyncEngineArgs.from_cli_args(ns), "make_arg_parser + AsyncEngineArgs.from_cli_args"
+except Exception as exc:
+    print("cli path failed:", type(exc).__name__, exc, file=sys.stderr)
+    a = sys.argv[1:]
+    ea = AsyncEngineArgs(model=a[0], dtype="half", gpu_memory_utilization=float(a[a.index("--gpu-memory-utilization") + 1]),
+                         max_model_len=int(a[a.index("--max-model-len") + 1]), enable_prefix_caching=False,
+                         revision=a[a.index("--revision") + 1] if "--revision" in a else None)
+    path = "AsyncEngineArgs(...) built by hand"
+sc = ea.create_engine_config(UsageContext.OPENAI_API_SERVER).scheduler_config
+keys = ("max_num_batched_tokens", "max_num_seqs", "chunked_prefill_enabled", "enable_chunked_prefill",
+        "long_prefill_token_threshold", "max_num_partial_prefills", "policy")
+print("ENGINECFG " + json.dumps({"path": path, **{k: getattr(sc, k, None) for k in keys}}, default=str))
+' Qwen/Qwen2.5-3B-Instruct --dtype half --gpu-memory-utilization 0.9 --max-model-len 8192 --no-enable-prefix-caching --revision aa8e72537993ba99e69dfaafa59ed015b17504d1
+# rc=0
+(MainProcess pid=188) INFO 10-23 02:15:40 [model.py:699] Resolved architecture: Qwen2ForCausalLM
+(MainProcess pid=188) WARNING 10-23 02:15:40 [model.py:2442] Casting torch.bfloat16 to torch.float16.
+(MainProcess pid=188) INFO 10-23 02:15:40 [model.py:2109] Using max model len 8192
+(MainProcess pid=188) INFO 10-23 02:15:42 [scheduler.py:308] Chunked prefill is enabled with max_num_batched_tokens=2048.
+(MainProcess pid=188) INFO 10-23 02:15:44 [kernel.py:408] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'], gelu_and_mul_sparse=['triton', 'native'])
+ENGINECFG {"path": "AsyncEngineArgs(...) built by hand", "max_num_batched_tokens": 2048, "max_num_seqs": 256, "chunked_prefill_enabled": null, "enable_chunked_prefill": true, "long_prefill_token_threshold": 0, "max_num_partial_prefills": null, "policy": "fcfs"}
+cli path failed: ModuleNotFoundError No module named 'vllm.entrypoints.openai.cli_args'
+
+Parse safetensors files:   0%|          | 0/2 [00:00<?, ?it/s]
+Parse safetensors files:  50%|█████     | 1/2 [00:00<00:00,  2.26it/s]
+Parse safetensors files: 100%|██████████| 2/2 [00:01<00:00,  1.66it/s]
+Parse safetensors files: 100%|██████████| 2/2 [00:01<00:00,  1.73it/s]

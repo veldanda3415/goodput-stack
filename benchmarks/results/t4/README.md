@@ -15,6 +15,7 @@ revision, every serving flag and the client config. Generated tables: [summary.m
 - [Task 4 — concurrency sweep](#task-4--concurrency-sweep)
 - [Task 5 — quantization](#task-5--quantization)
 - [NCCL — 2 × T4 collectives (PCIe, one box)](#nccl--2--t4-collectives-pcie-one-box)
+- [P8 on 2 × T4 — size-blind routing](p8_t4x2.md)
 - [Limits — what is emulated or missing](#limits--what-is-emulated-or-missing)
 - [Reproduce](#reproduce)
 
@@ -30,9 +31,10 @@ One Kaggle kernel version per stage (`make t4-run STAGE=<stage>`). Results are i
 | sweep | closed loop c=1..64 × two `--max-num-seqs`, open loop, `vllm bench serve` cross-check | Llama **20261015-070248**; Qwen **20261014-220946**; cross-check 20261014-225021 (other session, invalid pair), **20261014-230457** (same session); TTFT-tail diagnosis 20261014-232257, 20261014-233928 |
 | quant | FP16 vs AWQ (vLLM) vs GGUF Q8_0/Q4_K_M (llama.cpp CUDA): speed, PPL, lm-eval, cost | **20261014-224513** (speed, PPL), 20261014-230851 (lm-eval vLLM), 20261014-234235 (lm-eval GGUF) |
 | nccl | NCCL collectives between the kernel's 2 T4s over PCIe: topology, transport, nccl-tests sweep | smoke 20261016-152535 (wrong NCCL picked, rows split; see below), **20261016-153016** (sweep), **20261016-154427** (P2P follow-up) |
+| p8x2 | P8 size-blind routing on 2 × T4: one vLLM per GPU, long-prompt (L) vs short-prompt (S) replica, probes forced to each; offline router scores ([p8_t4x2.md](p8_t4x2.md)) | 20261022-211450 (idle + 5/5 main, phase-locked; superseded), **20261022-221119** (idle, main, longout, mns2; 12 + 12 each) |
 
-GPU time: **5.41 GPU-hours** of script session time over 23 Kaggle runs pushed by `run_kaggle.py` (5.85 h push→done
-upper bound; the three nccl runs are 0.355 h); per run in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Not in the ledger: two
+GPU time: **6.44 GPU-hours** of script session time over 25 Kaggle runs pushed by `run_kaggle.py` (6.91 h push→done
+upper bound; the three nccl runs are 0.355 h, the two p8x2 runs 0.506 + 0.525 h; on 2 × T4 machines that is session time, GPU-device time is twice it); per run in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Not in the ledger: two
 versions started from the Kaggle editor on 2026-10-15 (a re-run of the GGUF lm-eval stage, ~24 min, and the
 one-minute smoke that proved the secret works from the editor). Kaggle's output download sometimes saves a 502
 HTML page in place of a file; `run_kaggle.py` retries and never overwrites a good file with one.

@@ -475,6 +475,173 @@ def section_nccl(out: list[str], base: Path) -> None:
         out += ["![all-reduce busbw](charts/nccl-allreduce-busbw.png)", ""]
 
 
+# ---------------------------------------------------------------- P8 on 2 x T4 (stage p8x2)
+
+P8_LABEL = "Kaggle 2×T4, real engines; routing not exercised"
+P8_COND = {"idle": "idle, no background", "main": "main: L 2×3K / S 3×200 prompts, 64 out, vLLM defaults",
+            "longout": "long-output: as main, 512 out", "mns2": "mns2: as main, both servers --max-num-seqs 2 (P8 sim slots, not default)"}
+P8_STYLE = {"L": (SERIES[0], "o", "L (long prompts, GPU 0)"), "S": (SERIES[1], "s", "S (short prompts, GPU 1)")}
+
+
+def p8x2_run() -> tuple[Path, dict[str, dict]] | None:
+    """Latest p8x2 run with at least one measured condition: (results dir, rows by key)."""
+    for f in sorted(T4.glob("*_p8x2/results/p8x2/p8x2.jsonl"), reverse=True):
+        rows = {}
+        for line in f.read_text().splitlines():
+            if line.strip():
+                r = json.loads(line)
+                r["_src"] = str(f.relative_to(REPO))
+                rows[r["key"]] = r
+        if any(r.get("kind") == "condition_window" for r in rows.values()):
+            return f.parent, rows
+    return None
+
+
+def p8x2_analysis(d: Path) -> dict:
+    sys.path.insert(0, str(REPO / "scripts"))
+    import probe_p8_t4x2 as p8
+    return p8.analyze(d)
+
+
+def p8x2_charts(d: Path, res: dict) -> list[str]:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker
+    sys.path.insert(0, str(REPO / "scripts"))
+    import probe_p8_t4x2 as p8
+    probes = p8.read_jsonl(d / "probes.jsonl")
+    samples = [s for s in p8.read_jsonl(d / "metrics_1hz.jsonl") if "error" not in s]
+    conds = [c["condition"] for c in res["conditions"]]
+    made = []
+    # 1. TTFT per probe, L vs S, per condition
+    fig, ax = plt.subplots(figsize=(7.5, 4), facecolor=SURFACE)
+    for xi, cond in enumerate(conds):
+        for s, off in (("L", -0.16), ("S", 0.16)):
+            v = [p["ttft_s"] for p in probes if p["condition"] == cond and p["server"] == s and p.get("ttft_s") is not None]
+            if not v:
+                continue
+            col, mk, name = P8_STYLE[s]
+            ax.scatter([xi + off + (i % 5 - 2) * 0.025 for i in range(len(v))], v, s=22, color=col, marker=mk,
+                       edgecolor=SURFACE, linewidth=0.8, label=name if xi == 0 else None, zorder=3)
+            med = sorted(v)[len(v) // 2] if len(v) % 2 else sum(sorted(v)[len(v) // 2 - 1:len(v) // 2 + 1]) / 2
+            ax.hlines(med, xi + off - 0.1, xi + off + 0.1, color=INK, linewidth=2, zorder=4)
+    ax.set_ylim(bottom=0)
+    ax.set_xticks(range(len(conds)), conds)
+    style(ax, "Probe TTFT on L vs S per condition (bar = median)", f"condition — {P8_LABEL}", "TTFT (s)")
+    ax.legend(frameon=False, fontsize=8, labelcolor=INK, loc="upper left", bbox_to_anchor=(1.0, 1.0))
+    fig.tight_layout()
+    fig.savefig(CHARTS / "p8x2_ttft.png", dpi=130)
+    plt.close(fig)
+    made.append("p8x2_ttft.png")
+    # 2. probe inter-token gaps, ECDF per server, one panel per L/S condition
+    lc = [c for c in conds if any(p["condition"] == c and p["server"] == "S" for p in probes)]
+    fig, axes = plt.subplots(1, len(lc), figsize=(3.2 * len(lc), 3.6), facecolor=SURFACE, sharey=True, squeeze=False)
+    for ax, cond in zip(axes[0], lc):
+        for s in ("L", "S"):
+            g = sorted(x * 1000 for p in probes if p["condition"] == cond and p["server"] == s for x in p.get("itl_s", []))
+            if g:
+                col, mk, name = P8_STYLE[s]
+                ax.plot(g, [(i + 1) / len(g) for i in range(len(g))], color=col, linewidth=2,
+                        linestyle="-" if s == "L" else "--", label=name)
+        ax.set_xscale("log")
+        ax.xaxis.set_major_locator(matplotlib.ticker.LogLocator(base=10, subs=(1.0, 3.0)))
+        ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+        ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+        style(ax, cond, "probe inter-token gap (ms, log)", "fraction of gaps ≤ x" if ax is axes[0][0] else "")
+    axes[0][0].legend(frameon=False, fontsize=7, labelcolor=INK, loc="lower right")
+    fig.suptitle(f"Probe ITL per server — {P8_LABEL}", x=0.01, ha="left", fontsize=10, color=INK)
+    fig.tight_layout()
+    fig.savefig(CHARTS / "p8x2_itl.png", dpi=130)
+    plt.close(fig)
+    made.append("p8x2_itl.png")
+    # 3. running requests and KV usage over the whole run, both servers (two panels, one scale each)
+    if samples:
+        t0 = min(s["t"] for s in samples)
+        fig, axes = plt.subplots(2, 1, figsize=(8, 5), facecolor=SURFACE, sharex=True)
+        for ax, key, lab in ((axes[0], "running", "running requests"), (axes[1], "kv", "KV cache usage (0–1)")):
+            for s in ("L", "S"):
+                pts = [(x["t"] - t0, x[key]) for x in samples if x["server"] == s and key in x and x["condition"] != "setup"]
+                col, mk, name = P8_STYLE[s]
+                ax.plot([p[0] / 60 for p in pts], [p[1] for p in pts], color=col, linewidth=1.5,
+                        linestyle="-" if s == "L" else "--", label=name)
+            for c in res["conditions"]:
+                w = next((r for r in p8.read_jsonl(d / "p8x2.jsonl") if r.get("key") == f"cond-{c['condition']}"), None)
+                if w:
+                    ax.axvline((w["t_start"] - t0) / 60, color=AXIS, linewidth=0.8)
+                    if key == "running":
+                        ax.annotate(c["condition"], ((w["t_start"] - t0) / 60, 1), xycoords=("data", "axes fraction"),
+                                    xytext=(3, -10), textcoords="offset points", fontsize=7, color=MUTED)
+            style(ax, "" if key == "kv" else "Engine gauges, 1 Hz, both servers",
+                  f"minutes since first sample — {P8_LABEL}" if key == "kv" else "", lab)
+        axes[0].legend(frameon=False, fontsize=8, labelcolor=INK, loc="lower left", bbox_to_anchor=(0.0, 1.08), ncol=2)
+        fig.tight_layout()
+        fig.savefig(CHARTS / "p8x2_gauges.png", dpi=130)
+        plt.close(fig)
+        made.append("p8x2_gauges.png")
+    return made
+
+
+def section_p8x2(out: list[str], base: Path) -> dict | None:
+    got = p8x2_run()
+    if not got:
+        return None
+    d, rows = got
+    res = p8x2_analysis(d)
+    run_id = d.parts[-3]
+    src = Path(next(iter(rows.values()))["_src"])
+    rel = lambda p: Path(*([".."] * len(base.relative_to(REPO).parts))) / p
+    eng = rows.get("engine-config", {})
+    st = {n: rows.get(f"startup-{n}", {}) for n in ("L", "S")}
+    out += ["## P8 on 2 × T4 — size-blind routing (real engines)", "",
+            f"**{P8_LABEL}.** Run {run_id}, raw [{src.name}]({rel(src)}), probes [probes.jsonl]({rel(src.parent / 'probes.jsonl')}). "
+            f"Narrative and prediction: [p8_t4x2.md](p8_t4x2.md).", "",
+            f"Engine: vLLM {next(iter(rows.values())).get('vllm_version')}, chunked prefill "
+            f"{eng.get('chunked_prefill_enabled', eng.get('enable_chunked_prefill'))}, max_num_batched_tokens "
+            f"{eng.get('max_num_batched_tokens')}, max_num_seqs {eng.get('max_num_seqs')} (row `engine-config`); "
+            f"KV pool L/S {fmt(st['L'].get('gpu_kv_cache_tokens'))} / {fmt(st['S'].get('gpu_kv_cache_tokens'))} tokens (startup log).", "",
+            "| condition | server | probes ok | TTFT p50 / p95 / max (s) | ITL p50 / p95 (ms) | e2e p50 (s) | bg out tok/s (client) | prompt tok/s (server) | running / waiting / KV mean | SM clock mean (MHz) | GPU util mean |",
+            "|---|---|---:|---|---|---:|---:|---:|---|---:|---:|"]
+    for c in res["conditions"]:
+        for s, r in c["servers"].items():
+            if not r["probes"] and not r["bg_requests_done"]:
+                continue
+            t, i, g = r["ttft_s"], r["itl_s"], r.get("gpu", {})
+            out.append(f"| {c['condition']} | {s} | {r['probes_ok']}/{r['probes']} | "
+                       f"{fmt(t.get('p50'), 3)} / {fmt(t.get('p95'), 3)} / {fmt(t.get('max'), 3)} | "
+                       f"{fmt(i['p50'] * 1000 if i.get('p50') is not None else None)} / {fmt(i['p95'] * 1000 if i.get('p95') is not None else None)} | "
+                       f"{fmt(r['e2e_s'].get('p50'), 2)} | {fmt(r['bg_output_tok_s_client'])} | {fmt(r['srv_prompt_tok_s'])} | "
+                       f"{fmt(r.get('gauge_running_mean'), 2)} / {fmt(r.get('gauge_waiting_mean'), 2)} / {fmt(r.get('gauge_kv_mean'), 4)} | "
+                       f"{fmt(g.get('sm_clock_mhz_mean'))} | {fmt(g.get('util_gpu_pct_mean'))} |")
+    out += ["", "| condition | median TTFT L (s) | median TTFT S (s) | gap L − S (s) | 95 % bootstrap CI of gap (s) | ratio | n L / S | median e2e L / S (s) | L prefilling (share of window) | L probes sent during an L prefill |",
+            "|---|---:|---:|---:|---|---:|---|---|---:|---|"]
+    for c in res["conditions"]:
+        h = c.get("headline")
+        if h:
+            ci = h["gap_ci95_bootstrap_s"]
+            out.append(f"| {c['condition']} | {h['median_ttft_L_s']:.3f} | {h['median_ttft_S_s']:.3f} | **{h['gap_s']:.3f}** | "
+                       f"{f'{ci[0]:.3f} … {ci[1]:.3f}' if ci else '—'} | {h['ratio']} | {h['n_L']} / {h['n_S']} | "
+                       f"{h['median_e2e_L_s']:.2f} / {h['median_e2e_S_s']:.2f} | {fmt(h['phase_L']['prefill_share_of_window'], 3)} | "
+                       f"{h['phase_L']['probes_sent_in_prefill']} / {h['phase_L']['probes']} |")
+    out += ["", "**What a router would have seen** — computed offline from real engine metrics (pre-send /metrics of both servers "
+            "per probe; formulas from llm-d-router v0.9.0, see [p8_t4x2.md](p8_t4x2.md#what-a-router-would-have-seen)). "
+            "Stock = queue ×2 + kv-cache ×2 + prefix ×3, max-score-picker; token-load = stock + token-load ×4, threshold 8192, "
+            "token load rebuilt from the background log (bytes/4 estimate, released at first chunk).", "",
+            "| condition | n | L running / waiting / KV (mean) | S running / waiting / KV (mean) | stock picks L / S / tie | stock margin (median) | token-load picks L / S / tie |",
+            "|---|---:|---|---|---|---:|---|"]
+    for rt in res["router"]:
+        if not rt["n"]:
+            continue
+        m = {s: {k: sum(r["snap"][s][k] for r in rt["rows"]) / rt["n"] for k in ("running", "waiting", "kv")} for s in ("L", "S")}
+        sp, tp = rt["stock_picks"], rt["token_picks"]
+        out.append(f"| {rt['condition']} | {rt['n']} | {m['L']['running']:.2f} / {m['L']['waiting']:.2f} / {m['L']['kv']:.4f} | "
+                   f"{m['S']['running']:.2f} / {m['S']['waiting']:.2f} / {m['S']['kv']:.4f} | {sp['L']} / {sp['S']} / {sp['tie']} | "
+                   f"{rt['stock_margin_median']:.4f} | {tp['L']} / {tp['S']} / {tp['tie']} |")
+    charts = p8x2_charts(d, res)
+    out += [""] + [f"![{c}](charts/{c})" for c in charts] + [""]
+    return {"dir": d, "rows": rows, "res": res}
+
+
 def section_runs(out: list[str]) -> None:
     f = T4 / "runs.jsonl"
     if not f.exists():
@@ -575,6 +742,41 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
             if (r := nr.get("allreduce-p2p-disabled")) and f["p2p_off_1g"] and f["bus_1g_med"]:
                 r["_session_note"] = f["note"]
                 rows.append(("2×T4 all-reduce default ÷ NCCL_P2P_DISABLE=1 @ 1 GiB", f"{f['bus_1g_med'] / f['p2p_off_1g']:.2f}× ({fmt(f['bus_1g_med'], 2)} vs {fmt(f['p2p_off_1g'], 2)} GB/s; transport {', '.join(r1.get('transports') or [])} vs {', '.join(r.get('transports') or [])})", "nccl-tests all_reduce_perf", r))
+    if (got := p8x2_run()):
+        d, pr = got
+        res = p8x2_analysis(d)
+        for c in res["conditions"]:
+            h, r = c.get("headline"), pr.get(f"cond-{c['condition']}")
+            if not (h and r):
+                continue
+            clk = {k: (v.get("gpu") or {}).get("sm_clock_mhz_mean") for k, v in c["servers"].items()}
+            if clk.get("L") and clk.get("S") and abs(clk["L"] - clk["S"]) / max(clk["L"], clk["S"]) > 0.15:
+                r["_session_note"] = f"SM clock L {clk['L']:.0f} vs S {clk['S']:.0f} MHz in this window"
+            ph = h.get("phase_L") or {}
+            if (ph.get("prefill_share_of_window") or 0) > 0.2 and ph.get("probes") and ph["probes_sent_in_prefill"] == 0:
+                r = dict(r, _session_note=(r.get("_session_note", "") + "; " if r.get("_session_note") else "") +
+                         f"phase-locked: 0 / {ph['probes']} L probes sent while L was prefilling "
+                         f"({ph['prefill_share_of_window']:.0%} of the window) — best-case L TTFT, not random arrival")
+            if h.get("n_L", 0) < 12:
+                r["_session_note"] = (r.get("_session_note", "") + "; " if r.get("_session_note") else "") + \
+                    f"n {h['n_L']} / {h['n_S']} < 12 planned (session budget)"
+            ci = h["gap_ci95_bootstrap_s"]
+            if c["condition"] != "idle" and h.get("e2e_gap_s") is not None:
+                eci = h["e2e_gap_ci95_bootstrap_s"]
+                rows.append((f"P8 probe e2e (128 tokens) gap L − S, {P8_COND.get(c['condition'], c['condition'])} ({P8_LABEL})",
+                             f"{h['e2e_gap_s']:.2f} s (median {h['median_e2e_L_s']:.2f} vs {h['median_e2e_S_s']:.2f} s"
+                             + (f"; 95 % bootstrap CI {eci[0]:.2f} … {eci[1]:.2f} s" if eci else "") + ")", r["model"], r))
+            rows.append((f"P8 probe TTFT gap L − S, {P8_COND.get(c['condition'], c['condition'])} ({P8_LABEL})",
+                         f"{h['gap_s']:.3f} s (median {h['median_ttft_L_s']:.3f} vs {h['median_ttft_S_s']:.3f} s, ×{h['ratio']}; "
+                         f"95 % bootstrap CI {ci[0]:.3f} … {ci[1]:.3f} s; n {h['n_L']} / {h['n_S']})" if ci else f"{h['gap_s']:.3f} s",
+                         r["model"], r))
+        for rt in res["router"]:
+            r = pr.get(f"cond-{rt['condition']}")
+            if rt["n"] and r and rt["condition"] in ("main", "mns2"):
+                sp, tp = rt["stock_picks"], rt["token_picks"]
+                rows.append((f"P8 stock EPP profile on real gauges, {P8_COND[rt['condition']]} (computed offline from real engine metrics)",
+                             f"higher score: L {sp['L']} / S {sp['S']} / tie {sp['tie']} of {rt['n']} probes; median margin "
+                             f"{rt['stock_margin_median']:.4f}; token-load profile L {tp['L']} / S {tp['S']} / tie {tp['tie']}", r["model"], r))
     out = ["# RESULTS", "", "One row per headline number. Every number is from a recorded run; the link is the raw JSONL row "
            "(`key` column) with full provenance (git sha, GPU/driver/CUDA, engine version, model revision, flags, client config). "
            "Context, caveats and what is emulated: [benchmarks/results/t4/README.md](benchmarks/results/t4/README.md). "
@@ -585,7 +787,7 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
     for name, val, model, r in rows:
         eng = r.get("engine") or (f"vLLM {r['vllm_version']}" if r.get("vllm_version") else None) or \
             (f"NCCL {r['nccl_version_log']}" if r.get("nccl_version_log") else "—")
-        hw = f"{'2 × ' if r.get('stage') == 'nccl' else ''}{r.get('gpu')} (Kaggle), driver {r.get('driver')}"
+        hw = f"{'2 × ' if r.get('stage') in ('nccl', 'p8x2') else ''}{r.get('gpu')} (Kaggle), driver {r.get('driver')}"
         out.append(f"| {name} | {val} | {caveat(r)} | `{model}` | {hw} | {eng} | `{r['key']}` | [{Path(r['_src']).parts[3]}]({r['_src']}) |")
     return out + [""]
 
@@ -627,6 +829,7 @@ def main() -> None:
         section_sweep(load("sweep", m), out, T4)
     section_quant(load("quant"), out, T4, price)
     section_nccl(out, T4)
+    section_p8x2(out, T4)
     section_runs(out)
     (T4 / "summary.md").write_text("\n".join(out) + "\n")
     (REPO / "RESULTS.md").write_text(results_md(price))

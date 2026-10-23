@@ -1,0 +1,27 @@
+{
+  "stage": "p8x2",
+  "run_id": "20261022-211450_p8x2",
+  "git_sha": "1ac1408",
+  "runtime_s": 1821.7,
+  "args": {
+    "stage": "p8x2",
+    "vllm_version": "0.31.0",
+    "model": "Qwen/Qwen2.5-3B-Instruct",
+    "revision": "aa8e7253",
+    "gpu_mem": 0.9,
+    "max_model_len": 8192,
+    "n": 12,
+    "probe_tokens": 100,
+    "probe_max_tokens": 128,
+    "short_tokens": 200,
+    "long_tokens": 3000,
+    "hold_s": 5.0,
+    "min_gap_s": 2.0,
+    "gate_timeout_s": 60.0,
+    "seed": 8,
+    "sweep_sizes": "1000,3000,6000",
+    "sweep_cells": "3000x4,1000x2,6000x2,1000x4,6000x4",
+    "sweep_stop_h": 0.4,
+    "stop_h": 0.5
+  }
+}
