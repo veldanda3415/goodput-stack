@@ -32,6 +32,7 @@ Neighbour penalty (TTFT p50 busy − alone):
 | stock, probe forced to L (direct) | no (direct) | 12 | 12 / 0 | 19.795 / 30.527 | 19.795 / — | 33.65 | 12 / 12 | [20261023-143413-force-L.jsonl](../../../../benchmarks/results/probes/p8_cpu/20261023-143413-force-L.jsonl) |
 | stock, probe forced to S (direct) | no (direct) | 12 | 0 / 12 | 3.944 / 5.284 | — / 3.944 | 6.00 | 10 / 12 | [20261023-144651-force-S.jsonl](../../../../benchmarks/results/probes/p8_cpu/20261023-144651-force-S.jsonl) |
 | token-load on, load through the gateway | yes | 12 | 5 / 7 | 4.967 / 24.547 | 15.658 / 4.683 | 7.26 | 12 / 12 | [20261023-145402-token-pin.jsonl](../../../../benchmarks/results/probes/p8_cpu/20261023-145402-token-pin.jsonl) |
+| parallel 4, stock EPP, load direct | yes | 12 | 9 / 3 | 19.126 / 36.458 | 23.280 / 0.933 | 31.81 | 10 / 12 | [20261023-150111-np4-direct.jsonl](../../../../benchmarks/results/probes/p8_cpu/20261023-150111-np4-direct.jsonl) |
 
 Charts: [p8cpu_interference.png](charts/p8cpu_interference.png), [p8cpu_ttft.png](charts/p8cpu_ttft.png)
 

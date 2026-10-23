@@ -8,7 +8,20 @@ ones (S), which pod does the stock EPP pick for a short probe, and what does the
 token-load-scorer. And how much do two replicas on one CPU slow each other down, unpinned vs pinned by the kubelet
 static CPU manager?
 
-Status: in progress. Sections are filled in the order they were run; every prediction was written before its run.
+Status: done 2026-10-23 (09:36–11:17 EDT); cluster reverted to policy `none` (see [Revert](#revert)). Sections are in
+run order; every prediction was written into this file before its run and is left as written.
+
+**Headlines**
+- **Stock EPP, real engines:** 8 of 12 probes went to the long-prompt replica (TTFT p50 20.9 s there vs 4.3 s on the
+  short-prompt replica). All 5 probes that saw S's deferred request went to L; the 7 where llama.cpp's queue gauge
+  showed no deferred request were random tie-breaks (3 L / 4 S). Forced, the L pick costs +15.85 s TTFT p50
+  (19.80 vs 3.94 s).
+- **token-load-scorer on:** 5 / 12 to L. It breaks every tie toward S (7 / 7), but loses to the queue scorer whenever
+  S's deferred request is visible (5 / 5 to L), because it counts a 3,056-token prompt as 960 tokens (bytes/4,
+  rounded to 64).
+- **Pinning did not remove the replica-to-replica slowdown:** a probe on an idle replica pays +36 % / +48 % TTFT p50
+  when the other replica is busy unpinned, and +44 % / +49 % pinned to disjoint full cores. What remains (L3, memory
+  bandwidth, WSL2 vCPU placement, turbo) could not be separated here.
 
 ## Task 0 — baseline and topology (2026-10-23, no changes)
 
@@ -276,3 +289,79 @@ max-score picker's random tie-break, not a preference. Gateway log = EPP log 12 
 a free slot on L did not make the probe fast. 8 of the 9 probes on L had TTFT 15.3–36.5 s, and one had 1.05 s.
 Decode on L p50 was 8.9 tok/s. So in b11146 the probe's prompt waited behind the long prefills, not only behind slots.
 This is measured, but the scheduling mechanism inside llama.cpp was not checked. Host busy 8.78 CPUs; `nr_throttled` delta 0.
+
+## Interference: unpinned vs pinned
+
+Direct to pod, not routed through the EPP. Probe TTFT p50 (s), n = 12 each; p50 / p95 linear interpolation
+(`benchmarks/analyze.py --p8cpu` → [p8_cpu/summary.md](p8_cpu/summary.md)).
+
+| probe on | alone, unpinned | neighbour busy, unpinned | penalty | alone, pinned | neighbour busy, pinned | penalty |
+|---|---|---|---|---|---|---|
+| S (neighbour: 2 long prompts) | 0.592 | 0.808 | +0.216 s (+36 %) | 0.602 | 0.869 | +0.267 s (+44 %) |
+| L (neighbour: 3 short prompts) | 0.587 | 0.871 | +0.284 s (+48 %) | 0.600 | 0.894 | +0.294 s (+49 %) |
+| decode p50, S / L probe (tok/s) | 56.4 / 57.3 | 49.9 / 46.9 | | 55.2 / 55.2 | 48.6 / 48.1 | |
+
+![interference](p8_cpu/charts/p8cpu_interference.png)
+
+**How much pinning removed: none measurable.** Neither p50 penalty shrank. Pinned p95/max are tighter on the alone
+rows (L alone max 0.623 s vs 0.777 s unpinned), but at n = 12 that is one probe. What can and can't be separated here:
+- *Same logical CPU / SMT sibling sharing between the two pods:* removed by pinning (disjoint full cores, verified), so
+  it was not the cause.
+- *CFS throttling:* ruled out (no quota on the pinned pods, `nr_throttled` 0 throughout).
+- *Shared pool saturation:* ruled out for the routed path (gateway + EPP ≤ 0.07 CPU; host busy ≤ 8.8 of 16).
+- *Shared L3, memory bandwidth, package power / turbo frequency, Hyper-V placement of the guest vCPUs:* **not
+  separable on this setup.** The guest can't read MSRs or host scheduling, and WSL2's sibling pairs are not a hardware
+  guarantee. k3s-server and containerd were not restricted to the shared pool (0-15).
+
+## P8 summary (Build 4 format) and comparison
+
+| condition | label | n | picks long-pod / short-pod | probe TTFT p50 / max (s) | TTFT p50 on long / short pod (s) | e2e p50 (s) |
+|---|---|---|---|---|---|---|
+| idle | CPU pinned, routed | 12 | 6 / 6 | 0.606 / 0.808 | 0.604 / 0.609 | 1.18 |
+| stock / load direct | CPU pinned, routed | 12 | **8 / 4** | 15.903 / 40.480 | 20.921 / 4.330 | 29.55 |
+| stock, forced to long pod | CPU pinned, direct to pod | 12 | 12 / 0 | 19.795 / 30.527 | 19.795 / — | 33.65 |
+| stock, forced to short pod | CPU pinned, direct to pod | 12 | 0 / 12 | 3.944 / 5.284 | — / 3.944 | 6.00 |
+| token-load / load via gateway (pinned per pod) | CPU pinned, routed | 12 | **5 / 7** | 4.967 / 24.547 | 15.658 / 4.683 | 7.26 |
+| parallel 4, stock / load direct | CPU pinned, routed | 12 | 9 / 3 (all ties) | 19.126 / 36.458 | 23.280 / 0.933 | 31.81 |
+
+![P8 TTFT](p8_cpu/charts/p8cpu_ttft.png)
+
+| source | label | stock: picks to long pod | token-load: picks to long pod | cost of the long pick (TTFT p50) |
+|---|---|---|---|---|
+| Build 4 (`deploy/gateway/GAPS.md` P8) | SIMULATED, routed by the real EPP | 16 / 16 (direct 8 / 8, pin 8 / 8) | 0 / 8 (load via gateway), 8 / 8 (load direct) | 7.75 s vs 0.53 s |
+| Build 11, mns2 ([t4/p8_t4x2.md](../t4/p8_t4x2.md)) | Kaggle 2×T4, real vLLM; picks **computed offline**, routing not exercised | 21 / 24 | 23 / 24 | see that file |
+| this run | workstation CPU (WSL2), real llama.cpp, **real gateway + EPP**; 4 pinned CPUs per replica | **8 / 12** | **5 / 12** | 20.92 s vs 4.33 s (as picked); 19.80 s vs 3.94 s (forced) |
+
+Why this run differs from both: the sim's and vLLM's waiting gauge held S's queued request steadily. llama.cpp's
+`requests_deferred` showed it at only 5 of 12 decisions, so the queue scorer often tied. When it didn't tie, the stock
+EPP and the token-load EPP both picked L every time (10 / 10 across conditions 2 and 4).
+
+## Does NOT show
+
+- One node, one WSL2 guest: guest vCPUs are not pinned to host cores; "pinned" = guest vCPUs only.
+- Qwen2.5-0.5B Q4_K_M on 4 CPUs per replica, b11146: absolute TTFTs (0.6 s idle, ~20 s behind long prompts) are this
+  model on this CPU. They are not GPU numbers and not big-model numbers.
+- llama.cpp exports no KV signal: the kv scorer tied in every decision (GAPS.md P4). A KV-aware engine could change
+  stock picks.
+- `requests_deferred` sampling: how often the EPP sees S's deferred request depends on its scrape timing and on llama.cpp
+  updating the gauge between batches. The 5 / 12 split is this workload's, not a constant.
+- Single EPP replica: the token-load scorer counts only what this replica dispatched (GAPS.md P8 "remaining gap");
+  with load sent direct it would see nothing.
+- Single client process (asyncio, one host): background and probes share one event loop; probes are sequential.
+- n = 12 per condition, 2 blocks with roles swapped; no confidence intervals computed.
+- The parallel-4 split (9 / 3) is a random tie-break at n = 12, not a preference.
+
+## Revert
+
+`make cpu-pin-off` (run by the user, sudo, ~11:15 EDT) restored `/etc/rancher/k3s/config.yaml` (sha256 `3609cf7f…`,
+= the original) and removed the static `cpu_manager_state`. Read back at 11:16–11:17:
+- configz `cpuManagerPolicy: none`, options none, reserved none; journal `cpu_manager.go:235 "Starting" policy="none"`
+  11:15:59; allocatable CPU 16.
+- `deploy/release.sh upgrade k3s` with no overlays (revision 39): pods back to the original template (hash
+  `5d577dcf66`), Burstable, `Cpus_allowed_list` 0-15. Release values = the pre-run backup except the new chart key
+  `llamacpp.initResources: {}` (default, renders nothing).
+- `paused-replicas` annotation removed from `inf-llamacpp` (KEDA owns replicas again; it was not paused before).
+  `inf-vllm-sim` still paused at 2, as before. Sim pods were never scaled.
+- sim-pool and llamacpp-pool EPPs: ConfigMap data, helm values and container args **byte-identical** to the backups
+  in `p8_cpu/backup/` (sim-pool still on `token-load.yaml`, as found).
+- `helm test inf` 3/3 Succeeded; one request per pool: cpu 200 (0.173 s), sim 200 (0.064 s).
