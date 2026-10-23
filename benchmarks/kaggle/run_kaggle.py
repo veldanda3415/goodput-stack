@@ -6,14 +6,15 @@
     python -m benchmarks.kaggle.run_kaggle --stage sweep --no-wait          # push only
     python -m benchmarks.kaggle.run_kaggle --fetch benchmarks/results/t4/<run-id>   # poll + download a pushed run
     python -m benchmarks.kaggle.run_kaggle --stage nccl --machine-shape NvidiaTeslaT4  # 2 x T4 (see below)
+    python -m benchmarks.kaggle.run_kaggle --stage p8x2                    # P8 on 2 x T4, one vLLM per GPU
 
 Machine shape: `machine_shape` in kernel-metadata.json. Kaggle documents `NvidiaTeslaT4` as "GPU T4 x2"
 (Kaggle/kaggle-api docs/kernels_metadata.md, main @ 6894864f, 2026-10-16), and every run in runs.jsonl pushed
 with it recorded 2 GPUs (env.json gpu_count). --machine-shape overrides it; the value is recorded in run.json.
 
 What gets pushed: a new version of one generated Kaggle *script* kernel `<user>/goodput-t4` (all stages) (GPU T4, internet on,
-private). The script carries a base64 tarball of benchmarks/harness/, benchmarks/gpu_sampler.py and
-benchmarks/kaggle/t4_notebook.py (plus, with --resume, the results of an earlier run of the stage, so the
+private). The script carries a base64 tarball of benchmarks/harness/, benchmarks/gpu_sampler.py,
+benchmarks/kaggle/t4_notebook.py and scripts/probe_p8_t4x2.py (plus, with --resume, the results of an earlier run of the stage, so the
 stage skips work already done), extracts it and runs `python -m benchmarks.kaggle.t4_notebook --stage <stage>`.
 Each stage writes /kaggle/working/results/<stage>/ (JSONL + raw logs).
 
@@ -46,7 +47,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 RESULTS = REPO / "benchmarks" / "results" / "t4"
 PAYLOAD_FILES = ["benchmarks/__init__.py", "benchmarks/harness", "benchmarks/gpu_sampler.py",
-                 "benchmarks/kaggle/__init__.py", "benchmarks/kaggle/t4_notebook.py"]
+                 "benchmarks/kaggle/__init__.py", "benchmarks/kaggle/t4_notebook.py", "scripts/probe_p8_t4x2.py"]
 TERMINAL = ("complete", "error", "cancelacknowledged", "cancelrequested")
 
 
@@ -105,7 +106,8 @@ out = "/kaggle/working/results"
 os.makedirs(out, exist_ok=True)
 if os.path.isdir(SRC + "/resume/{stage}"):
     shutil.copytree(SRC + "/resume/{stage}", out + "/{stage}", dirs_exist_ok=True)
-env = dict(os.environ, PYTHONPATH=SRC, GOODPUT_GIT_SHA="{sha}", GOODPUT_RUN_ID="{run_id}", PYTHONUNBUFFERED="1")
+env = dict(os.environ, PYTHONPATH=SRC, GOODPUT_GIT_SHA="{sha}", GOODPUT_RUN_ID="{run_id}", PYTHONUNBUFFERED="1",
+           GOODPUT_SESSION_T0=repr(T0))
 rc = subprocess.run([sys.executable, "-m", "benchmarks.kaggle.t4_notebook", "--stage", "{stage}", *{args!r}],
                     cwd=SRC, env=env).returncode
 with open(out + "/kernel_session.txt", "w") as f:
@@ -214,7 +216,7 @@ def fetch(run_dir: Path, poll_s: int, timeout_min: float) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--stage", help="t4_notebook stage: smoke, baseline, kvgrid, sweep, quant, nccl")
+    ap.add_argument("--stage", help="t4_notebook stage: smoke, baseline, kvgrid, sweep, quant, nccl, p8x2")
     ap.add_argument("--args", default="", help="extra args for the stage, one shell-quoted string")
     ap.add_argument("--resume", type=Path, help="earlier run dir of the same stage; its results are re-uploaded and skipped")
     ap.add_argument("--fetch", type=Path, help="poll + download an already pushed run dir")

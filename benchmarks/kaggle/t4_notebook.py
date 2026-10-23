@@ -3,6 +3,7 @@
     python -m benchmarks.kaggle.t4_notebook --stage smoke
     python -m benchmarks.kaggle.t4_notebook --stage baseline --vllm-versions 0.31.0,0.30.0
     python -m benchmarks.kaggle.t4_notebook --stage nccl [--smoke]      # needs Kaggle "GPU T4 x2"
+    python -m benchmarks.kaggle.t4_notebook --stage p8x2                # P8 on 2 x T4 (scripts/probe_p8_t4x2.py)
 
 Every stage writes /kaggle/working/results/<stage>/ (override: GOODPUT_RESULTS):
     <stage>.jsonl   result rows; each carries provenance (time, git sha, GPU/driver/CUDA, vLLM version,
@@ -231,14 +232,15 @@ def require_flags(help_text: str, flags: list[str]) -> list[str]:
 
 
 class VllmServer:
-    """`vllm serve` subprocess on GPU 0 with its log in a file; start() waits for /health or exit."""
+    """`vllm serve` subprocess on one GPU (default 0) with its log in a file; start() waits for /health or exit."""
 
-    def __init__(self, model: str, flags: list[str], log_path: Path, served_name: str | None = None):
-        self.model, self.flags, self.log_path = model, flags, log_path
+    def __init__(self, model: str, flags: list[str], log_path: Path, served_name: str | None = None,
+                 port: int = PORT, gpu: str = "0"):
+        self.model, self.flags, self.log_path, self.gpu = model, flags, log_path, gpu
         self.served_name = served_name or model
-        self.cmd = ["vllm", "serve", model, "--port", str(PORT), "--served-model-name", self.served_name, *flags]
+        self.cmd = ["vllm", "serve", model, "--port", str(port), "--served-model-name", self.served_name, *flags]
         self.proc: subprocess.Popen | None = None
-        self.base_url = f"http://127.0.0.1:{PORT}"
+        self.base_url = f"http://127.0.0.1:{port}"
 
     def start(self, timeout_s: float = 1500) -> dict:
         import httpx
@@ -246,7 +248,7 @@ class VllmServer:
         self._f = open(self.log_path, "a")   # a restart appends to the same log
         self._f.write("$ " + shlex.join(self.cmd) + "\n")
         self._f.flush()
-        env = dict(os.environ, CUDA_VISIBLE_DEVICES="0")
+        env = dict(os.environ, CUDA_VISIBLE_DEVICES=self.gpu)
         t0 = time.time()
         self.proc = subprocess.Popen(self.cmd, stdout=self._f, stderr=subprocess.STDOUT, env=env, start_new_session=True)
         while time.time() - t0 < timeout_s:
@@ -336,6 +338,7 @@ METRIC_ROLES = {   # role -> substrings matched against the metric names the ser
     "waiting": ["num_requests_waiting"], "running": ["num_requests_running"],
     "kv_usage": ["kv_cache_usage", "gpu_cache_usage"], "preemptions": ["preemption"],
     "queue_time": ["request_queue_time"], "prefix_cache": ["prefix_cache"],
+    "prompt_tokens": ["prompt_tokens"], "generation_tokens": ["generation_tokens"],
 }
 
 
@@ -1376,8 +1379,210 @@ STAGE_ARGS["nccl"] = [
 ]
 
 
+# ---------------------------------------------------------------- p8x2: P8 size-blind routing on 2 x T4 (no router)
+# Two vLLM replicas of one model, one per GPU; L gets 2 long prompts, S 3 short ones; probes forced to L or S.
+# Client, stats and offline router scoring: scripts/probe_p8_t4x2.py. Label: "Kaggle 2×T4, real engines; routing not exercised".
+
+P8_REQUIRED_ROLES = ("running", "waiting", "kv_usage", "ttft", "itl", "prompt_tokens", "generation_tokens")
+
+
+def session_elapsed_h() -> float:
+    """Hours since the generated Kaggle script started (GOODPUT_SESSION_T0, run_kaggle.py); install time included."""
+    return (time.time() - float(os.environ.get("GOODPUT_SESSION_T0", T_STAGE0))) / 3600
+
+
+def full_revision(repo: str, prefix: str) -> str | None:
+    """The full commit sha of `repo` starting with `prefix` (HF commit list), else None."""
+    from huggingface_hub import HfApi
+    try:
+        for cm in HfApi().list_repo_commits(repo, token=hf_token()):
+            if cm.commit_id.startswith(prefix):
+                return cm.commit_id
+    except Exception as exc:
+        log(f"list_repo_commits({repo}) failed: {exc}")
+    sha = model_revision(repo)
+    return sha if sha and sha.startswith(prefix) else None
+
+
+def chunked_prefill_info(log_text: str, help_text: str) -> dict:
+    """Chunked prefill + max_num_batched_tokens as the server logged them (raw lines kept), and the --help defaults."""
+    lines = [l.strip()[-300:] for l in log_text.splitlines() if re.search(r"chunked.prefill|max_num_batched_tokens", l, re.I)]
+    m = re.findall(r"max_num_batched_tokens[=:]\s*(\d+)", log_text)
+    ch = re.findall(r"enable_chunked_prefill[=:]\s*(True|False)", log_text)
+    return {"chunked_prefill_log_lines": lines[:12],
+            "max_num_batched_tokens_log": sorted({int(x) for x in m}),
+            "enable_chunked_prefill_log": sorted(set(ch)),
+            "chunked_prefill_enabled_msg": any(re.search(r"chunked prefill is enabled", l, re.I) for l in lines),
+            "help_default_max_num_batched_tokens": help_default(help_text, "--max-num-batched-tokens"),
+            "help_default_enable_chunked_prefill": help_default(help_text, "--enable-chunked-prefill"),
+            "help_default_max_num_seqs": help_default(help_text, "--max-num-seqs")}
+
+
+def start_parallel(servers: list[VllmServer]) -> list[dict]:
+    import threading
+    res: list[dict] = [{} for _ in servers]
+    ts = [threading.Thread(target=lambda i=i, s=s: res.__setitem__(i, s.start())) for i, s in enumerate(servers)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    return res
+
+
+def stage_p8x2(a) -> None:
+    import asyncio
+    import httpx
+    from benchmarks.gpu_sampler import GpuSampler
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    import probe_p8_t4x2 as p8
+    st = Stage("p8x2")
+    sh(["nvidia-smi", "-L"], out=st.logs / "nvidia-smi-L.txt")
+    sh(["nvidia-smi"], out=st.logs / "nvidia-smi.txt")
+    n_gpu = st.env.get("gpu_count") or 0
+    if n_gpu < 2:
+        st.write("abort", {"kind": "abort", "reason": f"nvidia-smi shows {n_gpu} GPU(s); p8x2 needs 2", "env": st.env})
+        sys.exit(3)
+    label = p8.LABEL
+    samplers = [GpuSampler(st.dir / f"gpu{i}.csv", 1.0, i).start() for i in (0, 1)]
+    srvs: list[VllmServer] = []
+    try:
+        inst = install_pinned(st, a.vllm_version)
+        help_text = serve_help(st.logs, a.vllm_version)
+        rev = full_revision(a.model, a.revision)
+        flags = ["--dtype", "half", "--gpu-memory-utilization", str(a.gpu_mem), "--max-model-len", str(a.max_model_len),
+                 "--no-enable-prefix-caching"] + (["--revision", rev] if rev else [])
+        missing = require_flags(help_text, ["--dtype", "--gpu-memory-utilization", "--max-model-len",
+                                            "--no-enable-prefix-caching", "--revision", "--served-model-name", "--port"])
+        prov = {"label": label, "model": a.model, "model_revision": rev, "model_revision_requested": a.revision,
+                "vllm_version": a.vllm_version, "vllm_version_reported": inst.get("vllm_version_reported"),
+                "torch": inst["torch_after_install"], "serving_flags": flags, "gpus": st.env.get("gpus"),
+                "flag_source": f"vllm serve --help=all (logs/vllm-serve-help-{a.vllm_version}.txt)"}
+        if missing or not rev:
+            st.write("abort", {"kind": "abort", "reason": f"flags missing {missing}" if missing else
+                               f"no commit of {a.model} starts with {a.revision}"}, **prov)
+            sys.exit(4)
+        srvs = [VllmServer(a.model, flags, st.logs / "server-L.log", port=8000, gpu="0"),
+                VllmServer(a.model, flags, st.logs / "server-S.log", port=8001, gpu="1")]
+        names = ("L", "S")
+        starts = start_parallel(srvs)
+        for n, s, r in zip(names, srvs, starts):
+            text = s.log_text()
+            st.write(f"startup-{n}", {"kind": "startup", "server": n, "port": s.base_url.rsplit(":", 1)[1],
+                                      "cuda_visible_devices": s.gpu, "serve_cmd": f"CUDA_VISIBLE_DEVICES={s.gpu} " + shlex.join(s.cmd),
+                                      **r, **{k: v for k, v in parse_startup(text).items() if k != "startup_lines"},
+                                      **chunked_prefill_info(text, help_text),
+                                      **({} if r.get("started") else {"error_lines": error_lines(text)})}, **prov)
+        if not all(r.get("started") for r in starts):
+            raise RuntimeError(f"server start failed: {starts}")
+        # Task 0 smoke: one streamed request each, /metrics each, metric names by role
+        smoke: dict = {"kind": "smoke"}
+        for n, s in zip(names, srvs):
+            text = metrics_text(s.base_url)
+            (st.logs / f"metrics-idle-{n}.txt").write_text(text)
+            roles = metric_names(text)["roles"]
+            r = chat(s.base_url, a.model, "Say hello in five words.", 32, stream=True)
+            (st.logs / f"metrics-after-smoke-{n}.txt").write_text(metrics_text(s.base_url))
+            smoke[n] = {"chat": {k: r.get(k) for k in ("status", "ttft_s", "e2e_s", "usage", "content_head")},
+                        "roles": roles, "missing_roles": [k for k in P8_REQUIRED_ROLES if not roles.get(k)],
+                        "cache_config_info": cache_config_info(text), "parsed": p8.parse_metrics(text)}
+        smoke["ok"] = all(smoke[n]["chat"]["status"] == 200 and not smoke[n]["missing_roles"] for n in names)
+        smoke["metric_source"] = "# TYPE lines of an idle /metrics scrape per server (logs/metrics-idle-*.txt)"
+        st.write("smoke", smoke, **prov)
+        if not smoke["ok"]:
+            raise RuntimeError("smoke failed: see the smoke row")
+        from transformers import AutoTokenizer
+        tok = AutoTokenizer.from_pretrained(a.model, revision=rev)
+        sizes = sorted({a.probe_tokens, a.short_tokens, a.long_tokens, *[int(x) for x in a.sweep_sizes.split(",")]})
+        bodies = {n: p8.make_prompt_body(tok, n) for n in sizes}
+        st.write("prompts", {"kind": "prompts", "method": "P8 text 'w0 w1 ...' cut to N tokens (tokenizer of the served model), "
+                             "a uuid4 hex + space prepended per request",
+                             "body_tokens": {n: len(tok.encode(b, add_special_tokens=False)) for n, b in bodies.items()},
+                             "with_uuid_tokens_example": {n: len(tok.encode(p8.unique_prompt(b), add_special_tokens=False))
+                                                          for n, b in bodies.items()}}, **prov)
+        client = {"endpoint": "/v1/chat/completions", "stream": True, "stream_options.include_usage": True, "temperature": 0,
+                  "ignore_eos": True, "probe_tokens": a.probe_tokens, "probe_max_tokens": a.probe_max_tokens,
+                  "short_tokens": a.short_tokens, "long_tokens": a.long_tokens, "n_per_server": a.n, "hold_s": a.hold_s,
+                  "min_gap_s": a.min_gap_s, "gate_timeout_s": a.gate_timeout_s, "seed": a.seed,
+                  "ttft_definition": "POST -> first chunk with non-empty delta.content (client perf_counter)"}
+        base = {"n": a.n, "seed": a.seed, "hold_s": a.hold_s, "min_gap_s": a.min_gap_s, "gate_timeout_s": a.gate_timeout_s,
+                "probe_tokens": a.probe_tokens, "probe_max_tokens": a.probe_max_tokens}
+        plan = [base | {"name": "idle", "background": {}, "bg_max_tokens": 0},
+                base | {"name": "main", "background": {"L": (2, a.long_tokens), "S": (3, a.short_tokens)}, "bg_max_tokens": 64},
+                base | {"name": "longout", "background": {"L": (2, a.long_tokens), "S": (3, a.short_tokens)}, "bg_max_tokens": 512}]
+        sweep = []
+        for cell in a.sweep_cells.split(","):
+            size, k = cell.split("x")
+            sweep.append(base | {"name": f"sweep-{size}x{k}", "background": {"L": (int(k), int(size)), "S": (3, a.short_tokens)},
+                                 "bg_max_tokens": 64, "probe_servers": ("L",), "sweep": True})
+        hard = float(os.environ.get("GOODPUT_SESSION_T0", T_STAGE0)) + a.stop_h * 3600
+        sweep_stop = float(os.environ.get("GOODPUT_SESSION_T0", T_STAGE0)) + a.sweep_stop_h * 3600
+
+        async def measure() -> None:
+            async with httpx.AsyncClient(limits=httpx.Limits(max_connections=64)) as c:
+                run = p8.Run(dict(zip(names, (s.base_url for s in srvs))), a.model, st.dir, bodies)
+                stop = asyncio.Event()
+                samp = asyncio.create_task(run.sampler(c, stop))
+                run.condition = "warmup"   # discarded: both servers, every prompt size, concurrently, twice
+                for _ in range(2):
+                    await asyncio.gather(*(p8.stream_chat(c, u, a.model, p8.unique_prompt(bodies[n]), 16)
+                                           for u in run.servers.values() for n in sizes + [a.short_tokens] * 2))
+                for cond in plan + sweep:
+                    key = f"cond-{cond['name']}"
+                    deadline = sweep_stop if cond.get("sweep") else hard
+                    if time.time() > deadline:
+                        st.write(key, {"kind": "skipped", "condition": cond["name"],
+                                       "reason": f"session at {session_elapsed_h():.3f} h, past the {'sweep ' if cond.get('sweep') else ''}stop"}, **prov)
+                        continue
+                    log(f"condition {cond['name']} (session {session_elapsed_h():.3f} h)")
+                    w = await p8.run_condition(run, c, cond, deadline)
+                    probes = p8.read_jsonl(st.dir / "probes.jsonl")
+                    bg = p8.read_jsonl(st.dir / "background.jsonl")
+                    samples = [x for x in p8.read_jsonl(st.dir / "metrics_1hz.jsonl") if "error" not in x]
+                    summ = p8.summarize_condition(w, probes, bg, samples, {"L": st.dir / "gpu0.csv", "S": st.dir / "gpu1.csv"})
+                    st.write(key, {"kind": "condition_window", **w, "config": cond, "session_h_at_end": round(session_elapsed_h(), 3),
+                                   "summary": summ}, **prov, client=client)
+                stop.set()
+                await samp
+                run.close()
+
+        asyncio.run(measure())
+        for n, s in zip(names, srvs):
+            (st.logs / f"metrics-end-{n}.txt").write_text(metrics_text(s.base_url))
+    finally:
+        for s in srvs:
+            s.stop()
+        for smp in samplers:
+            smp.stop()
+        st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 3)})
+
+
+T_STAGE0 = time.time()
+
+STAGE_ARGS["p8x2"] = [
+    lambda p: p.add_argument("--vllm-version", default="0.31.0"),
+    lambda p: p.add_argument("--model", default="Qwen/Qwen2.5-3B-Instruct"),
+    lambda p: p.add_argument("--revision", default="aa8e7253", help="commit prefix; resolved to the full sha"),
+    lambda p: p.add_argument("--gpu-mem", type=float, default=0.90),
+    lambda p: p.add_argument("--max-model-len", type=int, default=8192),
+    lambda p: p.add_argument("--n", type=int, default=12, help="probes per server per condition"),
+    lambda p: p.add_argument("--probe-tokens", type=int, default=100),
+    lambda p: p.add_argument("--probe-max-tokens", type=int, default=128),
+    lambda p: p.add_argument("--short-tokens", type=int, default=200),
+    lambda p: p.add_argument("--long-tokens", type=int, default=3000),
+    lambda p: p.add_argument("--hold-s", type=float, default=5.0),
+    lambda p: p.add_argument("--min-gap-s", type=float, default=2.0),
+    lambda p: p.add_argument("--gate-timeout-s", type=float, default=60.0),
+    lambda p: p.add_argument("--seed", type=int, default=8),
+    lambda p: p.add_argument("--sweep-sizes", default="1000,3000,6000"),
+    # 3000x2 is the main condition; the rest in priority order
+    lambda p: p.add_argument("--sweep-cells", default="3000x4,1000x2,6000x2,1000x4,6000x4"),
+    lambda p: p.add_argument("--sweep-stop-h", type=float, default=0.4, help="no sweep probe after this session time"),
+    lambda p: p.add_argument("--stop-h", type=float, default=0.5, help="no probe at all after this session time"),
+]
+
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
-          "quant": stage_quant, "nccl": stage_nccl}
+          "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2}
 
 
 def main() -> None:
