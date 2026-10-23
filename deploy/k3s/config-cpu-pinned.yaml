@@ -1,0 +1,9 @@
+kubelet-arg:
+  - container-log-max-size=10Mi
+  - container-log-max-files=5
+  # P8 CPU pinning (benchmarks/results/probes/p8_cpu_pinned.md). Flag names: `kubelet --help` v1.36.2.
+  - cpu-manager-policy=static
+  - cpu-manager-policy-options=full-pcpus-only=true
+  - reserved-cpus=0-1
+disable:
+  - traefik

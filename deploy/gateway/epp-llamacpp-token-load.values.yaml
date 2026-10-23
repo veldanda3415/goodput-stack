@@ -1,0 +1,50 @@
+# Opt-in overlay for llamacpp-pool's EPP (P8 on real llama.cpp, benchmarks/results/probes/p8_cpu_pinned.md): the
+# llamacpp profile of epp-llamacpp.values.yaml (queue 2, kv 2, prefix 3, llama.cpp metric names) plus upstream
+# inflight-load-producer + token-load-scorer, copied from epp-sim-token-load.values.yaml (threshold 8192, weight 4;
+# 8192 = this run's -c 8192 = 2 slots x 4096). Applied on top of epp-llamacpp.values.yaml by `make epp-cpu-token-on`;
+# `make epp-cpu-token-off` re-applies epp-llamacpp.values.yaml alone.
+# session-affinity-filter: the probe's placement mechanism for background load THROUGH the gateway (as Build 4's
+# deploy/gateway/p8/epp-p8.values.yaml): header `x-session-token: base64("inference/<pod>-rank-0")` narrows candidates
+# to that pod; without the header (the probes) it is a no-op. -v=4 logs per-endpoint scores for each request.
+router:
+  epp:
+    flags:
+      v: "4"
+    pluginsConfigFile: llamacpp-token-load.yaml
+    pluginsCustomConfig:
+      llamacpp-token-load.yaml: |
+        apiVersion: llm-d.ai/v1alpha1
+        kind: EndpointPickerConfig
+        plugins:
+        - type: session-affinity-filter
+        - type: queue-scorer
+        - type: kv-cache-utilization-scorer
+        - type: prefix-cache-scorer
+        - type: inflight-load-producer
+        - type: token-load-scorer
+          parameters:
+            queueThresholdTokens: 8192
+        - type: metrics-data-source
+          parameters:
+            scheme: "http"
+            path: "/metrics"
+            insecureSkipVerify: true
+        - type: core-metrics-extractor
+          parameters:
+            engineConfigs:
+            - name: llamacpp
+              queuedRequestsSpec:  "llamacpp:requests_deferred"
+              runningRequestsSpec: "llamacpp:requests_processing"
+              kvUsageSpec: ""
+        schedulingProfiles:
+        - name: default
+          plugins:
+          - pluginRef: session-affinity-filter
+          - pluginRef: queue-scorer
+            weight: 2
+          - pluginRef: kv-cache-utilization-scorer
+            weight: 2
+          - pluginRef: prefix-cache-scorer
+            weight: 3
+          - pluginRef: token-load-scorer
+            weight: 4

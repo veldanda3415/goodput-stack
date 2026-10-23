@@ -308,7 +308,7 @@ def shared_pool_pods() -> list[dict]:
     """Gateway + EPP pods: what the routed probe path runs on (must stay off the exclusive CPUs)."""
     out = []
     for ns, sel in (("inference", "gateway.networking.k8s.io/gateway-name=inference-gateway"),
-                    ("inference", "app.kubernetes.io/name=llamacpp-pool-epp")):
+                    ("inference", "llm-d-router-gateway=llamacpp-pool-epp")):
         items = json.loads(subprocess.run(["kubectl", "-n", ns, "get", "pods", "-l", sel, "-o", "json"], check=True,
                                           capture_output=True, text=True).stdout)["items"]
         out += [{"name": i["metadata"]["name"], "uid": i["metadata"]["uid"]} for i in items]

@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst probe-p8 epp-plugin-test epp-plugin-on epp-plugin-off obs-up obs-down obs-apply keda-up keda-down zero-up zero-down probe-zero t4-run
+.PHONY: deploy deploy-lint deploy-diff deploy-test help check-env cluster-info tree venv bench-engine bench-engine-list bench-engine-dry bench-engine-prune bench-engine-all bench-du bringup sim-test bench-sim bench-sim-all bench-sim-list bench-sim-dry bench-compare sim-watch sim-probe epp-deploy epp-diff epp-restart probe-p7 probe-burst probe-p8 cpu-pin-on cpu-pin-off cpu-pin-status epp-cpu-token-on epp-cpu-token-off epp-plugin-test epp-plugin-on epp-plugin-off obs-up obs-down obs-apply keda-up keda-down zero-up zero-down probe-zero t4-run
 
 help: ## List targets
 > @grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  %-14s %s\n",$$1,$$2}'
@@ -150,6 +150,29 @@ epp-plugin-off: ## Back to the stock sim-pool EPP profile, then restart it
 
 probe-p8: ## P8: size-blind routing on the scratch p8-pool (SIMULATED) [ARGS="--label off-pin --load-path gateway-pin"]
 > $(PY) scripts/probe_p8_size_blind.py $(ARGS)
+
+# ---- P8 on real llama.cpp, CPU-pinned (benchmarks/results/probes/p8_cpu_pinned.md) -------------------------------
+# cpu-pin-on/off rewrite /etc/rancher/k3s/config.yaml and restart k3s (sudo), then re-create the llama.cpp pods.
+P8CPU_OVERLAYS = values-k3s-p8cpu.yaml
+
+cpu-pin-on: ## kubelet static CPU manager (full-pcpus-only, reserved 0-1) + Guaranteed llama.cpp pods (sudo; restarts k3s)
+> sudo deploy/k3s/cpu-pin.sh on
+> OVERLAYS="$(P8CPU_OVERLAYS) values-k3s-pinned.yaml" deploy/release.sh upgrade k3s
+
+cpu-pin-off: ## Back to cpuManagerPolicy none + the P8 run overlay without limits (sudo; restarts k3s)
+> sudo deploy/k3s/cpu-pin.sh off
+> OVERLAYS="$(P8CPU_OVERLAYS)" deploy/release.sh upgrade k3s
+
+cpu-pin-status: ## Show the k3s config and cpu_manager_state (sudo)
+> sudo deploy/k3s/cpu-pin.sh status
+
+epp-cpu-token-on: ## llamacpp-pool EPP: stock + session-affinity-filter + token-load-scorer, -v=4 (P8 on CPU), restart
+> helm upgrade llamacpp-pool $(EPP_CHART) --version $(EPP_VERSION) -n inference -f deploy/gateway/epp-llamacpp.values.yaml -f deploy/gateway/epp-llamacpp-token-load.values.yaml --wait
+> kubectl -n inference rollout restart deploy/llamacpp-pool-epp && kubectl -n inference rollout status deploy/llamacpp-pool-epp --timeout=120s
+
+epp-cpu-token-off: ## llamacpp-pool EPP back to epp-llamacpp.values.yaml alone, restart [EPP_V=4 keeps -v=4 for logging picks]
+> helm upgrade llamacpp-pool $(EPP_CHART) --version $(EPP_VERSION) -n inference -f deploy/gateway/epp-llamacpp.values.yaml $(if $(EPP_V),--set-string router.epp.flags.v=$(EPP_V)) --wait
+> kubectl -n inference rollout restart deploy/llamacpp-pool-epp && kubectl -n inference rollout status deploy/llamacpp-pool-epp --timeout=120s
 
 # ---- T4 engine track on Kaggle (benchmarks/kaggle/, results in benchmarks/results/t4/) ----------
 STAGE ?= smoke

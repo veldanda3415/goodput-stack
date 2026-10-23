@@ -86,3 +86,34 @@ One long prefill takes ~13.7 s at 4 threads (≤ 60 s), so the long prompt stays
 ~265 tok/s → TTFT ≈ 0.6 s; decode ≈ 54–59 tok/s (short-context calibration). "Neighbour busy": 8 busy threads on
 16 vCPUs with no pinning, so the kernel may put a probe thread on the sibling of a busy one; expected TTFT ≥ alone and
 decode ≤ alone. The calibration has no two-pod measurement, so no magnitude is predicted.
+
+**Measured (09:48–09:58 EDT, git 15304a9, direct to pod, not routed through the EPP).** n = 12 per row (2 blocks × 6,
+roles swapped between the two physical pods). p95 at n = 12 is the nearest-rank value (= max).
+
+| set (unpinned) | n | probe TTFT p50 / p95 / max (s) | decode p50 (tok/s) | e2e p50 (s) | neighbour busy CPUs | host busy CPUs | raw |
+|---|---|---|---|---|---|---|---|
+| S alone | 12 | 0.592 / 0.639 / 0.639 | 56.4 | 1.14 | 0.01 | 1.7 | `p8_cpu/20261023-134846-u-S-alone.jsonl` |
+| S, L busy (2 long) | 12 | 0.808 / 0.918 / 0.918 | 49.9 | 1.44 | 3.97 | 5.8 | `p8_cpu/20261023-134954-u-S-Lbusy.jsonl` |
+| L alone | 12 | 0.587 / 0.777 / 0.777 | 57.3 | 1.14 | 0.01 | 1.7 | `p8_cpu/20261023-135145-u-L-alone.jsonl` |
+| L, S busy (3 short) | 12 | 0.871 / 1.272 / 1.272 | 46.9 | 1.61 | 4.0 | 5.3 | `p8_cpu/20261023-135306-u-L-Sbusy.jsonl` |
+
+Neighbour / host busy CPUs = cgroup `cpu.stat usage_usec` and `/proc/stat` deltas over each block (`usage_window` in
+every row). All four pods' `cpu.max` = `max 100000` (no quota), `nr_throttled` 0. 11 / 12 "S, L busy" probes went out
+while an L long request was mid-prefill. Prediction: direction held (TTFT up, decode down); unpinned, a busy neighbour
+costs the probe +0.216 s (+36 %) TTFT p50 on S and +0.284 s (+48 %) on L, and 12–18 % of decode speed.
+
+## Task 2 — static CPU manager, 4 exclusive CPUs per pod
+
+Change (`make cpu-pin-on` → `deploy/k3s/cpu-pin.sh on`, then `values-k3s-pinned.yaml`): kubelet-arg
+`cpu-manager-policy=static`, `cpu-manager-policy-options=full-pcpus-only=true`, `reserved-cpus=0-1`
+(`deploy/k3s/config-cpu-pinned.yaml`). `reserved-cpus` rather than kube/system-reserved: it names the CPUs, and 0-1 is
+exactly one full physical core by sibling list, so the reservation is a known core, not "the lowest-numbered 2 CPUs
+the policy happens to pick". llama.cpp pods: Guaranteed, CPU 4 / 4, memory 1Gi / 1Gi (VmHWM of a loaded replica
+728,660 kB, cgroup `memory.peak` ~249 MB, measured 09:59 EDT; ~345 MB headroom over VmHWM).
+
+**Prediction (before the switch).** Node allocatable CPU 16 → 14. The static policy hands out full cores from the
+free pool above the reserved core: the two pods get two disjoint pairs of sibling pairs, e.g. 2-5 and 6-9; the shared
+pool (everything else: k3s, gateway, EPP, Prometheus, KEDA, sim pods, the client) shrinks to the remaining 8 logical
+CPUs (0-1 + 10-15 if the guess holds). `cpu.max` of the pinned pods: `400000 100000` if the kubelet still applies a CFS
+quota to exclusive-CPU containers, `max` if it drops it; the v1.36.2 help no longer lists a feature gate for this, so
+the run decides. Throttling counts are recorded either way.
