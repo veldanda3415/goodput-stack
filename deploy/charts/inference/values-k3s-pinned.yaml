@@ -13,3 +13,8 @@ llamacpp:
     limits:
       cpu: "4"
       memory: 1Gi
+  # The init container counts for QoS too. 100m / 64Mi: it only checks that the model file is already in the PVC
+  # (a fractional CPU is fine for Guaranteed; it just gets no exclusive CPUs).
+  initResources:
+    requests: { cpu: 100m, memory: 64Mi }
+    limits:   { cpu: 100m, memory: 64Mi }

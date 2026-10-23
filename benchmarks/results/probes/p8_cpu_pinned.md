@@ -117,3 +117,23 @@ pool (everything else: k3s, gateway, EPP, Prometheus, KEDA, sim pods, the client
 CPUs (0-1 + 10-15 if the guess holds). `cpu.max` of the pinned pods: `400000 100000` if the kubelet still applies a CFS
 quota to exclusive-CPU containers, `max` if it drops it; the v1.36.2 help no longer lists a feature gate for this, so
 the run decides. Throttling counts are recorded either way.
+
+**Measured (10:07–10:12 EDT).** `make cpu-pin-on` was run by the user (sudo) at ~10:07; everything below was read back
+from the cluster, not assumed.
+
+| check | result | source |
+|---|---|---|
+| kubelet config | `cpuManagerPolicy: static`, `cpuManagerPolicyOptions: {full-pcpus-only: "true"}`, `reservedSystemCPUs: 0-1`, `cpuCFSQuota: true` | configz |
+| kubelet start | `Running kubelet … --cpu-manager-policy=static --cpu-manager-policy-options=full-pcpus-only=true …`; `policy_static.go:187 "Reserved CPUs not available for exclusive assignment" reserved="0-1" reservedPhysicalCPUs="0-1"`; `cpu_manager.go:235 "Starting" policy="static"` | k3s journal 10:07:34 |
+| `cpu_manager_state` | printed by `cpu-pin.sh` to the user's terminal; not readable from this session (root only) | — |
+| node allocatable CPU | 14 (was 16) | `kubectl get node` |
+| **first try: QoS Burstable**, cpusets 0-15 | the chart's `fetch-model` init container had no resources, and QoS counts init containers. Fixed with a new optional chart value `llamacpp.initResources` (unset by default: the default render is unchanged, checked with `release.sh diff`), set to 100m / 64Mi requests = limits in values-k3s-pinned.yaml (release revision 36) | `kubectl get pod … qosClass`, `/proc/<pid>/status` |
+| QoS | both llama.cpp pods **Guaranteed** | `.status.qosClass` |
+| cpusets | pod `…-l6sph`: `Cpus_allowed_list` **2-5** (siblings 2-3, 4-5); pod `…-t2nnd`: **6-9** (6-7, 8-9). Disjoint, each = two full sibling pairs | `/proc/<llama-server pid>/status`, `thread_siblings_list` |
+| CFS quota on the pinned pods | **none**: `cpu.max` = `max 100000` at the pod and container level although the CPU limit is 4; `nr_throttled` 0 | cgroup files |
+| shared pool | gateway (agentgateway), both EPPs, Prometheus, KEDA, sim pods: `Cpus_allowed_list` **0-1,10-15** (8 logical CPUs) | `/proc/<pid>/status` of each container's main process |
+| **not** restricted | `k3s-server` and `containerd` (host processes, not pods): 0-15. The CPU manager only sets pod cgroups; moving them needs a systemd `CPUAffinity` (root), not done. The probe client is started under `taskset -c 0-1,10-15` | `/proc/<pid>/status` |
+| health | `helm test inf` 3/3 Succeeded; one request per pool: cpu 200 (0.279 s), sim 200 (0.039 s) | 10:11 EDT |
+
+Prediction check: allocatable 16 → 14 and cpusets 2-5 / 6-9 as predicted; the CFS question came out as "no quota".
+Sim pods kept at 2: they used 0.023 CPU each in Task 0 (`kubectl top`), so they don't compete.
