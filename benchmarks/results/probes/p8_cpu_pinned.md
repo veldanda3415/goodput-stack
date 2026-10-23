@@ -261,3 +261,18 @@ gateway + EPP 0.07 CPU, host busy 8.75–8.78 CPUs, loadavg 9.0–9.5; pinned po
 L 2 running / 0 deferred, S 3 running / 0 deferred → the queue scorer ties every time → picks split at random
 (≈ 6 / 6). A probe on L gets a slot at once but shares each batch with the long prefills: TTFT on L ≈ 1–10 s
 (up to one 2,048-token batch at ~219 tok/s); on S ≈ 1–2 s.
+
+**Measured (11:01–11:08 EDT, release revision 37, pods re-created by the upgrade).** Pinning re-checked after the
+rollout: both Guaranteed, `Cpus_allowed_list` **10-13** (10-11, 12-13) and **2-5** (2-3, 4-5) — the surge pod took
+6-9 during the rollout, so the static policy handed the replacement the next free cores. Pod log:
+`n_slots = 4, n_ctx_slot = 4096, kv_unified = 'false'` on both.
+
+| condition | via EPP | n | picks L / S | TTFT p50 / max (s) | TTFT p50 on L / on S (s) | e2e p50 (s) | mid-L-prefill | raw |
+|---|---|---|---|---|---|---|---|---|
+| 5. parallel 4, stock, load direct | yes | 12 | **9 / 3** | 19.126 / 36.458 | 23.280 / 0.933 | 31.81 | 10 / 12 | `p8_cpu/20261023-150110-np4-direct.jsonl` |
+
+Every scorer tied on all 12 probes (queue 1 / 1, kv 1 / 1, prefix 0 / 0; `p8_cpu/epp-np4-direct-b*.log`): 9 / 3 is the
+max-score picker's random tie-break, not a preference. Gateway log = EPP log 12 / 12. **Prediction wrong on the cost:**
+a free slot on L did not make the probe fast. 8 of the 9 probes on L had TTFT 15.3–36.5 s, and one had 1.05 s.
+Decode on L p50 was 8.9 tok/s. So in b11146 the probe's prompt waited behind the long prefills, not only behind slots.
+This is measured, but the scheduling mechanism inside llama.cpp was not checked. Host busy 8.78 CPUs; `nr_throttled` delta 0.
