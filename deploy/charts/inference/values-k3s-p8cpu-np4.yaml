@@ -1,0 +1,9 @@
+# values-k3s-p8cpu-np4.yaml — P8 optional condition: 4 slots per replica, context per slot kept at 4096
+# (16384 / 4, kv_unified off with an explicit --parallel). Layer last:
+#   OVERLAYS="values-k3s-p8cpu.yaml values-k3s-pinned.yaml values-k3s-p8cpu-np4.yaml" deploy/release.sh upgrade k3s
+# With 4 slots, S's 3 short prompts all run (0 deferred), so the queue scorer ties between the pods.
+
+llamacpp:
+  server:
+    ctxSize: 16384
+    parallel: 4

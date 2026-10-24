@@ -202,7 +202,7 @@ def unique_prompt(body: str) -> str:
 
 # ---------------------------------------------------------------- async client (inside the Kaggle stage)
 
-async def stream_chat(c, url: str, model: str, prompt: str, max_tokens: int) -> dict:
+async def stream_chat(c, url: str, model: str, prompt: str, max_tokens: int, headers: dict | None = None) -> dict:
     """Streamed /v1/chat/completions; TTFT = POST -> first chunk with non-empty delta.content."""
     body = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens,
             "temperature": 0.0, "ignore_eos": True, "stream": True, "stream_options": {"include_usage": True}}
@@ -213,7 +213,7 @@ async def stream_chat(c, url: str, model: str, prompt: str, max_tokens: int) -> 
     rec["t_send"] = time.time()
     t0 = time.perf_counter()
     try:
-        async with c.stream("POST", url + "/v1/chat/completions", json=body, timeout=900) as r:
+        async with c.stream("POST", url + "/v1/chat/completions", json=body, headers=headers, timeout=900) as r:
             rec["status"] = r.status_code
             if r.status_code != 200:
                 rec["error"] = (await r.aread()).decode(errors="replace")[:300]

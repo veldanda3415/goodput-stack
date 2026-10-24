@@ -1,0 +1,5 @@
+kubelet-arg:
+  - container-log-max-size=10Mi
+  - container-log-max-files=5
+disable:
+  - traefik

@@ -55,6 +55,10 @@ spec:
               curl -fL --retry 5 --retry-delay 3 -o "$tmp" "{{ $c.model.url }}"
               mv "$tmp" "$f"
               ls -l "$f"
+          {{- with $c.initResources }}
+          resources:   # QoS counts init containers too: Guaranteed needs requests == limits here as well
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: models
               mountPath: /models

@@ -59,6 +59,10 @@ llamacpp:
       # cpu: "4"        # Left unset on purpose: a CPU limit is a CFS time quota, and
       #                 # throttling shows up as ITL spikes. Turn on for the throttling probe.
 
+  # fetch-model init container. Empty = none set (pod QoS Burstable at best). Set requests == limits (CPU and
+  # memory) for Guaranteed QoS, which the kubelet static CPU manager needs to give exclusive CPUs (values-k3s-pinned.yaml).
+  initResources: {}
+
   probes:
     # startup: model load can take a while for bigger models; liveness/readiness wait for it
     startup:

@@ -1,0 +1,1 @@
+["--pool-name","llamacpp-pool","--pool-namespace","inference","--pool-group","inference.networking.k8s.io","--zap-encoder","json","--config-file","/config/llamacpp-plugins.yaml","--grpc-health-port","9003","--tracing=false","--metrics-endpoint-auth=false"]

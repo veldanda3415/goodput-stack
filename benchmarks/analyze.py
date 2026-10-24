@@ -642,6 +642,126 @@ def section_p8x2(out: list[str], base: Path) -> dict | None:
     return {"dir": d, "rows": rows, "res": res}
 
 
+# ---------------------------------------------------------------- P8 on real llama.cpp, CPU-pinned (lab, not T4)
+P8CPU = REPO / "benchmarks" / "results" / "probes" / "p8_cpu"
+P8CPU_LABEL = "workstation CPU (WSL2), real llama.cpp, real gateway + EPP; 4 pinned CPUs per replica"
+# label suffix -> (row name, routed through the EPP?)
+P8CPU_INTERF = [("S-alone", "S alone"), ("S-Lbusy", "S, L busy"), ("L-alone", "L alone"), ("L-Sbusy", "L, S busy")]
+P8CPU_CONDS = [("idle-gw", "idle, through the gateway", True), ("stock-direct", "stock EPP, load direct", True),
+               ("force-L", "stock, probe forced to L (direct)", False), ("force-S", "stock, probe forced to S (direct)", False),
+               ("token-pin", "token-load on, load through the gateway", True),
+               ("np4-direct", "parallel 4, stock EPP, load direct", True)]
+
+
+def p8cpu_rows(label: str) -> tuple[list[dict], str] | None:
+    """Rows of the latest run with this label (benchmarks/results/probes/p8_cpu/<stamp>-<label>.jsonl)."""
+    fs = [f for f in sorted(P8CPU.glob(f"2026*-{label}.jsonl")) if not f.name.endswith(".bg.jsonl")]
+    if not fs:
+        return None
+    return [json.loads(l) for l in fs[-1].read_text().splitlines() if l.strip()], str(fs[-1].relative_to(REPO))
+
+
+def p8cpu_stats(rows: list[dict], pick: str | None = None) -> dict:
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from benchmarks.harness.stats import pct
+    ok = [r for r in rows if r.get("ttft_s") is not None and (pick is None or r.get("pick") == pick)]
+    t = [r["ttft_s"] for r in ok]
+    dec = [r["decode_tok_s"] for r in ok if r.get("decode_tok_s")]
+    return {"n": len(ok), "L": sum(r.get("pick") == "L" for r in ok), "S": sum(r.get("pick") == "S" for r in ok),
+            "ttft_p50": pct(t, 50), "ttft_p95": pct(t, 95), "ttft_max": max(t) if t else None,
+            "e2e_p50": pct([r["e2e_s"] for r in ok], 50), "decode_p50": pct(dec, 50),
+            "mid_prefill": sum(r.get("L_bg_prefilling_at_send", 0) > 0 for r in ok)}
+
+
+def p8cpu_charts(interf: dict, conds: dict) -> list[str]:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    charts = P8CPU / "charts"
+    charts.mkdir(exist_ok=True)
+    made = []
+    # 1. interference: probe TTFT per set, unpinned vs pinned (dots = probes, bar = median)
+    fig, ax = plt.subplots(figsize=(7.5, 4), facecolor=SURFACE)
+    for xi, (suf, name) in enumerate(P8CPU_INTERF):
+        for phase, off, col, mk, lab in (("u", -0.16, SERIES[0], "o", "unpinned (policy none)"),
+                                          ("p", 0.16, SERIES[1], "s", "pinned (static, 4 CPUs)")):
+            rows = interf.get((phase, suf))
+            if not rows:
+                continue
+            v = [r["ttft_s"] for r in rows[0] if r.get("ttft_s") is not None]
+            ax.scatter([xi + off + (i % 5 - 2) * 0.025 for i in range(len(v))], v, s=20, color=col, marker=mk,
+                       edgecolor=SURFACE, linewidth=0.8, label=lab if xi == 0 else None, zorder=3)
+            ax.hlines(p8cpu_stats(rows[0])["ttft_p50"], xi + off - 0.1, xi + off + 0.1, color=INK, linewidth=2, zorder=4)
+    ax.set_ylim(bottom=0)
+    ax.set_xticks(range(len(P8CPU_INTERF)), [n for _, n in P8CPU_INTERF])
+    style(ax, "Probe TTFT on one replica, other replica idle vs busy (bar = median)",
+          "set — workstation CPU (WSL2), real llama.cpp; direct to pod, not routed through the EPP", "TTFT (s)")
+    ax.legend(frameon=False, fontsize=8, labelcolor=INK, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(charts / "p8cpu_interference.png", dpi=130)
+    plt.close(fig)
+    made.append("p8cpu_interference.png")
+    # 2. P8 conditions: probe TTFT per condition, coloured by the pod that served it (log y: 0.5 s .. 30 s)
+    fig, ax = plt.subplots(figsize=(8, 4.2), facecolor=SURFACE)
+    keys = [(k, n) for k, n, _ in P8CPU_CONDS if k in conds]
+    for xi, (k, _) in enumerate(keys):
+        for side, off, col, mk, lab in (("L", -0.12, SERIES[0], "o", "served by L (long-prompt pod)"),
+                                         ("S", 0.12, SERIES[1], "s", "served by S (short-prompt pod)")):
+            v = [r["ttft_s"] for r in conds[k][0] if r.get("ttft_s") is not None and r.get("pick") == side]
+            if v:
+                ax.scatter([xi + off + (i % 5 - 2) * 0.02 for i in range(len(v))], v, s=20, color=col, marker=mk,
+                           edgecolor=SURFACE, linewidth=0.8, label=lab if not any(
+                               h.get_label() == lab for h in ax.collections) else None, zorder=3)
+    ax.set_yscale("log")
+    ax.set_xticks(range(len(keys)), [k for k, _ in keys])
+    style(ax, "P8 probe TTFT per condition, by the pod that served it", f"condition — {P8CPU_LABEL}", "TTFT (s, log)")
+    ax.legend(frameon=False, fontsize=8, labelcolor=INK, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(charts / "p8cpu_ttft.png", dpi=130)
+    plt.close(fig)
+    made.append("p8cpu_ttft.png")
+    return made
+
+
+def section_p8cpu() -> str:
+    """benchmarks/results/probes/p8_cpu/summary.md + charts; tables pasted into p8_cpu_pinned.md."""
+    f = lambda v, nd=3: "—" if v is None else f"{v:.{nd}f}"
+    out = ["# P8 on real llama.cpp, CPU-pinned — tables", "", f"Generated by `benchmarks/analyze.py --p8cpu`; label: **{P8CPU_LABEL}**.",
+           "p50 / p95 = linear interpolation (`benchmarks/harness/stats.py pct`). Interference sets and forced rows are "
+           "direct to pod, not routed through the EPP.", "", "## Interference", "",
+           "| set | phase | n | TTFT p50 / p95 / max (s) | decode p50 (tok/s) | e2e p50 (s) | raw |", "|---|---|---|---|---|---|---|"]
+    interf = {}
+    for suf, name in P8CPU_INTERF:
+        for phase, pname in (("u", "unpinned"), ("p", "pinned")):
+            if got := p8cpu_rows(f"{phase}-{suf}"):
+                interf[(phase, suf)] = got
+                s = p8cpu_stats(got[0])
+                out.append(f"| {name} | {pname} | {s['n']} | {f(s['ttft_p50'])} / {f(s['ttft_p95'])} / {f(s['ttft_max'])} | "
+                           f"{f(s['decode_p50'], 1)} | {f(s['e2e_p50'], 2)} | [{Path(got[1]).name}](../../../../{got[1]}) |")
+    out += ["", "Neighbour penalty (TTFT p50 busy − alone):", ""]
+    for phase, pname in (("u", "unpinned"), ("p", "pinned")):
+        for a_, b_ in (("S-alone", "S-Lbusy"), ("L-alone", "L-Sbusy")):
+            if (phase, a_) in interf and (phase, b_) in interf:
+                x, y = p8cpu_stats(interf[(phase, a_)][0])["ttft_p50"], p8cpu_stats(interf[(phase, b_)][0])["ttft_p50"]
+                out.append(f"- {pname}, {b_}: +{y - x:.3f} s (+{(y / x - 1) * 100:.0f} %)")
+    out += ["", "## P8 conditions", "", "| condition | via EPP | n | picks L / S | TTFT p50 / max (s) | TTFT p50 on L / on S (s) | "
+            "e2e p50 (s) | mid-L-prefill | raw |", "|---|---|---|---|---|---|---|---|---|"]
+    conds = {}
+    for k, name, routed in P8CPU_CONDS:
+        if not (got := p8cpu_rows(k)):
+            continue
+        conds[k] = got
+        s, sl, ss = p8cpu_stats(got[0]), p8cpu_stats(got[0], "L"), p8cpu_stats(got[0], "S")
+        out.append(f"| {name} | {'yes' if routed else 'no (direct)'} | {s['n']} | {s['L']} / {s['S']} | {f(s['ttft_p50'])} / "
+                   f"{f(s['ttft_max'])} | {f(sl['ttft_p50'])} / {f(ss['ttft_p50'])} | {f(s['e2e_p50'], 2)} | "
+                   f"{s['mid_prefill']} / {s['n']} | [{Path(got[1]).name}](../../../../{got[1]}) |")
+    made = p8cpu_charts(interf, conds)
+    out += ["", "Charts: " + ", ".join(f"[{m}](charts/{m})" for m in made), ""]
+    (P8CPU / "summary.md").write_text("\n".join(out) + "\n")
+    return "\n".join(out)
+
+
 def section_runs(out: list[str]) -> None:
     f = T4 / "runs.jsonl"
     if not f.exists():
@@ -805,7 +925,11 @@ def results_md(price: tuple[float, str] | None) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--price-json", type=Path, help="saved Azure price response (benchmarks/cost.py --azure-price-json)")
+    ap.add_argument("--p8cpu", action="store_true", help="only P8 on CPU: benchmarks/results/probes/p8_cpu/summary.md + charts")
     a = ap.parse_args()
+    if a.p8cpu:
+        print(section_p8cpu())
+        return
     CHARTS.mkdir(parents=True, exist_ok=True)
     price = None
     if a.price_json:

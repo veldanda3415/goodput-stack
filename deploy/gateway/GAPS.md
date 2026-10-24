@@ -16,7 +16,7 @@ does and does not do, tested on the k3s lab (single node `ravi-home`, ns `infere
 | P5 | Pool choice by prompt size / SLO | header only | design below |
 | P6 | Admission / scale-from-zero | default: engine queues, gateway doesn't. EPP flow control (experimental) holds requests at 0 replicas and exports a queue KEDA can activate on; agentgateway cuts a held request at 10 s | works on a scratch pool, [autoscaling](../../autoscaling/README.md#scale-from-zero-gapsmd-p6) |
 | P7 | Gateway pod killed mid-stream | graceful delete drains the stream; hard kill cuts it, slot freed ~2.5 s. 1 replica: ~1 s of refused connections; **2 replicas + PDB: 0 failed new requests**, the killed pod's stream is still lost | 2 replicas in chart; node is still a SPOF |
-| P8 | Size-blind routing (few long vs many short prompts) | **stock EPP picks the long-prompt pod 16/16 (TTFT p50 7.75 s vs 0.53 s on the other pod)**; upstream `token-load-scorer` fixes it when the EPP dispatched the load (8/8 short pod, 0.56 s); blind to load it didn't dispatch (SIMULATED) | [ADR 0003](../../docs/adr/0003-token-aware-scorer.md) |
+| P8 | Size-blind routing (few long vs many short prompts) | **stock EPP picks the long-prompt pod 16/16 (TTFT p50 7.75 s vs 0.53 s on the other pod)**; upstream `token-load-scorer` fixes it when the EPP dispatched the load (8/8 short pod, 0.56 s); blind to load it didn't dispatch (SIMULATED). **Real llama.cpp behind the real gateway + EPP: stock 8 / 12 to the long-prompt pod (20.9 s vs 4.3 s TTFT p50), token-load 5 / 12: bytes/4 counts a 3,056-token prompt as 960** | [ADR 0003](../../docs/adr/0003-token-aware-scorer.md), [p8_cpu_pinned.md](../../benchmarks/results/probes/p8_cpu_pinned.md) |
 | P9 | Burst inside one EPP metrics refresh | no 8/0 herding; per-run split up to 7/1 vs always 4/4 when spaced (sim-pool, SIMULATED) | see P9 |
 
 ---
@@ -276,9 +276,18 @@ With threshold 8192 and weight 4 the token scores were 0 (long pod) vs 0.890625 
 
 **Remaining gap.** The scorer counts only what this EPP replica dispatched: load sent directly to pods, by other EPP replicas or after an EPP
 restart is invisible (`token-load / direct` is unchanged, as predicted). Token counts are bytes/4 estimates (about +20% on the probe prompts). Leaked entries (client gone before first token) live ≤5 min.
-llamacpp-pool is untouched. No real engine tested: the llama.cpp / T4 behaviour is unproven.
+llamacpp-pool is untouched by default (`make epp-cpu-token-on` / `-off` switch it for experiments). Real engines: see below.
 
 **Real engines (Kaggle 2×T4, real engines; routing not exercised):** [benchmarks/results/t4/p8_t4x2.md](../../benchmarks/results/t4/p8_t4x2.md), run 2. With vLLM defaults nothing queues, and the stock profile (computed offline from real gauges) leans to the short-prompt replica (24 / 24, kv scorer only, margin 0.06). A probe forced onto the long-prompt replica pays +2.17 s median TTFT (CI 0.38–4.05). With `--max-num-seqs 2` (the sim's slots) the stock profile picks the long-prompt replica 21 / 24, and the token-load scorer (bytes/4 estimate) still picks it 23 / 24.
+
+**Real llama.cpp behind the real gateway + EPP (workstation CPU, WSL2; 2 × b11146, 4 pinned CPUs each, 2 slots):**
+[benchmarks/results/probes/p8_cpu_pinned.md](../../benchmarks/results/probes/p8_cpu_pinned.md) (2026-10-23). Stock profile: **8 / 12** probes
+to the long-prompt pod, TTFT p50 20.9 s there vs 4.3 s on the short-prompt pod (forced: 19.8 vs 3.9 s). The 5 decisions where
+S's deferred request was visible all went to L. In the other 7, llama.cpp's `requests_deferred` read 0, so the queue scorer tied and the
+picker chose at random. With token-load-scorer on and load through the gateway: **5 / 12** to L. It wins every tie for S (7 / 7)
+but still loses to the queue scorer when S's queue is visible (5 / 5 to L): the producer's estimate is 960 tokens for a 3,056-token
+prompt (bytes/4, logged `tokenLoad`), so L's two long prompts weigh 1,920 instead of ~6,100. Fix direction: a real token count
+(tokenizer-backed estimate) for llama.cpp pools; a calibrated bytes-per-token factor would do for a single model. Not built here.
 
 **Overhead (SIMULATED, n=100 sequential, `scripts/probe_epp_overhead.py`).** Client p50 35.5 ms off / 39.2 ms on (stdev ~13 ms: within noise); EPP
 `scheduler_e2e_duration` mean 0.032 ms off / 0.112 ms on. **Regression:** `probe_p1_saturation.py` with the plugin on: 20/20 to the idle pod.

@@ -1,0 +1,20 @@
+# values-k3s-pinned.yaml — P8 pinned phase: llama.cpp pods as Guaranteed QoS so the kubelet static CPU manager
+# (`make cpu-pin-on`) gives each one exclusive CPUs. Layer after values-k3s-p8cpu.yaml:
+#   OVERLAYS="values-k3s-p8cpu.yaml values-k3s-pinned.yaml" deploy/release.sh upgrade k3s
+# Guaranteed = requests == limits for CPU AND memory, CPU an integer. The shared default leaves the CPU limit unset to
+# avoid CFS throttling; here the limit is required, so every condition records cpu.max / cpu.stat (nr_throttled).
+# Memory: VmHWM of a loaded replica 728,660 kB (incl. the mmapped 491 MB model; cgroup memory.peak ~249 MB) + headroom.
+
+llamacpp:
+  resources:
+    requests:
+      cpu: "4"
+      memory: 1Gi
+    limits:
+      cpu: "4"
+      memory: 1Gi
+  # The init container counts for QoS too. 100m / 64Mi: it only checks that the model file is already in the PVC
+  # (a fractional CPU is fine for Guaranteed; it just gets no exclusive CPUs).
+  initResources:
+    requests: { cpu: 100m, memory: 64Mi }
+    limits:   { cpu: 100m, memory: 64Mi }
