@@ -55,6 +55,75 @@ Reused commands:
   `e6_report.step_time` with E6's W = 1.204 GB;
 - shaping: `make fabric-shape-on`; checks: `make fabric-test`.
 
+### 0.1 The E6 job and faults, exactly (from code and retained data)
+
+Analysis only, no new runs. Sources: [`e6_drills.py`](e6_drills.py)
+(`run_once`, the `fault_*` functions, `PROBES`), [`e6_report.py`](e6_report.py)
+(step rule), [`e5_shaped.py`](e5_shaped.py) (`SYNC_SCRIPT`, `set_routing`),
+[`e6-results.json`](e6-results.json) (per-run event times), and intent links.
+
+**Job X (the E6 "ring" job).**
+
+| Pair | Sender (NIC, IP) | Receiver (NIC, IP) | Rail | Path |
+|---|---|---|---|---|
+| 1 | host1 eth1 10.210.0.2 | host3 eth1 10.210.0.10 | A | leaf1 → spine1 or spine2 → leaf2 |
+| 2 | host3 eth1 10.210.0.10 | host2 eth1 10.210.0.6 | A | leaf2 → spine → leaf1 |
+| 3 | host2 eth1 10.210.0.6 | host4 eth1 10.210.0.14 | A | leaf1 → spine → leaf2 |
+| 4 | host4 eth1 10.210.0.14 | host1 eth1 10.210.0.2 | A | leaf2 → spine → leaf1 |
+
+- Each pair is one `iperf3 -c <dst> -B <src> -p <port> -P 16 -t 30 -i 0.5
+  --get-server-output --json`: **TCP**, **16 parallel streams**, **time-based
+  (30 s), not a fixed byte count**. The server side is `iperf3 -s -1 -i 0.5 -J`.
+  Bytes received per pair in 30 s, E6 baseline: 1.804–1.897 GB (run 1:
+  1.887 / 1.897 / 1.812 / 1.804; run 2: 1.844 / 1.861 / 1.854 / 1.838; run 3:
+  1.865 / 1.802 / 1.833 / 1.897 GB for pairs 1–4).
+- **Start:** all four clients start at the same T0 via `/tmp/e5sync.sh`
+  (busy-waits to a shared Unix time 2 s ahead). Measured start offsets in
+  all 21 E6 runs: 0.002–0.004 s.
+- **Pairs are independent iperf3 transfers.** No pair waits on another, and
+  nothing in the traffic depends on another pair's progress. The collective
+  is modelled only by the analysis rule: **step time = the time at which the
+  slowest pair has received W bytes**, W = 1.204 GB (the mean over the 3
+  baselines of the slowest pair's received bytes at T0+20 s, so a fault-free
+  step ≈ 20.0 s: 20.15 / 19.89 / 19.97). Received bytes come from the
+  receiver's **0.5 s** server intervals, linearly interpolated inside an
+  interval (`e6_report.time_to`). It is not a last-byte timestamp and not
+  0.1 s resolution.
+- L4 ECMP hash on the leaves during the run (`set_routing(…, "L4", "ring")`,
+  back to L3 after). Uplinks shaped to 500 Mbit/s per direction, so two
+  pairs share each leaf's 2 × 500 Mbit/s.
+
+**Faults** (all on the spine1↔leaf1 link or its nodes; times are seconds
+after T0, from the recorded `events` of every run; the window is the iperf3
+duration):
+
+| Fault | Injection | Duration | Per-run inject / restore (s after T0) | Window | Step time per run (E6) |
+|---|---|---|---|---|---|
+| link down | spine1 `ip link set eth1 down` (carrier loss both ends) | 10 s | 10.0 / 20.0 in runs 4, 5, 6 | 30 s | 27.40 / 29.10 / 28.13 s |
+| silent loss | `tc netem loss 100%` on spine1:eth1 and leaf1:eth1, carrier up | 10 s | 10.0 / 20.0 in runs 7, 8, 9 | 30 s | 27.11 / 27.76 / 28.29 s |
+| flap | spine1 eth1 down 2 s / up 2 s × 5 | 20 s (5 × 2 s down) | 5.0 / 25.0 in runs 10, 11, 12 | 30 s | > 30 s: 89.4 / 93.5 / 89.8 % of W at 30 s |
+| spine loss | spine1 eth1–eth4 down (container stays up) | 10 s | 10.0 / 20.0 in runs 13, 14, 15 | 30 s | > 30 s (99.4 %) / > 30 s (74.8 %) / 28.92 s |
+| leaf loss | leaf1 eth1–eth7 down (uplinks, host1/host2 rail A, vmhost1, ta1, tb1) | 10 s | 10.0 / 20.0 in runs 16, 17, 18 | 30 s | > 30 s: 70.5 / 66.5 / 69.0 % of W |
+| 1 % loss ("degrade") | `netem loss 1% rate 500mbit limit 1000` on ONE leaf uplink chosen at random (leaf1:eth1 / leaf2:eth1 / leaf2:eth2) | to the end of traffic: 80 s (T0+70 → T0+150) | inject 70.0; traffic ends 150; shaping restored at 172.73 / 174.47 / 172.73 (after detection) | 150 s | step-equivalent (slowest pair's rate, same run, pre → fault): 20.7 → 38.4 s (+85 %), 21.9 → 22.8 s (+4 %), not measurable (E6 §Silent degradation) |
+
+**Probes for the loss windows:** `ping -D -n -i 0.1 -W 1 -c 300` (ICMP echo,
+0.1 s interval, 30 s), six in parallel: rail A host1→host3 (src
+10.210.0.2, leaf1→leaf2), rail B host1→host3 (src 10.210.1.2, leaf3→leaf4),
+rail A host3→host4 (same leaf2), tenant-a ta1→ta3, tenant-b tb1→tb4,
+tenant-b tb2→tb4. A loss window is a gap between reply timestamps (E6
+reports the longest gap minus the 0.1 s interval; #32 and E8 report gaps >
+0.25 s). Each probe is one flow, so it sees only the uplink its hash picks.
+
+**BFD** ([`e8/raw/t45-bfd-peers.txt`](e8/raw/t45-bfd-peers.txt),
+`show bfd peers` on leaf1 and spine1): single-hop, **Active mode**,
+`Peer Type: dynamic` (created by BGP), link-local IPv6 peers per interface,
+echo transmission **disabled**. Local and remote timers on every peer are
+**detect-multiplier 3, receive 100 ms, transmit 100 ms** (echo receive 50
+ms), so detection time is 300 ms. That matches the `FABRIC` profile
+(`transmit-interval 100`, `receive-interval 100`, `detect-multiplier 3`).
+The 300 ms that `show bgp neighbors json` reports under `peerBfdInfo` (§1)
+is not the session's timers.
+
 ## 1. Timer and DAD audit (no traffic)
 
 `python -m fabric.experiments.e8 audit` → [`e8/raw/t1-audit.txt`](e8/raw/t1-audit.txt)
@@ -146,9 +215,9 @@ moment its link-local address could be out of DAD (+1.43 s). The timing is
 consistent with that, but it wasn't captured (no tcpdump), so it stays
 unproven.
 
-Also seen, not chased: `peerBfdInfo` in `show bgp neighbors json` reports
-rx/tx 300 ms, while the BFD profile sets 100 ms. Not investigated here; E2
-measured the BFD session's detection time directly.
+Also seen: `peerBfdInfo` in `show bgp neighbors json` reports rx/tx 300 ms,
+while the BFD profile sets 100 ms. `show bfd peers` shows the sessions run
+at 100 ms × 3 (§0.1), so the 300 ms is not the session's timers.
 
 ## 2. Same-day baseline restore
 
