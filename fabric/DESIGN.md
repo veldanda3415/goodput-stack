@@ -590,8 +590,9 @@ fail-and-reschedule on rail or leaf loss; serving needs drain and rebalance.
 
 **Restore is a failure event too.** The largest loss windows for link-down
 (tenant), flap, and spine loss came 2–4 s *after* the repair, when the path
-re-entered ECMP. That is a hypothesis to test next with `bgp update-delay` /
-`max-med on-startup`.
+re-entered ECMP. [E8](experiments/E8-restore-and-flap-fixes.md) found why
+(zebra reinstalls its kept nexthop group at link-up, before BGP) and a fix
+(§7.3).
 
 ### 7.3 Operations
 
@@ -617,8 +618,19 @@ re-entered ECMP. That is a hypothesis to test next with `bgp update-delay` /
   hash traffic onto a returning spine about 1.3 s before that spine has
   programmed its routes. The transient comes from zebra's nexthop-group
   reinstall at link-up, not from BGP, so BGP startup knobs (`update-delay`)
-  don't cover it. Until a fix is tested, return a spine in a maintenance
-  window.
+  don't cover it.
+- **Spine insertion** ([E8 §3](experiments/E8-restore-and-flap-fixes.md#3-spine-insertion-fix), EMULATED):
+  `no zebra nexthop kernel enable` on the leaves (intent
+  `zebra.leaf_kernel_nexthop_groups: false`, default unchanged) kept the
+  restored spine out of the leaves' forwarding until BGP re-added it
+  (+2.9–3.8 s instead of +0.2 s). Restore loss went from 1.26–2.31 s to 0 in
+  3 / 3 runs, with no loss at the failure.
+- **Flap hold-down** ([E8 §4](experiments/E8-restore-and-flap-fixes.md#4-flap-cost-and-hold-down), EMULATED-POLICY):
+  error-disable on the 2nd flap in 10 s with a 5 s recovery did **not**
+  shorten a 20 s flap step (+1.1 s, n = 3) and cut RTOs 21–32 %. The flap
+  costs because each 2 s up phase is shorter than link bring-up (≈ 3 s), so
+  shut a flapping link until it's repaired; a short-recovery hold-down
+  doesn't buy step time.
 
 ### 7.4 Multi-NOS intent
 

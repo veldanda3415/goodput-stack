@@ -29,6 +29,61 @@ stamps parsed as UTC) and the #32 timeline report
 ([`e6_restore_report.py`](e6_restore_report.py)). Raw command output is in
 [`e8/raw/`](e8/raw/).
 
+## Summary
+
+| § | Question | Result | Label |
+|---|---|---|---|
+| 1 | Which timers shape bring-up? | DAD (1 probe × 1 s + RFC 4862 random delay) and ND retransmit (1 s) set the loss **start**; the leaves' update coalesce (1150 ms, inferred from timing, not tested) and ConnectRetry (120 s) set the **end**. Spine1 coalesce 1250 ms, MRAI 0, keepalive/hold 3/9, no update-delay. #32 run 901's 100 s stall fits ConnectRetry 120 s | EMULATED |
+| 2 | Same-day baseline | matches Build 10: rail-B loss 1.26 / 1.38 / 2.31 s, opening at ND and closing at spine1's FIB install | EMULATED |
+| 3 | H2 + insertion fix | **H2 yes**: zebra keeps the old group at link-down and reinstalls it at link-up (+0.19 s), before BGP. **`no zebra nexthop kernel enable` on the leaves: restore loss 0 / 0 / 0**, no loss at the failure; rendered from intent, default unchanged | EMULATED |
+| 4 | Flap cost; hold-down | full step 31.5 / 37.7 / 31.9 s; the link carries ≈ 0 in its 2 s up phases; RTOs flat per flap (not growing back-off). Hold-down: 32.7–33.1 s vs 31.3–32.4 s control, **no gain**, 21–32 % fewer RTOs | EMULATED, EMULATED-POLICY |
+| 5 | DAD off on spine1 | loss starts ≈ 1.2 s earlier, window longer (2.11–2.65 s) | EMULATED |
+| 6 | spine1 coalesce 100 ms | loss end unchanged; leaves get BGP routes via spine1 ≈ 1.2 s earlier | EMULATED |
+| 7 | Job with no member behind the failed leaf | unaffected: 19.64–20.04 s vs 19.85–20.25 s alone; Job X > 30 s | EMULATED |
+| 8 | 1 % loss: flows on the lossy uplink? | not supported: leaf1:eth1 +41–46 % 3/3, leaf2:eth1 ≈ 0 3/3, overlapping flow counts | EMULATED |
+
+### Predictions next to measurements
+
+| § | Prediction (written before the run) | Measured | Held? |
+|---|---|---|---|
+| 2 | Same as Build 10 within spread | same, rail-B 1.26 / 1.38 / 2.31 s | yes |
+| 3a | zebra reinstalls the kept NHG at link-up, not BGP | `zebra_interface_nhg_reinstall` at +0.19 s; plus RIB reuse at link-down (not predicted) | yes (and more) |
+| 3b | candidate 1 removes the loss (≈ 60 % confident) | 0 / 0 / 0 | yes |
+| 4a | step 32–36 s | 31.53 / 37.68 / 31.91 s | 2 of 3 inside |
+| 4a | ≈ 16 flows per leaf1 sender move per flap | 7–10 per sender (15–19 per leaf) | no |
+| 4a | "TCP back-off" partly supported: RTOs per flap, no growth | 51–95 RTOs per flap, flat; cost = capacity | yes |
+| 4b | hold-down: no step-time gain, ≈ 4 s extra hold, fewer RTOs | +1.1 s, 4 s, −21…32 % | yes (the +1.1 s not predicted) |
+| 5 | (plan) loss starts earlier, window doesn't shrink | +0.43–0.81 s start, 2.11–2.65 s window | yes |
+| 5 | (mine) same window length | longer by ≈ 0.6 s | no |
+| 6 | (plan) loss ends up to ≈ 1 s earlier | unchanged (+3.56–3.81 s) | no |
+| 6 | (mine) loss start and end unchanged; leaf BGP route via spine1 ≈ 1 s earlier | as predicted (≈ 1.2 s earlier) | yes |
+| 7 | Y unaffected (±5 %), X stalls | Y 19.64–20.04 s, X 71–78 % of W at 30 s | yes |
+| 8 | little cost (< +10 %), inconclusive | leaf1:eth1 +41–46 % | no |
+| 8 | leaf2:eth1 control +40 % too | ≈ 0 | no |
+
+### Failures and surprises diagnosed
+
+| Symptom | Evidence | Cause | Fix / status |
+|---|---|---|---|
+| vtysh `find` / `list` show no zebra commands | `find coalesce` empty | vtysh's own command tree only; `?` needs a tty | used `strings` of the running binaries + a live set/unset |
+| `show running-config all` "Unknown command" | t1-audit | not in 10.2.1 | dropped |
+| first candidate-1 probe crashed, no output | `OSError: File name too long` | my variable `out` shadowed the output file name | renamed; rerun counted, crashed one not |
+| candidate-1 table columns "—" | inline routes have no `nhid` | monitor parser keeps only an event's first line | added a poller-based column (works for both styles) |
+| 120 s ConnectRetry stalls (runs 806, 811, 812, 852; #32 901) | both ends Active; all-up wait 81–108 s | likely: the first TCP connect fails at link-up (its timing matches the end of DAD; not captured), then ConnectRetry 120 s | not fixed; recorded per run; `neighbor … timers connect` untested |
+| run 852: 15 streams into leaf1 dead for 32 s | zero bytes T0+27–59; leaf2 routes spine2-only | not explained (RTO backoff is the candidate) | open |
+| spine1 coalesce shows 1000, not 1250, after revert | `show bgp ipv4 unicast update-groups` | 1250 is bgpd's start-up value; set + `no` leaves the default | config identical; live value differs until next `fabric-up` |
+
+### Limits
+
+n = 3 per condition (the leaf2:eth1 control in §8 is an extra condition,
+also n = 3). One WSL2 VM, veth links, Linux forwarding: timings are
+software timings, not ASIC failover. Ping probes are single flows and see one
+hash bucket. The ECMP hash seed is random per network namespace, so a probe's
+path changes between deploys. The insertion fix uses an FRR knob that the
+10.2 user guide doesn't document, tested only on 10.2.1 with 11 routes. The
+hold-down is a script, not a NOS feature, and can't sense the far end while
+it holds the port down.
+
 ## 0. Preflight
 
 2026-10-27 11:25–11:29 EDT, branch `ravi/fault_measurement` from `main`
@@ -693,6 +748,166 @@ flapping sooner than the far end stops on its own. That needs a fault that
 outlasts the hold (not tested), or a hold that keeps the port down until a
 human or a longer stability timer clears it.
 
+## 5. DAD off on the restored spine
+
+Knob: `sysctl -w net.ipv6.conf.eth{1..4}.dad_transmits=0` on spine1, set
+before the restore and reverted to 1 afterwards
+(`python -m fabric.experiments.e8 restore --label dad-off --knob spine1-dad-off`).
+**Why `dad_transmits`, not `accept_dad`:** spine1 has `conf.all.accept_dad=0`
+and `conf.eth*.accept_dad=1` ([`e8/raw/t5-dad-sysctls-before.txt`](e8/raw/t5-dad-sysctls-before.txt)).
+ip-sysctl.rst says DAD mode "will be selected according to the maximum value
+of conf/{all,interface}/accept_dad", so `accept_dad=0` per interface would
+work here only because `all` happens to be 0. `dad_transmits` is "the amount
+of Duplicate Address Detection probes to send" on that interface (default 1).
+With 0, RFC 4862 §5.1 says DAD "is not performed" (DupAddrDetectTransmits = 0),
+and nothing else changes. It applies when the link-local address is
+re-created at link-up, which is the restore itself.
+
+**Prediction (from the plan, recorded before the runs):** loss starts
+earlier (≈ +0.2–0.5 s) and the window does not shrink (may grow), because
+the leaves re-adopt spine1 at link-up (H2) and spine1 still has no routes.
+
+**My prediction (before the runs):** the start agrees. The leaves' first NS
+for spine1 is answered immediately, so ND and the loss start at ≈ +0.2–0.5 s.
+But BGP can also open TCP at once, so Established moves ≈ 1–1.5 s earlier
+(≈ +0.5–1.5 s), and spine1's FIB install (Established + ≈ 1.2 s coalesce)
+lands ≈ +1.7–2.7 s. So the loss **shifts earlier with about the same
+length** (≈ 1.2–2 s, rail B), not longer. If §1's ConnectRetry explanation
+is right, no 120 s stall should appear with DAD off.
+
+**Results (2026-10-27, runs 807–809).** Table: [`e8/raw/t5-dad-off-table.md`](e8/raw/t5-dad-off-table.md). Revert checked: `dad_transmits = 1` on spine1 eth1–eth4 after the runs.
+
+| | run 807 | run 808 | run 809 |
+|---|---|---|---|
+| spine1 links up | +0.17 | +0.18 | +0.17 |
+| leaf1–4: group re-includes spine1 | 0.17 / 0.17 / 0.18 / 0.18 | 0.18 / 0.18 / 0.18 / 0.18 | 0.17 / 0.18 / 0.18 / 0.18 |
+| spine1 link-local DAD done (first / last) | 0.19 / 1.19 | 0.37 / 1.02 | 0.38 / 1.07 |
+| leaf ND for spine1 resolved (leaf1 / 2 / 3 / 4) | 1.19 / 1.19 / 2.19 / 1.19 | 1.53 / 1.53 / 0.53 / 0.53 | 1.20 / 1.20 / 1.20 / 1.20 |
+| BFD up (leaf1 / 2 / 3 / 4) | 1.45 / 0.87 / 1.90 / 1.31 | 1.76 / 1.61 / 1.07 / 1.32 | 1.05 / 1.09 / 1.49 / 1.20 |
+| BGP Established (leaf1 / 2 / 3 / 4) | 1.45 / 1.27 / 2.20 / 1.31 | 1.76 / 1.61 / 1.07 / 1.32 | 1.25 / 1.29 / 1.49 / 1.20 |
+| spine1 first / full prefixes received | 2.34 / 3.34 | 2.16 / 2.86 | 2.35 / 2.65 |
+| spine1 kernel FIB: first / last BGP route | 2.40 / 3.40 | 2.21 / 2.90 | 2.42 / 2.65 |
+| leaf first BGP route via spine1 in FIB (leaf1 / 2 / 3 / 4) | 2.69 / 2.50 / 3.50 / 2.59 | 3.01 / 2.84 / 2.32 / 2.55 | 2.62 / 2.62 / 2.74 / 2.62 |
+| leaf kernel routes to remote prefixes use spine1 (poller, leaf1 / 2 / 3 / 4) | 0.25 / 0.17 / 0.20 / 0.21 | 0.26 / 0.21 / 0.26 / 0.22 | 0.25 / 0.19 / 0.19 / 0.20 |
+| probe loss after restore (last reply → next reply) | railA host1->host3 1.15→2.62; railB host1->host3 0.81→3.46; tenant-a ta1->ta3 1.36→3.46; tenant-b tb2->tb4 1.13→1.75, 1.86→2.16 | railA host1->host3 1.50→2.95; railB host1->host3 0.43→2.54; tenant-a ta1->ta3 0.80→1.22, 1.32→2.04, 2.04→2.99; tenant-b tb2->tb4 0.51→1.14, 1.35→1.66, 1.75→2.82 | railA host1->host3 0.98→2.43; railB host1->host3 0.62→2.74; tenant-a ta1->ta3 1.19→2.67; tenant-b tb2->tb4 0.88→1.63, 1.63→1.94, 1.94→2.25 |
+| loss at the failure (s after inject) | none | none | none |
+| wait to all-up after the run, s | 2.5 | 2.4 | 2.5 |
+
+| Rail-B probe (host1→host3) | baseline 801 / 802 / 803 | DAD off 807 / 808 / 809 |
+|---|---|---|
+| loss opens (last reply) | +2.66 / +1.65 / +1.34 | **+0.81 / +0.43 / +0.62** |
+| loss closes (next reply) | +3.92 / +3.03 / +3.65 | +3.46 / +2.54 / +2.74 |
+| window length | 1.26 / 1.38 / 2.31 s (mean 1.65) | **2.65 / 2.11 / 2.12 s** (mean 2.29) |
+| BGP Established (range over leaves) | +1.71–2.81 | +1.07–2.20 |
+| spine1 FIB first / last | +2.94–3.07 / +3.63–3.93 | +2.21–2.42 / +2.65–3.40 |
+| at-failure loss; all-up wait | none; 2.5–2.7 s | none; 2.4–2.5 s |
+
+**Prediction check.** The plan's prediction holds: loss starts earlier
+(+0.43–0.81 s) and the window does not shrink; it grew by ≈ 0.6 s on
+average. Mine was half right: start earlier, and BGP / FIB ≈ 0.6 s earlier
+(I predicted 1–1.5 s), but the length did not stay the same. Removing DAD
+moves the start more (≈ 1.2 s) than the end (≈ 0.6 s), because the end
+still waits for Established + coalesce. No ConnectRetry stall in 3 runs
+(consistent with §1's explanation, but n = 3 cannot show a 1-in-3 effect
+went away).
+
+Caveat on the "ND" column: it is #32's event, FRR's RFC 5549 IPv4
+link-local neighbor `169.254.0.1 dev eth1 lladdr …`. The routes actually use
+the kernel's IPv6 neighbor for spine1's `fe80::` address (§3a). Both appear
+in the same `ip monitor neigh` capture. First `fe80::… dev eth1 lladdr`
+event vs first `169.254.0.1` event, leaf3 / leaf4:
+
+| run | fe80 (IPv6 LL) | 169.254.0.1 | rail-B loss opens |
+|---|---|---|---|
+| 801–803 baseline | 2.67/2.67, 1.72/1.72, 1.42/2.42 | identical | 2.66, 1.65, 1.34 |
+| 805, 806 candidate 1 | 1.91/2.24, 1.30/2.08 | 2.24/2.24, 1.30/2.30 | no loss |
+| 807 DAD off | 1.87 / **0.84** | 2.19 / 1.19 | **0.81** |
+| 808 DAD off | **0.53** / 0.53 | 0.53 / 0.53 | **0.43** |
+| 809 DAD off | 1.20 / **0.69** | 1.20 / 1.20 | **0.62** |
+
+With DAD off, the loss opens within 0.1 s of the *earlier* leaf's IPv6
+neighbor resolution in all three runs (a ping gap covers both directions).
+The 169.254.0.1 entry can lag it by up to 0.5 s. In the baseline the two
+appear at the same instant, so #32's "loss opens at ND" holds with either
+reading. The precise trigger is the leaf's IPv6 neighbor entry for spine1.
+
+**Verdict: DAD is a loss-*start* timer, not a fix.** Turning it off makes
+the restore loss start ≈ 1.2 s sooner and last longer. Use candidate 1 (§3)
+to remove it.
+
+## 6. BGP coalesce on spine1
+
+Syntax checked on the running 10.2.1 (`coalesce-time (0-4294967295)` in the
+bgpd binary; `coalesce-time %u` is how it is written to config):
+`router bgp 65000` → `coalesce-time 100`, revert `no coalesce-time 100`
+([`e8/raw/t6-coalesce-cli.txt`](e8/raw/t6-coalesce-cli.txt)). The four
+spine1 subgroups show `Coalesce Time: 100` immediately. **Revert finding:**
+after `no coalesce-time` the running config is back to the original (no
+line), but the live subgroups show **1000**, not the 1250 they had since
+startup. The 1250 is FRR's start-up value; a manual set and unset leaves the
+documented default. Checked again after the runs below.
+
+Run: `python -m fabric.experiments.e8 restore --label coalesce-100 --knob spine1-coalesce-100` (×3).
+
+**Prediction (from the plan, recorded before the runs):** loss ends up to
+≈ 1 s earlier; loss start unchanged.
+
+**My prediction (before the runs, from §1):** loss start unchanged (it is
+set by DAD + ND). **Loss end unchanged too:** it is set by spine1
+*receiving* the leaves' prefixes, i.e. the leaves' coalesce (1150 ms).
+spine1's coalesce only delays spine1 → leaf updates. What should move ≈ 1 s
+earlier is "leaf first BGP route via spine1" (spine1 → leaf advertisement),
+which by H2 doesn't affect the loss.
+
+**Results (2026-10-27, runs 810–812).** Table: [`e8/raw/t6-coalesce-table.md`](e8/raw/t6-coalesce-table.md).
+
+| | run 810 | run 811 | run 812 |
+|---|---|---|---|
+| spine1 links up | +0.21 | +0.22 | +0.17 |
+| leaf1–4: group re-includes spine1 | 0.22 / 0.22 / 0.22 / 0.22 | 0.22 / 0.23 / 0.23 / 0.23 | 0.17 / 0.17 / 0.17 / 0.18 |
+| spine1 link-local DAD done (first / last) | 1.61 / 2.26 | 1.25 / 2.22 | 1.24 / 1.95 |
+| leaf ND for spine1 resolved (leaf1 / 2 / 3 / 4) | 2.32 / 2.32 / 2.32 / 2.32 | 2.50 / 2.50 / 1.50 / 2.50 | 2.27 / 2.27 / 1.27 / 2.27 |
+| BFD up (leaf1 / 2 / 3 / 4) | 1.91 / 2.37 / 2.40 / 2.34 | 2.49 / 2.58 / 1.55 / 1.76 | 2.30 / 2.32 / 1.47 / 2.26 |
+| BGP Established (leaf1 / 2 / 3 / 4) | 2.31 / 2.37 / 2.40 / 2.34 | — / 2.58 / 1.55 / 2.56 | 2.30 / — / 1.47 / 2.36 |
+| spine1 first / full prefixes received | 3.49 / 3.49 | 2.69 / — | 2.62 / — |
+| spine1 kernel FIB: first / last BGP route | 3.53 / 3.53 | 2.76 / 3.71 | 2.64 / 3.48 |
+| leaf first BGP route via spine1 in FIB (leaf1 / 2 / 3 / 4) | 2.48 / 2.48 / 2.48 / 2.48 | — / 2.66 / 1.71 / 2.67 | 2.43 / — / 1.59 / 2.43 |
+| leaf kernel routes to remote prefixes use spine1 (poller, leaf1 / 2 / 3 / 4) | 0.21 / 0.27 / 0.30 / 0.24 | 0.29 / 0.27 / 0.25 / 0.25 | 0.20 / 0.21 / 0.17 / 0.26 |
+| probe loss after restore (last reply → next reply) | railA host1->host3 1.80→3.57; railB host1->host3 2.22→3.59; tenant-a ta1->ta3 2.30→3.56; tenant-b tb2->tb4 2.43→3.60 | railB host1->host3 1.48→3.81; tenant-b tb2->tb4 2.50→3.76 | railB host1->host3 1.25→3.56; tenant-a ta1->ta3 1.52→3.49 |
+| loss at the failure (s after inject) | none | none | none |
+| wait to all-up after the run, s | 2.4 | 96.6 | 107.7 |
+
+| | baseline 801 / 802 / 803 | coalesce 100 ms on spine1, 810 / 811 / 812 |
+|---|---|---|
+| rail-B loss opens | +2.66 / +1.65 / +1.34 | +2.22 / +1.48 / +1.25 |
+| rail-B loss closes | +3.92 / +3.03 / +3.65 | +3.59 / +3.81 / +3.56 |
+| window | 1.26 / 1.38 / 2.31 s | 1.37 / 2.33 / 2.31 s |
+| spine1 FIB first / last | +2.94–3.07 / +3.63–3.93 | +2.64–3.53 / +3.48–3.71 |
+| leaf first BGP route via spine1 (range) | +3.04–4.09 | **+1.59–2.67** |
+| all-up wait | 2.5–2.7 s | 2.4 / **96.6** / **107.7** s |
+
+**Prediction check.** The plan's prediction ("loss ends up to ≈ 1 s
+earlier") is **not supported**: the end was +3.56–3.81 s vs +3.03–3.92 s,
+inside the baseline's spread. Mine is supported: start and end unchanged,
+and the leaves got BGP routes via spine1 ≈ 1.2 s earlier. That has no
+effect on the loss, because the leaves already forward to spine1 from +0.2 s
+(H2); the loss end waits on the leaves → spine1 direction. **Verdict: spine1
+coalesce is not a restore-loss timer.** The leaves' coalesce (1150 ms) is
+the candidate for the loss end; it was not tested here (Task 6 scope was
+spine1).
+
+Two of three runs (811: leaf1↔spine1, 812: leaf2↔spine1) hit the 120 s
+ConnectRetry stall. Tally of that stall in E8 restore-type runs: baseline
+0/3, candidate 1 1/3, DAD off 0/3, coalesce 2/3, plus flap run 852 and #32
+run 901. There's no mechanism by which spine1's update coalescing affects
+the TCP connect, and the counts are too small to separate the conditions.
+Recorded, not attributed.
+
+Revert: config reverted (`show running-config` has no `coalesce-time`).
+**Live state is not identical:** spine1's four subgroups now report
+`Coalesce Time: 1000` (spine2 still 1250, leaves 1150). The 1250 came from
+bgpd start-up. Getting it back means restarting bgpd, which this plan rules
+out, so the difference stays until the next `make fabric-up`.
 ## 7. Unaffected job during leaf loss
 
 Claim tested: "a job with no member behind the failed leaf carries on."
@@ -878,163 +1093,3 @@ outcomes). Prediction check: "little cost (< +10 %), inconclusive" was wrong
 for leaf1:eth1 (+41–46 % every run); "+40 % on leaf2:eth1 too" was wrong
 (≈ 0). What *was* right: no flow-count dependence detectable at n = 3.
 
-## 5. DAD off on the restored spine
-
-Knob: `sysctl -w net.ipv6.conf.eth{1..4}.dad_transmits=0` on spine1, set
-before the restore and reverted to 1 afterwards
-(`python -m fabric.experiments.e8 restore --label dad-off --knob spine1-dad-off`).
-**Why `dad_transmits`, not `accept_dad`:** spine1 has `conf.all.accept_dad=0`
-and `conf.eth*.accept_dad=1` ([`e8/raw/t5-dad-sysctls-before.txt`](e8/raw/t5-dad-sysctls-before.txt)).
-ip-sysctl.rst says DAD mode "will be selected according to the maximum value
-of conf/{all,interface}/accept_dad", so `accept_dad=0` per interface would
-work here only because `all` happens to be 0. `dad_transmits` is "the amount
-of Duplicate Address Detection probes to send" on that interface (default 1).
-With 0, RFC 4862 §5.1 says DAD "is not performed" (DupAddrDetectTransmits = 0),
-and nothing else changes. It applies when the link-local address is
-re-created at link-up, which is the restore itself.
-
-**Prediction (from the plan, recorded before the runs):** loss starts
-earlier (≈ +0.2–0.5 s) and the window does not shrink (may grow), because
-the leaves re-adopt spine1 at link-up (H2) and spine1 still has no routes.
-
-**My prediction (before the runs):** the start agrees. The leaves' first NS
-for spine1 is answered immediately, so ND and the loss start at ≈ +0.2–0.5 s.
-But BGP can also open TCP at once, so Established moves ≈ 1–1.5 s earlier
-(≈ +0.5–1.5 s), and spine1's FIB install (Established + ≈ 1.2 s coalesce)
-lands ≈ +1.7–2.7 s. So the loss **shifts earlier with about the same
-length** (≈ 1.2–2 s, rail B), not longer. If §1's ConnectRetry explanation
-is right, no 120 s stall should appear with DAD off.
-
-**Results (2026-10-27, runs 807–809).** Table: [`e8/raw/t5-dad-off-table.md`](e8/raw/t5-dad-off-table.md). Revert checked: `dad_transmits = 1` on spine1 eth1–eth4 after the runs.
-
-| | run 807 | run 808 | run 809 |
-|---|---|---|---|
-| spine1 links up | +0.17 | +0.18 | +0.17 |
-| leaf1–4: group re-includes spine1 | 0.17 / 0.17 / 0.18 / 0.18 | 0.18 / 0.18 / 0.18 / 0.18 | 0.17 / 0.18 / 0.18 / 0.18 |
-| spine1 link-local DAD done (first / last) | 0.19 / 1.19 | 0.37 / 1.02 | 0.38 / 1.07 |
-| leaf ND for spine1 resolved (leaf1 / 2 / 3 / 4) | 1.19 / 1.19 / 2.19 / 1.19 | 1.53 / 1.53 / 0.53 / 0.53 | 1.20 / 1.20 / 1.20 / 1.20 |
-| BFD up (leaf1 / 2 / 3 / 4) | 1.45 / 0.87 / 1.90 / 1.31 | 1.76 / 1.61 / 1.07 / 1.32 | 1.05 / 1.09 / 1.49 / 1.20 |
-| BGP Established (leaf1 / 2 / 3 / 4) | 1.45 / 1.27 / 2.20 / 1.31 | 1.76 / 1.61 / 1.07 / 1.32 | 1.25 / 1.29 / 1.49 / 1.20 |
-| spine1 first / full prefixes received | 2.34 / 3.34 | 2.16 / 2.86 | 2.35 / 2.65 |
-| spine1 kernel FIB: first / last BGP route | 2.40 / 3.40 | 2.21 / 2.90 | 2.42 / 2.65 |
-| leaf first BGP route via spine1 in FIB (leaf1 / 2 / 3 / 4) | 2.69 / 2.50 / 3.50 / 2.59 | 3.01 / 2.84 / 2.32 / 2.55 | 2.62 / 2.62 / 2.74 / 2.62 |
-| leaf kernel routes to remote prefixes use spine1 (poller, leaf1 / 2 / 3 / 4) | 0.25 / 0.17 / 0.20 / 0.21 | 0.26 / 0.21 / 0.26 / 0.22 | 0.25 / 0.19 / 0.19 / 0.20 |
-| probe loss after restore (last reply → next reply) | railA host1->host3 1.15→2.62; railB host1->host3 0.81→3.46; tenant-a ta1->ta3 1.36→3.46; tenant-b tb2->tb4 1.13→1.75, 1.86→2.16 | railA host1->host3 1.50→2.95; railB host1->host3 0.43→2.54; tenant-a ta1->ta3 0.80→1.22, 1.32→2.04, 2.04→2.99; tenant-b tb2->tb4 0.51→1.14, 1.35→1.66, 1.75→2.82 | railA host1->host3 0.98→2.43; railB host1->host3 0.62→2.74; tenant-a ta1->ta3 1.19→2.67; tenant-b tb2->tb4 0.88→1.63, 1.63→1.94, 1.94→2.25 |
-| loss at the failure (s after inject) | none | none | none |
-| wait to all-up after the run, s | 2.5 | 2.4 | 2.5 |
-
-| Rail-B probe (host1→host3) | baseline 801 / 802 / 803 | DAD off 807 / 808 / 809 |
-|---|---|---|
-| loss opens (last reply) | +2.66 / +1.65 / +1.34 | **+0.81 / +0.43 / +0.62** |
-| loss closes (next reply) | +3.92 / +3.03 / +3.65 | +3.46 / +2.54 / +2.74 |
-| window length | 1.26 / 1.38 / 2.31 s (mean 1.65) | **2.65 / 2.11 / 2.12 s** (mean 2.29) |
-| BGP Established (range over leaves) | +1.71–2.81 | +1.07–2.20 |
-| spine1 FIB first / last | +2.94–3.07 / +3.63–3.93 | +2.21–2.42 / +2.65–3.40 |
-| at-failure loss; all-up wait | none; 2.5–2.7 s | none; 2.4–2.5 s |
-
-**Prediction check.** The plan's prediction holds: loss starts earlier
-(+0.43–0.81 s) and the window does not shrink; it grew by ≈ 0.6 s on
-average. Mine was half right: start earlier, and BGP / FIB ≈ 0.6 s earlier
-(I predicted 1–1.5 s), but the length did not stay the same. Removing DAD
-moves the start more (≈ 1.2 s) than the end (≈ 0.6 s), because the end
-still waits for Established + coalesce. No ConnectRetry stall in 3 runs
-(consistent with §1's explanation, but n = 3 cannot show a 1-in-3 effect
-went away).
-
-Caveat on the "ND" column: it is #32's event, FRR's RFC 5549 IPv4
-link-local neighbor `169.254.0.1 dev eth1 lladdr …`. The routes actually use
-the kernel's IPv6 neighbor for spine1's `fe80::` address (§3a). Both appear
-in the same `ip monitor neigh` capture. First `fe80::… dev eth1 lladdr`
-event vs first `169.254.0.1` event, leaf3 / leaf4:
-
-| run | fe80 (IPv6 LL) | 169.254.0.1 | rail-B loss opens |
-|---|---|---|---|
-| 801–803 baseline | 2.67/2.67, 1.72/1.72, 1.42/2.42 | identical | 2.66, 1.65, 1.34 |
-| 805, 806 candidate 1 | 1.91/2.24, 1.30/2.08 | 2.24/2.24, 1.30/2.30 | no loss |
-| 807 DAD off | 1.87 / **0.84** | 2.19 / 1.19 | **0.81** |
-| 808 DAD off | **0.53** / 0.53 | 0.53 / 0.53 | **0.43** |
-| 809 DAD off | 1.20 / **0.69** | 1.20 / 1.20 | **0.62** |
-
-With DAD off, the loss opens within 0.1 s of the *earlier* leaf's IPv6
-neighbor resolution in all three runs (a ping gap covers both directions).
-The 169.254.0.1 entry can lag it by up to 0.5 s. In the baseline the two
-appear at the same instant, so #32's "loss opens at ND" holds with either
-reading. The precise trigger is the leaf's IPv6 neighbor entry for spine1.
-
-**Verdict: DAD is a loss-*start* timer, not a fix.** Turning it off makes
-the restore loss start ≈ 1.2 s sooner and last longer. Use candidate 1 (§3)
-to remove it.
-
-## 6. BGP coalesce on spine1
-
-Syntax checked on the running 10.2.1 (`coalesce-time (0-4294967295)` in the
-bgpd binary; `coalesce-time %u` is how it is written to config):
-`router bgp 65000` → `coalesce-time 100`, revert `no coalesce-time 100`
-([`e8/raw/t6-coalesce-cli.txt`](e8/raw/t6-coalesce-cli.txt)). The four
-spine1 subgroups show `Coalesce Time: 100` immediately. **Revert finding:**
-after `no coalesce-time` the running config is back to the original (no
-line), but the live subgroups show **1000**, not the 1250 they had since
-startup. The 1250 is FRR's start-up value; a manual set and unset leaves the
-documented default. Checked again after the runs below.
-
-Run: `python -m fabric.experiments.e8 restore --label coalesce-100 --knob spine1-coalesce-100` (×3).
-
-**Prediction (from the plan, recorded before the runs):** loss ends up to
-≈ 1 s earlier; loss start unchanged.
-
-**My prediction (before the runs, from §1):** loss start unchanged (it is
-set by DAD + ND). **Loss end unchanged too:** it is set by spine1
-*receiving* the leaves' prefixes, i.e. the leaves' coalesce (1150 ms).
-spine1's coalesce only delays spine1 → leaf updates. What should move ≈ 1 s
-earlier is "leaf first BGP route via spine1" (spine1 → leaf advertisement),
-which by H2 doesn't affect the loss.
-
-**Results (2026-10-27, runs 810–812).** Table: [`e8/raw/t6-coalesce-table.md`](e8/raw/t6-coalesce-table.md).
-
-| | run 810 | run 811 | run 812 |
-|---|---|---|---|
-| spine1 links up | +0.21 | +0.22 | +0.17 |
-| leaf1–4: group re-includes spine1 | 0.22 / 0.22 / 0.22 / 0.22 | 0.22 / 0.23 / 0.23 / 0.23 | 0.17 / 0.17 / 0.17 / 0.18 |
-| spine1 link-local DAD done (first / last) | 1.61 / 2.26 | 1.25 / 2.22 | 1.24 / 1.95 |
-| leaf ND for spine1 resolved (leaf1 / 2 / 3 / 4) | 2.32 / 2.32 / 2.32 / 2.32 | 2.50 / 2.50 / 1.50 / 2.50 | 2.27 / 2.27 / 1.27 / 2.27 |
-| BFD up (leaf1 / 2 / 3 / 4) | 1.91 / 2.37 / 2.40 / 2.34 | 2.49 / 2.58 / 1.55 / 1.76 | 2.30 / 2.32 / 1.47 / 2.26 |
-| BGP Established (leaf1 / 2 / 3 / 4) | 2.31 / 2.37 / 2.40 / 2.34 | — / 2.58 / 1.55 / 2.56 | 2.30 / — / 1.47 / 2.36 |
-| spine1 first / full prefixes received | 3.49 / 3.49 | 2.69 / — | 2.62 / — |
-| spine1 kernel FIB: first / last BGP route | 3.53 / 3.53 | 2.76 / 3.71 | 2.64 / 3.48 |
-| leaf first BGP route via spine1 in FIB (leaf1 / 2 / 3 / 4) | 2.48 / 2.48 / 2.48 / 2.48 | — / 2.66 / 1.71 / 2.67 | 2.43 / — / 1.59 / 2.43 |
-| leaf kernel routes to remote prefixes use spine1 (poller, leaf1 / 2 / 3 / 4) | 0.21 / 0.27 / 0.30 / 0.24 | 0.29 / 0.27 / 0.25 / 0.25 | 0.20 / 0.21 / 0.17 / 0.26 |
-| probe loss after restore (last reply → next reply) | railA host1->host3 1.80→3.57; railB host1->host3 2.22→3.59; tenant-a ta1->ta3 2.30→3.56; tenant-b tb2->tb4 2.43→3.60 | railB host1->host3 1.48→3.81; tenant-b tb2->tb4 2.50→3.76 | railB host1->host3 1.25→3.56; tenant-a ta1->ta3 1.52→3.49 |
-| loss at the failure (s after inject) | none | none | none |
-| wait to all-up after the run, s | 2.4 | 96.6 | 107.7 |
-
-| | baseline 801 / 802 / 803 | coalesce 100 ms on spine1, 810 / 811 / 812 |
-|---|---|---|
-| rail-B loss opens | +2.66 / +1.65 / +1.34 | +2.22 / +1.48 / +1.25 |
-| rail-B loss closes | +3.92 / +3.03 / +3.65 | +3.59 / +3.81 / +3.56 |
-| window | 1.26 / 1.38 / 2.31 s | 1.37 / 2.33 / 2.31 s |
-| spine1 FIB first / last | +2.94–3.07 / +3.63–3.93 | +2.64–3.53 / +3.48–3.71 |
-| leaf first BGP route via spine1 (range) | +3.04–4.09 | **+1.59–2.67** |
-| all-up wait | 2.5–2.7 s | 2.4 / **96.6** / **107.7** s |
-
-**Prediction check.** The plan's prediction ("loss ends up to ≈ 1 s
-earlier") is **not supported**: the end was +3.56–3.81 s vs +3.03–3.92 s,
-inside the baseline's spread. Mine is supported: start and end unchanged,
-and the leaves got BGP routes via spine1 ≈ 1.2 s earlier. That has no
-effect on the loss, because the leaves already forward to spine1 from +0.2 s
-(H2); the loss end waits on the leaves → spine1 direction. **Verdict: spine1
-coalesce is not a restore-loss timer.** The leaves' coalesce (1150 ms) is
-the candidate for the loss end; it was not tested here (Task 6 scope was
-spine1).
-
-Two of three runs (811: leaf1↔spine1, 812: leaf2↔spine1) hit the 120 s
-ConnectRetry stall. Tally of that stall in E8 restore-type runs: baseline
-0/3, candidate 1 1/3, DAD off 0/3, coalesce 2/3, plus flap run 852 and #32
-run 901. There's no mechanism by which spine1's update coalescing affects
-the TCP connect, and the counts are too small to separate the conditions.
-Recorded, not attributed.
-
-Revert: config reverted (`show running-config` has no `coalesce-time`).
-**Live state is not identical:** spine1's four subgroups now report
-`Coalesce Time: 1000` (spine2 still 1250, leaves 1150). The 1250 came from
-bgpd start-up. Getting it back means restarting bgpd, which this plan rules
-out, so the difference stays until the next `make fabric-up`.

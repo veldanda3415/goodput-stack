@@ -44,6 +44,11 @@ not ASIC failover times.
   stays out until repaired.
 - **Flapping:** shut it administratively. Every up/down costs a reconvergence
   plus a restore transient (below). Return it only after the physical fix.
+  [E8 §4](../experiments/E8-restore-and-flap-fixes.md#4-flap-cost-and-hold-down):
+  with the window extended, the E6 flap step completes at 31.5 / 37.7 /
+  31.9 s (+11.5 / +17.7 / +11.9 s). In the 2 s up phases the link carried
+  0–4 Mbit/s, so for the job it was down the whole 20 s. TCP took a flat
+  51–95 RTOs per flap (2–10× no-fault), with no growing back-off.
 - **Return to service carefully.** E6's worst loss came *after* restore:
   ECMP re-added the path 2.4–5.1 s after link-up, and some flows lost up to
   1.2 s around that moment. Bring links back off-peak, one at a time.
@@ -58,7 +63,13 @@ not ASIC failover times.
 
 - Keep BFD on every fabric link (intent `bfd`: 100 ms × 3). E2 measured
   ≈ 1.0–1.1 s silent-loss recovery with BFD vs 7.9–9.7 s on the BGP hold timer.
-- Dampen flaps: hold a link down after N flaps (e.g. link-flap error-disable on
-  switches). The lab has none; E6 shows the cost.
-- Test restore, not only failure (E6). Candidate mitigations to measure next:
-  `bgp update-delay`/`max-med on-startup` on spines, delaying ECMP re-entry.
+- Dampen flaps: an EMULATED-POLICY hold-down (2nd flap in 10 s → hold until
+  5 s quiet, like link-flap error-disable with a short recovery) was
+  measured in E8 §4b: **no step-time gain** (32.7–33.1 s vs 31.3–32.4 s
+  control, n = 3), 21–32 % fewer RTOs. Capacity came back at the same time,
+  set by the far end's last up + ≈ 3 s bring-up. A hold-down only helps
+  if it ends the flapping sooner than the far end stops, i.e. a long hold or
+  a manual clear.
+- Test restore, not only failure (E6). Spine restore fix measured in E8 §3
+  (`no zebra nexthop kernel enable` on the leaves); a single link's restore
+  goes through the same zebra reinstall path (E8 §3a), not tested per link.
