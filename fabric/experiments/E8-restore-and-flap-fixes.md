@@ -877,3 +877,79 @@ lossy uplink": not supported.** The variation follows the uplink (leaf1:eth1
 outcomes). Prediction check: "little cost (< +10 %), inconclusive" was wrong
 for leaf1:eth1 (+41–46 % every run); "+40 % on leaf2:eth1 too" was wrong
 (≈ 0). What *was* right: no flow-count dependence detectable at n = 3.
+
+## 5. DAD off on the restored spine
+
+Knob: `sysctl -w net.ipv6.conf.eth{1..4}.dad_transmits=0` on spine1, set
+before the restore and reverted to 1 afterwards
+(`python -m fabric.experiments.e8 restore --label dad-off --knob spine1-dad-off`).
+**Why `dad_transmits`, not `accept_dad`:** spine1 has `conf.all.accept_dad=0`
+and `conf.eth*.accept_dad=1` ([`e8/raw/t5-dad-sysctls-before.txt`](e8/raw/t5-dad-sysctls-before.txt)).
+ip-sysctl.rst says DAD mode "will be selected according to the maximum value
+of conf/{all,interface}/accept_dad", so `accept_dad=0` per interface would
+work here only because `all` happens to be 0. `dad_transmits` is "the amount
+of Duplicate Address Detection probes to send" on that interface (default 1).
+With 0, RFC 4862 §5.1 says DAD "is not performed" (DupAddrDetectTransmits = 0),
+and nothing else changes. It applies when the link-local address is
+re-created at link-up, which is the restore itself.
+
+**Prediction (from the plan, recorded before the runs):** loss starts
+earlier (≈ +0.2–0.5 s) and the window does not shrink (may grow), because
+the leaves re-adopt spine1 at link-up (H2) and spine1 still has no routes.
+
+**My prediction (before the runs):** the start agrees. The leaves' first NS
+for spine1 is answered immediately, so ND and the loss start at ≈ +0.2–0.5 s.
+But BGP can also open TCP at once, so Established moves ≈ 1–1.5 s earlier
+(≈ +0.5–1.5 s), and spine1's FIB install (Established + ≈ 1.2 s coalesce)
+lands ≈ +1.7–2.7 s. So the loss **shifts earlier with about the same
+length** (≈ 1.2–2 s, rail B), not longer. If §1's ConnectRetry explanation
+is right, no 120 s stall should appear with DAD off.
+
+**Results (2026-10-27, runs 807–809).** Table: [`e8/raw/t5-dad-off-table.md`](e8/raw/t5-dad-off-table.md). Revert checked: `dad_transmits = 1` on spine1 eth1–eth4 after the runs.
+
+| | run 807 | run 808 | run 809 |
+|---|---|---|---|
+| spine1 links up | +0.17 | +0.18 | +0.17 |
+| leaf1–4: group re-includes spine1 | 0.17 / 0.17 / 0.18 / 0.18 | 0.18 / 0.18 / 0.18 / 0.18 | 0.17 / 0.18 / 0.18 / 0.18 |
+| spine1 link-local DAD done (first / last) | 0.19 / 1.19 | 0.37 / 1.02 | 0.38 / 1.07 |
+| leaf ND for spine1 resolved (leaf1 / 2 / 3 / 4) | 1.19 / 1.19 / 2.19 / 1.19 | 1.53 / 1.53 / 0.53 / 0.53 | 1.20 / 1.20 / 1.20 / 1.20 |
+| BFD up (leaf1 / 2 / 3 / 4) | 1.45 / 0.87 / 1.90 / 1.31 | 1.76 / 1.61 / 1.07 / 1.32 | 1.05 / 1.09 / 1.49 / 1.20 |
+| BGP Established (leaf1 / 2 / 3 / 4) | 1.45 / 1.27 / 2.20 / 1.31 | 1.76 / 1.61 / 1.07 / 1.32 | 1.25 / 1.29 / 1.49 / 1.20 |
+| spine1 first / full prefixes received | 2.34 / 3.34 | 2.16 / 2.86 | 2.35 / 2.65 |
+| spine1 kernel FIB: first / last BGP route | 2.40 / 3.40 | 2.21 / 2.90 | 2.42 / 2.65 |
+| leaf first BGP route via spine1 in FIB (leaf1 / 2 / 3 / 4) | 2.69 / 2.50 / 3.50 / 2.59 | 3.01 / 2.84 / 2.32 / 2.55 | 2.62 / 2.62 / 2.74 / 2.62 |
+| leaf kernel routes to remote prefixes use spine1 (poller, leaf1 / 2 / 3 / 4) | 0.25 / 0.17 / 0.20 / 0.21 | 0.26 / 0.21 / 0.26 / 0.22 | 0.25 / 0.19 / 0.19 / 0.20 |
+| probe loss after restore (last reply → next reply) | railA host1->host3 1.15→2.62; railB host1->host3 0.81→3.46; tenant-a ta1->ta3 1.36→3.46; tenant-b tb2->tb4 1.13→1.75, 1.86→2.16 | railA host1->host3 1.50→2.95; railB host1->host3 0.43→2.54; tenant-a ta1->ta3 0.80→1.22, 1.32→2.04, 2.04→2.99; tenant-b tb2->tb4 0.51→1.14, 1.35→1.66, 1.75→2.82 | railA host1->host3 0.98→2.43; railB host1->host3 0.62→2.74; tenant-a ta1->ta3 1.19→2.67; tenant-b tb2->tb4 0.88→1.63, 1.63→1.94, 1.94→2.25 |
+| loss at the failure (s after inject) | none | none | none |
+| wait to all-up after the run, s | 2.5 | 2.4 | 2.5 |
+
+| Rail-B probe (host1→host3) | baseline 801 / 802 / 803 | DAD off 807 / 808 / 809 |
+|---|---|---|
+| loss opens (last reply) | +2.66 / +1.65 / +1.34 | **+0.81 / +0.43 / +0.62** |
+| loss closes (next reply) | +3.92 / +3.03 / +3.65 | +3.46 / +2.54 / +2.74 |
+| window length | 1.26 / 1.38 / 2.31 s (mean 1.65) | **2.65 / 2.11 / 2.12 s** (mean 2.29) |
+| BGP Established (range over leaves) | +1.71–2.81 | +1.07–2.20 |
+| spine1 FIB first / last | +2.94–3.07 / +3.63–3.93 | +2.21–2.42 / +2.65–3.40 |
+| at-failure loss; all-up wait | none; 2.5–2.7 s | none; 2.4–2.5 s |
+
+**Prediction check.** The plan's prediction holds: loss starts earlier
+(+0.43–0.81 s) and the window does not shrink; it grew by ≈ 0.6 s on
+average. Mine was half right: start earlier, and BGP / FIB ≈ 0.6 s earlier
+(I predicted 1–1.5 s), but the length did not stay the same. Removing DAD
+moves the start more (≈ 1.2 s) than the end (≈ 0.6 s), because the end
+still waits for Established + coalesce. No ConnectRetry stall in 3 runs
+(consistent with §1's explanation, but n = 3 cannot show a 1-in-3 effect
+went away).
+
+Caveat on the "ND" column: it is #32's event, FRR's RFC 5549 IPv4
+link-local neighbor `169.254.0.1 dev eth1 lladdr …`. With DAD off, rail-B
+loss opens 0.4–1.4 s *before* that entry on either leaf (807: 0.81 vs leaf3
+2.19 / leaf4 1.19). So the kernel's IPv6 neighbor entry for spine1's
+`fe80::` address, which the routes actually use (§3a), resolves earlier than
+FRR's IPv4-LL entry. In the default config the two coincided closely
+enough for #32's "loss opens at ND" to hold. The precise trigger is the IPv6
+neighbor resolution, not the 169.254.0.1 entry.
+
+**Verdict: DAD is a loss-*start* timer, not a fix.** Turning it off makes
+the restore loss start ≈ 1.2 s sooner and last longer. Use candidate 1 (§3)
+to remove it.

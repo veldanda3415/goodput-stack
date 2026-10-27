@@ -50,6 +50,11 @@ KNOBS: dict[str, tuple[list[tuple[str, str]], list[tuple[str, str]]]] = {
         [(leaf, "vtysh -c 'configure terminal' -c 'no zebra nexthop kernel enable'") for leaf in LEAVES] + [SPINE1_CYCLE],
         [(leaf, "vtysh -c 'configure terminal' -c 'zebra nexthop kernel enable'") for leaf in LEAVES] + [SPINE1_CYCLE],
     ),
+    # takes effect when the link-local address is re-created at link-up (the restore)
+    "spine1-dad-off": (
+        [("spine1", " ".join(["sysctl", "-w"] + [f"net.ipv6.conf.{i}.dad_transmits=0" for i in SPINE_PORTS]))],
+        [("spine1", " ".join(["sysctl", "-w"] + [f"net.ipv6.conf.{i}.dad_transmits=1" for i in SPINE_PORTS]))],
+    ),
 }
 
 AUDIT = {
