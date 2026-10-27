@@ -149,3 +149,62 @@ unproven.
 Also seen, not chased: `peerBfdInfo` in `show bgp neighbors json` reports
 rx/tx 300 ms, while the BFD profile sets 100 ms. Not investigated here; E2
 measured the BFD session's detection time directly.
+
+## 2. Same-day baseline restore
+
+`python -m fabric.experiments.e8 restore --label baseline` = the #32 drill
+(`e6_restore.run`) ×3, shaped, L4 hash, ring load. Results:
+[`e8-restore-results.json`](e8-restore-results.json); table:
+`python -m fabric.experiments.e8 restore-report --label baseline`. The table
+code reproduces the Build 10 table from `e6-restore-results.json` exactly
+(checked before these runs).
+
+**Prediction (written before the runs):** same sequence as Build 10, within
+its spread. Group re-includes spine1 at ≈ +0.2 s; DAD done +1.4–2.0 s; ND
++1.6–2.9 s on a 1 s grid; Established +1.6–2.9 s; spine1 FIB first / last
++2.8–3.2 / +3.2–4.1 s; rail-B loss opens at ND and closes at spine1's FIB
+install (≈ 1.2–1.6 s long); no loss at the failure. A run-901-style stall
+(one session in Active for 120 s) is possible in about 1 of 3 runs.
+
+### Results (2026-10-27, 11:36–11:39 EDT, runs 801–803)
+
+Seconds after the restore command. Table file: [`e8/raw/t2-baseline-table.md`](e8/raw/t2-baseline-table.md).
+
+| | run 801 | run 802 | run 803 |
+|---|---|---|---|
+| spine1 links up | +0.18 | +0.19 | +0.20 |
+| leaf1–4: group re-includes spine1 | 0.18 / 0.18 / 0.18 / 0.18 | 0.19 / 0.20 / 0.20 / 0.20 | 0.20 / 0.21 / 0.21 / 0.21 |
+| spine1 link-local DAD done (first / last) | 1.38 / 2.12 | 1.24 / 1.86 | 1.28 / 1.82 |
+| leaf ND for spine1 resolved (leaf1 / 2 / 3 / 4) | 1.67 / 2.67 / 2.67 / 2.67 | 2.72 / 1.72 / 1.72 / 1.72 | 2.42 / 2.42 / 1.42 / 2.42 |
+| BFD up (leaf1 / 2 / 3 / 4) | 1.84 / 2.73 / 2.67 / 2.73 | 2.01 / 1.71 / 1.77 / 1.74 | 1.93 / 1.95 / 1.88 / 2.46 |
+| BGP Established (leaf1 / 2 / 3 / 4) | 1.84 / 2.73 / 2.67 / 2.73 | 2.81 / 1.71 / 1.77 / 1.74 | 2.43 / 2.45 / 1.88 / 2.46 |
+| spine1 first / full prefixes received | 3.06 / 3.86 | 2.89 / 3.89 | 3.02 / 3.62 |
+| spine1 kernel FIB: first / last BGP route | 3.06 / 3.88 | 2.94 / 3.93 | 3.07 / 3.63 |
+| leaf first BGP route via spine1 in FIB (leaf1 / 2 / 3 / 4) | 3.16 / 4.09 / 4.09 / 4.09 | 4.03 / 3.04 / 3.04 / 3.04 | 3.83 / 3.83 / 3.17 / 3.83 |
+| probe loss after restore (last reply → next reply) | railA host1->host3 1.62→3.94; railB host1->host3 2.66→3.92; tenant-a ta1->ta3 1.88→2.40, 2.60→3.97 | railA host1->host3 2.00→4.01; railB host1->host3 1.65→3.03; tenant-a ta1->ta3 2.00→2.43, 2.93→3.98; tenant-b tb2->tb4 2.40→2.82 | railA host1->host3 1.92→3.70; railB host1->host3 1.34→3.65; tenant-a ta1->ta3 1.54→2.37, 2.37→3.73 |
+| loss at the failure (s after inject) | none | none | none |
+| wait to all-up after the run, s | 2.7 | 2.5 | 2.6 |
+
+**Matches Build 10: yes, within run-to-run spread.**
+
+- Group re-includes spine1 at +0.18–0.21 s on all four leaves (Build 10:
+  +0.18–0.21).
+- DAD done +1.24–2.12 s (Build 10: +1.43–1.97). The earliest finish is
+  0.2 s earlier than before; RFC 4862's random 0–1 s initial delay covers
+  that.
+- ND sits on a 1 s grid again (1.67 / 2.67, 1.72 / 2.72, 1.42 / 2.42).
+- Established +1.71–2.81 s; spine1 FIB first / last +2.94–3.07 / +3.63–3.93 s
+  (Build 10: +2.81–3.16 / +3.16–4.11).
+- **Rail-B loss window: 1.26 / 1.38 / 2.31 s** (2.66→3.92, 1.65→3.03,
+  1.34→3.65; Build 10: 1.26 / 1.38 / 1.58). It opens within 0.1 s of leaf3's
+  ND for spine1 (2.67 / 1.72 / 1.42) and closes within 0.1 s of a spine1 FIB
+  install (3.88 / 2.94 / 3.63).
+- No loss at the failure; no ConnectRetry stall (all-up wait 2.5–2.7 s).
+
+Difference from Build 10: today the rail-A probe host1→host3 (leaf1→leaf2)
+also lost 1.8–2.3 s in every run (Build 10: none). A single ping flow
+always hashes to one uplink and the ECMP hash seed is new on every
+`fabric-up`, so a probe sees the black hole only if its hash lands on
+spine1. That is a probe-coverage limit, not a change in behaviour. A ping
+gap covers both directions, so a window can open at either leaf's ND (run
+802: leaf2's at 1.72 s, before leaf1's at 2.72 s).
