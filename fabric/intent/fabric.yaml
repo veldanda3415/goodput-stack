@@ -77,6 +77,9 @@ bgp:
   hold_seconds: 9
   keepalive_seconds: 3
   extended_nexthop: true
+zebra:
+  # false -> `no zebra nexthop kernel enable` on leaves (E8 §3 insertion fix, tested, not default)
+  leaf_kernel_nexthop_groups: true
 bfd:
   enabled: true
   transmit_ms: 100

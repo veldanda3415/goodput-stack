@@ -1,0 +1,19 @@
+# 2026-10-27T16:57:24Z spine1 coalesce-time CLI check
+$ vtysh -c 'configure terminal' -c 'router bgp 65000' -c 'coalesce-time 100'
+$ show running-config | grep coalesce
+ coalesce-time 100
+$ show bgp ipv4 unicast update-groups | grep Coalesce
+    Coalesce Time: 100
+    Coalesce Time: 100
+    Coalesce Time: 100
+    Coalesce Time: 100
+$ vtysh -c 'configure terminal' -c 'router bgp 65000' -c 'no coalesce-time 100'
+$ show running-config | grep coalesce (after no)
+$ update-groups after no
+    Coalesce Time: 1000
+    Coalesce Time: 1000
+    Coalesce Time: 1000
+    Coalesce Time: 1000
+spine1:       4  Coalesce Time: 1000 
+spine2:       4  Coalesce Time: 1250 
+leaf1:       1  Coalesce Time: 1150 

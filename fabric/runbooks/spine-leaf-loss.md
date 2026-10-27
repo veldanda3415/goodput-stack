@@ -45,6 +45,24 @@ the others, and the front-end tenants on other leaves saw nothing (tb2→tb4: 0 
   leaves put the spine back in their kernel ECMP group at link-up, before
   BGP is up. The loss runs from the leaf resolving the spine's link-local
   address until the spine's FIB has the route (1.3–1.6 s on rail B).
+  **Insertion procedure (measured, [E8 §3](../experiments/E8-restore-and-flap-fixes.md#3-spine-insertion-fix)):**
+  1. Before the spine returns, set `no zebra nexthop kernel enable` on the
+     leaves (`vtysh -c 'configure terminal' -c 'no zebra nexthop kernel
+     enable'`, or render it with intent `zebra.leaf_kernel_nexthop_groups:
+     false`). It applies to route installs made after the change, and the
+     failure itself reinstalled the affected routes in E8.
+  2. Restore the spine's links. Check that the leaves don't use it before BGP
+     does: `ip route show <remote prefix>` on a leaf shows only the other
+     spine until its session to the returning spine is Established and
+     routes arrive (E8: +2.9–3.8 s).
+  3. Check every session to that spine is Established within ≈ 5 s. A
+     session stuck in `Active` waits FRR's 120 s ConnectRetry (`show bgp
+     neighbors json` → `connectRetryTimer`); seen in 4 of 15 spine
+     restores (#32 + E8) and 1 of 12 E8 flap runs.
+  E8 result: rail-B restore loss 1.26 / 1.38 / 2.31 s → 0 / 0 / 0, no loss
+  at the failure. Turning DAD off on the spine makes it worse (loss starts
+  ≈ 1.2 s sooner; E8 §5), and lowering the spine's `coalesce-time` doesn't
+  move the loss end (E8 §6).
 - **Leaf:** the rail is gone for those hosts. For collectives, fail fast and
   reschedule onto healthy rails/pods rather than waiting (E6: stall for the
   whole outage plus ≈ 3.3 s). For services, drain the endpoints behind that
@@ -64,8 +82,11 @@ suite after each fault type.
   is why host1 kept rail B through leaf1's loss).
 - Scheduler awareness: map jobs to rails/pods so one leaf failure takes out as
   few jobs as possible. Test restore behavior, not just failure.
-- Restore transient: **no tested prevention yet.** `bgp update-delay`
-  doesn't apply: it acts only on bgpd restart or `clear ip bgp *`, and here
-  bgpd keeps running. Until H2 in E6 is tested, bring a spine back in a
-  maintenance window, or bring its BGP sessions up while its leaf-facing
-  links carry no traffic.
+- Restore transient: **prevented in the lab** by `no zebra nexthop kernel
+  enable` on the leaves (E8 §3, EMULATED, n = 3). `bgp update-delay` doesn't
+  apply: it acts only on bgpd restart or `clear ip bgp *`. The setting is
+  undocumented in the FRR 10.2 user guide, so test it on the target NOS and
+  release before relying on it.
+- Leaf loss doesn't touch jobs with no member behind that leaf: in E8 §7 a
+  rail-B ring on the same four hosts kept 19.64–20.04 s steps (alone
+  19.85–20.25 s) while leaf1 was down and the rail-A ring stalled.

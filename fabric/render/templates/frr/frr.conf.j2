@@ -6,6 +6,10 @@ service integrated-vtysh-config
 ip forwarding
 ipv6 forwarding
 !
+{% if node.role == "leaf" and not intent.get("zebra", {}).get("leaf_kernel_nexthop_groups", true) -%}
+no zebra nexthop kernel enable
+!
+{% endif -%}
 interface lo
  ip address {{ node.loopback }}
 !

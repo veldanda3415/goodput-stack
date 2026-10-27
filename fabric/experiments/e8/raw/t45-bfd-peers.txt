@@ -1,0 +1,137 @@
+# 2026-10-27T16:23:49Z BFD peer detail (EMULATED), no traffic
+$ [leaf1] vtysh -c 'show bfd peers'
+BFD Peers:
+	peer fe80::a8c1:abff:fe5a:96c4 local-address fe80::a8c1:abff:fea5:1334 vrf default interface eth2
+		ID: 1436324451
+		Remote ID: 1954516006
+		Active mode
+		Status: up
+		Uptime: 57 minute(s), 58 second(s)
+		Diagnostics: ok
+		Remote diagnostics: ok
+		Peer Type: dynamic
+		RTT min/avg/max: 0/0/0 usec
+		Local timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+			Echo transmission interval: disabled
+		Remote timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+
+	peer fe80::a8c1:abff:feb0:845f local-address fe80::a8c1:abff:fee6:a01c vrf default interface eth1
+		ID: 1267490405
+		Remote ID: 1205964830
+		Active mode
+		Status: up
+		Uptime: 2 minute(s), 47 second(s)
+		Diagnostics: ok
+		Remote diagnostics: ok
+		Peer Type: dynamic
+		RTT min/avg/max: 0/0/0 usec
+		Local timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+			Echo transmission interval: disabled
+		Remote timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+
+$ [spine1] vtysh -c 'show bfd peers'
+BFD Peers:
+	peer fe80::a8c1:abff:fefb:6b76 local-address fe80::a8c1:abff:feab:f934 vrf default interface eth2
+		ID: 2676311174
+		Remote ID: 206787334
+		Active mode
+		Status: up
+		Uptime: 32 minute(s), 15 second(s)
+		Diagnostics: ok
+		Remote diagnostics: ok
+		Peer Type: dynamic
+		RTT min/avg/max: 0/0/0 usec
+		Local timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+			Echo transmission interval: disabled
+		Remote timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+
+	peer fe80::a8c1:abff:fee6:a01c local-address fe80::a8c1:abff:feb0:845f vrf default interface eth1
+		ID: 1205964830
+		Remote ID: 1267490405
+		Active mode
+		Status: up
+		Uptime: 2 minute(s), 47 second(s)
+		Diagnostics: ok
+		Remote diagnostics: ok
+		Peer Type: dynamic
+		RTT min/avg/max: 0/0/0 usec
+		Local timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+			Echo transmission interval: disabled
+		Remote timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+
+	peer fe80::a8c1:abff:fe5e:be1a local-address fe80::a8c1:abff:fe11:e9da vrf default interface eth4
+		ID: 1858964663
+		Remote ID: 3682469418
+		Active mode
+		Status: up
+		Uptime: 32 minute(s), 15 second(s)
+		Diagnostics: ok
+		Remote diagnostics: ok
+		Peer Type: dynamic
+		RTT min/avg/max: 0/0/0 usec
+		Local timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+			Echo transmission interval: disabled
+		Remote timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+
+	peer fe80::a8c1:abff:fe36:1fb4 local-address fe80::a8c1:abff:feae:accb vrf default interface eth3
+		ID: 2705482641
+		Remote ID: 2170149758
+		Active mode
+		Status: up
+		Uptime: 32 minute(s), 15 second(s)
+		Diagnostics: ok
+		Remote diagnostics: ok
+		Peer Type: dynamic
+		RTT min/avg/max: 0/0/0 usec
+		Local timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+			Echo transmission interval: disabled
+		Remote timers:
+			Detect-multiplier: 3
+			Receive interval: 100ms
+			Transmission interval: 100ms
+			Echo receive interval: 50ms
+

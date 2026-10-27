@@ -146,3 +146,16 @@ def test_renderer_configures_bgp_and_host_source_routing(tmp_path: Path) -> None
     assert "ip address 10.210.0.5/30" in leaf_config
     assert "ip rule add priority 101 from 10.210.0.2 table 101" in host_setup
     assert "rp_filter=2" in host_setup
+
+
+def test_renderer_leaf_kernel_nexthop_groups_knob(tmp_path: Path) -> None:
+    """E8 §3 insertion fix: off by default; when off, only leaves get the zebra line."""
+    render(load_intent(), tmp_path / "default")
+    assert "zebra nexthop kernel" not in (tmp_path / "default/frr/leaf1/frr.conf").read_text(encoding="utf-8")
+    intent = load_intent()
+    intent["zebra"] = {"leaf_kernel_nexthop_groups": False}
+    render(intent, tmp_path / "fix")
+    for leaf in ("leaf1", "leaf2", "leaf3", "leaf4"):
+        assert "\nno zebra nexthop kernel enable\n" in (tmp_path / f"fix/frr/{leaf}/frr.conf").read_text(encoding="utf-8")
+    for spine in ("spine1", "spine2"):
+        assert "zebra nexthop kernel" not in (tmp_path / f"fix/frr/{spine}/frr.conf").read_text(encoding="utf-8")

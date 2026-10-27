@@ -1,0 +1,46 @@
+# Task 0 preflight 2026-10-27T15:28:28Z (local Tue Oct 27 11:28:28 EDT 2026)
+$ git rev-parse HEAD
+9116bdd451c5f7a8c956db2aed439a8cfd44e31b
+$ containerlab version
+    version: 0.78.2
+     commit: 8e6596157
+$ podman --version
+podman version 5.7.0
+$ uname -r
+6.18.33.2-microsoft-standard-WSL2
+$ nproc
+16
+$ uptime
+ 11:28:29 up 13 days,  5:20,  1 user,  load average: 1.41, 1.65, 1.15
+$ vmstat 5 7  (30 s idle sample after fabric-up + shape-on, no experiment running)
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 1  0   1424 828020 1744992 34708828    0    0     5   320 10801   10  2  2 96  0  0  0
+ 0  0   1424 846996 1744996 34709168    0    0     1   400 13960 22052  2  4 94  0  0  0
+ 1  0   1424 835644 1744996 34709540    0    0     0   654 14973 23822  3  4 93  0  0  0
+ 0  0   1424 856060 1744996 34709588    0    0     0    50 14523 22999  3  4 93  0  0  0
+ 2  0   1424 845160 1744996 34709628    0    0     0   198 13640 21654  2  3 95  0  0  0
+ 1  0   1424 845104 1744996 34710008    0    0     0    13 14940 23863  2  4 94  0  0  0
+ 0  0   1424 858680 1744996 34710044    0    0     0    29 14476 22917  4  4 91  0  0  0
+$ uptime
+ 11:28:59 up 13 days,  5:20,  1 user,  load average: 1.02, 1.54, 1.13
+$ containerlab exec spine1: vtysh -c 'show version'
+% Can't open configuration file /etc/frr/vtysh.conf due to 'No such file or directory'.
+Configuration file[/etc/frr/frr.conf] processing failure: 11
+FRRouting 10.2.1_git (spine1) on Linux(6.18.33.2-microsoft-standard-WSL2).
+$ containerlab exec leaf1: vtysh -c 'show version'
+% Can't open configuration file /etc/frr/vtysh.conf due to 'No such file or directory'.
+Configuration file[/etc/frr/frr.conf] processing failure: 11
+FRRouting 10.2.1_git (leaf1) on Linux(6.18.33.2-microsoft-standard-WSL2).
+$ containerlab exec leaf3: vtysh -c 'show version'
+% Can't open configuration file /etc/frr/vtysh.conf due to 'No such file or directory'.
+Configuration file[/etc/frr/frr.conf] processing failure: 11
+FRRouting 10.2.1_git (leaf3) on Linux(6.18.33.2-microsoft-standard-WSL2).
+$ containerlab exec spine1: uname -r; ip -V
+6.18.33.2-microsoft-standard-WSL2
+ip utility, iproute2-6.9.0
+$ containerlab exec host1: iperf3 --version
+iperf 3.18 (cJSON 1.7.15)
+$ containerlab exec host1: nstat -V; ss -V
+nstat utility, iproute2-6.15.0
+ss utility, iproute2-6.15.0

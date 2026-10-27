@@ -310,3 +310,16 @@ spine before it has the table" is refuted. Measured mechanism: zebra
 reinstates spine1 in the leaf's kernel ECMP group at link-up; the loss
 starts when the leaf resolves spine1's link-local address and ends when
 spine1's FIB has the route. No fix tested yet.
+
+**Status update (E8, 2026-10-27):** H2 tested in
+[E8 §3](E8-restore-and-flap-fixes.md#3-spine-insertion-fix). **Verdict: yes.**
+zebra keeps the route on the old two-member nexthop group at link-down
+(`zebra_nhg_rib_compare_old_nhe … They are the same, using the old nhg
+entry`) and `zebra_interface_nhg_reinstall` puts the group back into the
+kernel at link-up (+0.19 s), with no message from bgpd. **Fix found:** `no
+zebra nexthop kernel enable` on the leaves. The leaves then use spine1 only
+after BGP re-adds it (+2.9–3.8 s), and restore loss was 0 in 3 / 3 runs (same-day
+baseline 1.26 / 1.38 / 2.31 s), with no loss at the failure. Rendered from intent
+(`zebra.leaf_kernel_nexthop_groups`), default unchanged. The run 901
+100 s stall fits FRR's 120 s ConnectRetry timer (E8 §1).
+

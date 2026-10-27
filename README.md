@@ -101,10 +101,10 @@ Selected; every row links its source. Full tables: [RESULTS.md](RESULTS.md).
 | What happens when a GPU node fails? | Pods Ready on the healthy node in 3.8–6.7 s after fencing (3 runs) | SIMULATED GPUs |
 | Does ECMP hashing slow a collective? | Job time tracks the busiest link (r = 0.998, 36 runs); ring with L3 hash ≈ 1.9× the even split, L4 + 16 flows/pair within 1 % (E5) | EMULATED |
 | What does BFD buy when a link fails silently? | Loss window 0.5–0.6 s with BFD vs 7.4–9.1 s without (E2) | EMULATED |
-| Is a flapping link worse than a dead one? | Yes: a 2 s flap every 20 s cost > 30 s of step time vs ≈ 8 s for a dead link; one leaf down stalled the whole ring (E6) | EMULATED |
+| Is a flapping link worse than a dead one? | Yes: a 2 s flap every 20 s cost > 30 s of step time vs ≈ 8 s for a dead link; one leaf down stalled the whole ring (E6). With the window extended the flap step completes at 31.5–37.7 s, and a flap hold-down didn't shorten it ([E8](fabric/experiments/E8-restore-and-flap-fixes.md#4-flap-cost-and-hold-down)) | EMULATED |
 | Can config drift be caught before deploy? | A one-device ASN change in the NX-OS render showed up as 4 half-open sessions in Batfish (≈ 9 s) | OFFLINE-VALIDATED |
 | What does the gateway cost? | ≤ 16 concurrent: −2.7 to −4.7 % rps, +4–11 ms p50 vs direct; above that the single load generator saturates first ([gaps](docs/gaps.md#gpus-and-nodes)) | SIMULATED |
-| Why did recovery lose more than failure? | Not BGP: leaves re-added the restored spine to ECMP at link-up and black-holed traffic until its FIB had routes ([E6](fabric/experiments/E6-failure-drills.md#restore-transient), still open) | EMULATED |
+| Why did recovery lose more than failure? | Not BGP: leaves re-added the restored spine to ECMP at link-up and black-holed traffic until its FIB had routes ([E6](fabric/experiments/E6-failure-drills.md#restore-transient)). Fixed in the lab by `no zebra nexthop kernel enable` on the leaves: restore loss 1.3–2.3 s → 0 in 3 / 3 runs ([E8](fabric/experiments/E8-restore-and-flap-fixes.md#3-spine-insertion-fix)) | EMULATED |
 | What does NCCL do between two T4s? | All-reduce 3.89 GB/s at 1 GiB via host shared memory (PHB topology, P2P declined by default); Tree beats the default Ring by 15 % | Kaggle 2×T4, real |
 
 ## Repository

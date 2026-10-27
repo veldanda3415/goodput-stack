@@ -1,0 +1,21 @@
+# E8 3b candidate 1 probe on leaf3, 2026-10-27T15:44:20.308549708Z, no traffic
+$ [leaf3] vtysh -c 'configure terminal' -c 'no zebra nexthop kernel enable'
+$ [leaf3] vtysh -c 'show running-config' | grep nexthop
+no zebra nexthop kernel enable
+$ [leaf3] vtysh -c 'show zebra' | grep NHG
+ Kernel NHG                     Available                                  
+$ [leaf3] ip route show 10.210.1.8/30
+10.210.1.8/30 nhid 36 proto bgp metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+$ [leaf3] ip nexthop show
+id 4 dev eth0 scope host proto zebra 
+id 5 dev br10103 scope host proto zebra 
+id 6 via 10.253.0.1 dev eth0 scope link proto zebra 
+id 10 dev eth0 scope link proto zebra 
+id 15 dev br10103 scope link proto zebra 
+id 28 via fe80::a8c1:abff:fec8:f751 dev eth2 scope link proto zebra 
+id 31 via fe80::a8c1:abff:feae:accb dev eth1 scope link proto zebra 
+id 32 via 10.200.0.11 dev br50001 scope link proto zebra onlink 
+id 36 group 28/31 proto zebra 
+id 39 group 32 proto zebra 

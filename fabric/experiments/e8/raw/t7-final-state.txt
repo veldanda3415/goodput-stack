@@ -1,0 +1,17 @@
+# E8 final lab state 2026-10-27T17:10:34Z
+[leaf1] zebra nexthop/coalesce/debug lines in running-config: 0
+[leaf2] zebra nexthop/coalesce/debug lines in running-config: 0
+[leaf3] zebra nexthop/coalesce/debug lines in running-config: 0
+[leaf4] zebra nexthop/coalesce/debug lines in running-config: 0
+[spine1] zebra nexthop/coalesce/debug lines in running-config: 0
+[spine2] zebra nexthop/coalesce/debug lines in running-config: 0
+[spine1] net.ipv6.conf.eth1.dad_transmits = 1 net.ipv6.conf.eth2.dad_transmits = 1 net.ipv6.conf.eth3.dad_transmits = 1 net.ipv6.conf.eth4.dad_transmits = 1 
+[leaf1] hash policy 0; eth1 up
+[leaf2] hash policy 0; eth1 up
+[leaf3] hash policy 0; eth1 up
+[leaf4] hash policy 0; eth1 up
+[spine1] eth1 up; holddown procs: 0
+[spine1] live coalesce:  4 Coalesce Time: 1000 
+shaping:   "fully_shaped": true,
+$ make fabric-test
+70 passed in 100.56s (0:01:40)
