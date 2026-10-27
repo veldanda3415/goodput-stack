@@ -942,13 +942,24 @@ still waits for Established + coalesce. No ConnectRetry stall in 3 runs
 went away).
 
 Caveat on the "ND" column: it is #32's event, FRR's RFC 5549 IPv4
-link-local neighbor `169.254.0.1 dev eth1 lladdr …`. With DAD off, rail-B
-loss opens 0.4–1.4 s *before* that entry on either leaf (807: 0.81 vs leaf3
-2.19 / leaf4 1.19). So the kernel's IPv6 neighbor entry for spine1's
-`fe80::` address, which the routes actually use (§3a), resolves earlier than
-FRR's IPv4-LL entry. In the default config the two coincided closely
-enough for #32's "loss opens at ND" to hold. The precise trigger is the IPv6
-neighbor resolution, not the 169.254.0.1 entry.
+link-local neighbor `169.254.0.1 dev eth1 lladdr …`. The routes actually use
+the kernel's IPv6 neighbor for spine1's `fe80::` address (§3a). Both appear
+in the same `ip monitor neigh` capture. First `fe80::… dev eth1 lladdr`
+event vs first `169.254.0.1` event, leaf3 / leaf4:
+
+| run | fe80 (IPv6 LL) | 169.254.0.1 | rail-B loss opens |
+|---|---|---|---|
+| 801–803 baseline | 2.67/2.67, 1.72/1.72, 1.42/2.42 | identical | 2.66, 1.65, 1.34 |
+| 805, 806 candidate 1 | 1.91/2.24, 1.30/2.08 | 2.24/2.24, 1.30/2.30 | no loss |
+| 807 DAD off | 1.87 / **0.84** | 2.19 / 1.19 | **0.81** |
+| 808 DAD off | **0.53** / 0.53 | 0.53 / 0.53 | **0.43** |
+| 809 DAD off | 1.20 / **0.69** | 1.20 / 1.20 | **0.62** |
+
+With DAD off, the loss opens within 0.1 s of the *earlier* leaf's IPv6
+neighbor resolution in all three runs (a ping gap covers both directions).
+The 169.254.0.1 entry can lag it by up to 0.5 s. In the baseline the two
+appear at the same instant, so #32's "loss opens at ND" holds with either
+reading. The precise trigger is the leaf's IPv6 neighbor entry for spine1.
 
 **Verdict: DAD is a loss-*start* timer, not a fix.** Turning it off makes
 the restore loss start ≈ 1.2 s sooner and last longer. Use candidate 1 (§3)
