@@ -769,3 +769,111 @@ Limit: "no member behind the failed leaf" here still means the *same
 servers*, on a NIC whose leaf survived. A job whose members are on other
 servers would share even less. CPU was not the bottleneck at 8 × 16
 streams on 16 vCPU (not measured separately).
+
+## 8. Partial-loss flow placement
+
+Claim tested: "the 1 % loss impact varied (+85 % vs ≈ 0) because of how
+many flows ECMP hashed onto the lossy uplink."
+
+**Retained E6 data first.** The three E6 degrade runs kept per-port
+Prometheus rates, but no flow 5-tuples or placement. Before the fault,
+every rail-A uplink (leaf1:eth1/eth2, leaf2:eth1/eth2) had TX share 0.50,
+i.e. both uplinks were saturated at ≈ 62.5 MB/s, in all three runs. During
+the fault, run 1's lossy leaf1:eth1 fell to 6.5 MB/s (share 0.094). Runs
+2 / 3's lossy leaf2:eth1 / leaf2:eth2 still carried 62.7 / 62.3 MB/s. Byte
+share can't tell the runs apart before the fault, and flow counts weren't
+recorded, so **the retained data doesn't answer the claim**. Rerun below.
+
+Rerun: `python -m fabric.experiments.e8 degrade` = E6's injection command
+unchanged (`tc qdisc replace dev eth1 root netem loss 1% rate 500mbit limit
+1000`), always on **leaf1:eth1** (E6 run 1's uplink, the +85 % case).
+Changed from E6, and why: injected at **T0+10 s** (E6: T0+70 s, chosen for
+Prometheus windows, not needed here) with a 60 s window, so the step
+completes. ×3, shaped, L4. Each run gets new ephemeral source ports, so the
+hash places a different set of flows on eth1. Recorded per run:
+
+- every ring flow's uplink on its source leaf at T0+≈4 s (`ip route get …
+  sport/dport`, as §4);
+- per-socket `ss -tin` every 1 s on host1 and host2 (the two senders behind
+  leaf1; their flows to host3 / host4 leave via eth1 or eth2), giving
+  per-flow `retrans` and `bytes_acked`;
+- leaf1 eth1/eth2 byte counters at 10 Hz;
+- `nstat` on all senders, and step time vs E6's W.
+
+**Prediction (written before the runs):** the egress loss hits only
+leaf1-sourced flows on eth1: host1→host3 and host2→host4, ≈ 8 of each
+pair's 16. If the claim holds, the pair with *more* flows on eth1 is the
+slowest and the step cost grows with that count. Mathis' rate with 1 % loss
+at a few-ms RTT is well over 100 Mbit/s per flow, so ≥ 4 flows should still
+fill 500 Mbit/s. I expect **little step cost (< +10 %)** in most runs and the
+claim to be **inconclusive**: with ≈ 8 ± 2 flows per pair on eth1, n = 3
+gives little spread in flow count. E6 run 1's collapse to 6.5 MB/s is then
+not explained by flow count alone; netem dropping whole GSO super-packets
+(E6 note) is the other candidate.
+
+**Added control (prediction written before it runs).** E6's two "≈ 0"
+runs had the loss on **leaf2** uplinks (leaf2:eth1, leaf2:eth2), and its
++85 % run on leaf1:eth1. If the uplink matters more than the flow count,
+leaf2:eth1 will again show ≈ 0 cost. If the leaf1 result above is general,
+leaf2:eth1 will cost +40 % too. I predict **+40 %**: the injection and the
+traffic are symmetric between leaf1 and leaf2 (each sources two ring pairs),
+so I don't expect an uplink effect. `python -m fabric.experiments.e8
+degrade --where leaf2:eth1` ×3.
+
+**Results (2026-10-27, runs 891–896).** `python -m fabric.experiments.e8_degrade_report` → [`e8/raw/t47-degrade-table.md`](e8/raw/t47-degrade-table.md). Raw: [`e8-degrade-results.json`](e8-degrade-results.json). Per pair sourced on the lossy leaf; per-flow columns from `ss -tin` deltas T0+15→25 s (fault from T0+10 s); iperf3's idle control connection excluded.
+
+| run | step s (Δ vs 20.0) | pair | flows on eth1 / eth2 | pair Mbit/s T0+2–10 → T0+15–25 | mean Mbit/s per flow eth1 / eth2 | retrans per flow eth1 / eth2 | lossy leaf eth1 / eth2 tx Mbit/s T0+15–25 |
+|---|---|---|---|---|---|---|---|
+| 891 leaf1:eth1 | 28.23 (+8.23) | host1→host3 | 8 / 8 | 443 → 284 | 18.6 / 17.2 | 198.8 / 162.0 | 195 / 500 |
+| | | host2→host4 | 3 / 13 | 463 → 339 | 17.1 / 22.3 | 177.7 / 185.7 |  |
+| 892 leaf1:eth1 | 28.97 (+8.97) | host1→host3 | 7 / 9 | 439 → 313 | 19.1 / 20.1 | 311.4 / 284.2 | 158 / 500 |
+| | | host2→host4 | 5 / 11 | 457 → 271 | 13.0 / 18.9 | 233.2 / 299.0 |  |
+| 893 leaf1:eth1 | 29.26 (+9.26) | host1→host3 | 8 / 8 | 454 → 305 | 23.2 / 15.2 | 244.8 / 285.9 | 155 / 500 |
+| | | host2→host4 | 6 / 10 | 445 → 275 | 12.3 / 20.4 | 190.2 / 201.2 |  |
+| 894 leaf2:eth1 | 20.40 (+0.40) | host3→host2 | 9 / 7 | 485 → 477 | 32.3 / 26.6 | 105.2 / 56.6 | 500 / 500 |
+| | | host4→host1 | 10 / 6 | 501 → 509 | 31.2 / 34.0 | 79.1 / 117.3 |  |
+| 895 leaf2:eth1 | 19.88 (+-0.12) | host3→host2 | 8 / 8 | 487 → 518 | 38.3 / 26.5 | 150.9 / 68.4 | 500 / 500 |
+| | | host4→host1 | 9 / 7 | 501 → 469 | 27.2 / 32.9 | 76.8 / 112.6 |  |
+| 896 leaf2:eth1 | 20.58 (+0.58) | host3→host2 | 8 / 8 | 520 → 499 | 30.2 / 32.9 | 81.8 / 130.0 | 500 / 500 |
+| | | host4→host1 | 6 / 10 | 466 → 488 | 26.7 / 32.9 | 88.8 / 118.3 |  |
+
+Step cost against flows on the lossy uplink (both pairs of the lossy leaf):
+
+| Lossy uplink | run | flows on lossy uplink (of 32) | lossy uplink tx | step | Δ |
+|---|---|---|---|---|---|
+| leaf1:eth1 | 891 | 11 | 195 Mbit/s | 28.23 s | +41 % |
+| leaf1:eth1 | 892 | 12 | 158 | 28.97 s | +45 % |
+| leaf1:eth1 | 893 | 14 | 155 | 29.26 s | +46 % |
+| leaf2:eth1 | 894 | 19 | 500 | 20.40 s | +2 % |
+| leaf2:eth1 | 895 | 17 | 500 | 19.88 s | −1 % |
+| leaf2:eth1 | 896 | 14 | 500 | 20.58 s | +3 % |
+
+What it shows:
+
+1. **The uplink reproduces E6's spread exactly.** leaf1:eth1 bites in 3/3
+   runs (+41–46 %; E6 run 1 on the same uplink: +85 % step-equivalent).
+   leaf2:eth1 never bites (−1…+3 %; E6 run 2 on the same uplink: +4 %).
+2. **When it bites, the cost is lost capacity, shared by both pairs.** The
+   lossy uplink carries 155–195 Mbit/s instead of 500, so the leaf has ≈
+   650–700 Mbit/s for two pairs. Both leaf1 pairs drop from ≈ 440–460 to
+   271–339 Mbit/s, *including* host2→host4 in run 891, which had only 3 of
+   its 16 flows on the lossy link. Flows on the lossy link and on the clean
+   one end up at similar per-flow rates (12–23 vs 15–22 Mbit/s): the clean
+   uplink is saturated by more flows.
+3. **Flow count is not the explanation on its own.** With 14 flows on the
+   lossy uplink, run 893 (leaf1) cost +46 % and run 896 (leaf2) +3 %. The
+   per-flow rate under the same 1 % loss differs between the two uplinks
+   (12–23 Mbit/s on leaf1:eth1, 27–38 on leaf2:eth1). That gap, not the
+   count, decides whether the lossy link fills: 14 × ≈ 30 ≈ 420–500 Mbit/s
+   vs 11–14 × ≈ 18 ≈ 150–250 Mbit/s. This data doesn't show why the per-flow
+   rate differs between symmetric-looking uplinks. Candidates not tested:
+   per-path RTT / queueing (leaf1's flows also carry the ACKs of leaf2's
+   pairs on the same uplinks), or netem dropping GSO super-packets at
+   different sizes.
+
+**Verdict on "impact varied because of how many flows ECMP hashed onto the
+lossy uplink": not supported.** The variation follows the uplink (leaf1:eth1
+3/3 bite, leaf2:eth1 0/3), with overlapping flow counts (14 in both
+outcomes). Prediction check: "little cost (< +10 %), inconclusive" was wrong
+for leaf1:eth1 (+41–46 % every run); "+40 % on leaf2:eth1 too" was wrong
+(≈ 0). What *was* right: no flow-count dependence detectable at n = 3.

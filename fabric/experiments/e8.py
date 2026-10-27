@@ -414,6 +414,73 @@ def jobs_report() -> str:
     return "\n".join(lines)
 
 
+DEGRADE_PATH = ROOT / "fabric" / "experiments" / "e8-degrade-results.json"
+DEGRADE_PORT = ("leaf1", "eth1")  # E6 degrade run 1's lossy uplink (+85 %), fixed for every run here
+
+
+def fault_degrade_fixed(node: str = DEGRADE_PORT[0], port: str = DEGRADE_PORT[1]) -> tuple[Any, Any, dict]:
+    """E6's 1 % loss injection (netem loss 1% rate <shaped> limit 1000) on node:port, T0+10 s to the end."""
+    rate = load_intent()["lab_shaping"]["uplink_rate_mbit"]
+    meta = {"how": f"netem loss 1% rate {rate}mbit limit 1000 on {node}:{port} egress", "port": f"{node}:{port}",
+            "inject_at": 10.0, "restore_at": FLAP_DURATION + 1.0}
+
+    def inject():
+        return [e6_drills.sh(node, f"tc qdisc replace dev {port} root netem loss 1% rate {rate}mbit limit 1000")]
+
+    def restore():
+        e6_drills.restore_shaping([node])
+        return [{"node": node, "command": f"{node}-shape-on.sh", "t": time.time(), "rc": 0}]
+    return inject, restore, meta
+
+
+def degrade(label: str, repeats: int, settle: float, where: str = "leaf1:eth1") -> None:
+    """§8: E6 1 % loss on one fixed uplink, with per-flow placement, per-socket retransmits and uplink bytes."""
+    from fabric.experiments.e3.run import background
+    refuse_probes()
+    intent = load_intent()
+    if not shaping.status(intent)["fully_shaped"]:
+        raise RuntimeError("runs with the shaped profile; run make fabric-shape-on")
+    install_sync([h["name"] for h in rail_hosts(intent, "A")])
+    node, port = where.split(":")
+    senders = list(SENDER_IIF[node])
+    blob = base64.b64encode(UPLINK_POLL.encode()).decode()
+    run_raw(node, f"sh -c 'echo {blob} | base64 -d > /tmp/e8_uplinks.py'")
+    results = load(DEGRADE_PATH, "e6_drills.run_once with fault_degrade_fixed via e8 degrade")
+    set_routing(intent, "L4", "ring")
+    run_no = 890 + len(results["runs"])
+    span = FLAP_DURATION + 12
+    try:
+        for repeat in range(1, repeats + 1):
+            run_no += 1
+            procs = {f"nstat:{h}": background(h, NSTAT_LOOP.format(n=span)) for h in SENDERS}
+            procs.update({f"ss:{h}": background(h, SS_LOOP.format(n=span)) for h in senders})
+            procs[f"uplinks:{node}"] = background(node, f"python3 /tmp/e8_uplinks.py {span}")
+            placement: dict[str, Any] = {}
+            timer = threading.Timer(7.0, lambda: placement.update(flow_placement()))
+            timer.start()
+            record = e6_drills.run_once(intent, "degrade-fixed", fault_degrade_fixed(node, port), run_no, FLAP_DURATION)
+            timer.join()
+            record["samplers"] = {}
+            for name, proc in procs.items():
+                node = name.split(":")[1]
+                try:
+                    stdout, _ = proc.communicate(timeout=span + 60)
+                    res = json.loads(stdout)[f"clab-{intent['name']}-{node}"][0]["stdout"]
+                    record["samplers"][name] = res if isinstance(res, str) else json.dumps(res)
+                except Exception as error:  # noqa: BLE001 - a failed sampler is a result
+                    record["samplers"][name] = f"[sampler failed] {error}"[-400:]
+            record.update(label=label, repeat=repeat, placement=placement, lossy=where, senders=senders)
+            record["reconverge_wait_seconds"] = e6_drills.converged(intent)
+            results["runs"].append(record)
+            DEGRADE_PATH.write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
+            print(json.dumps({"label": label, "repeat": repeat, "run": run_no, **flap_summary(record)})[:600], flush=True)
+            time.sleep(settle)
+    finally:
+        set_routing(intent, "L3", "ring")
+        e6_drills.restore_shaping([node])
+        DEGRADE_PATH.write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
+
+
 def apply_commands(commands: list[tuple[str, str]]) -> list[dict[str, Any]]:
     out = []
     for node, command in commands:
@@ -561,7 +628,7 @@ def fmt_restore(label: str | None = None) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("what", choices=["audit", "mechanism", "restore", "restore-report", "flap", "jobs", "jobs-report"])
+    parser.add_argument("what", choices=["audit", "mechanism", "restore", "restore-report", "flap", "jobs", "jobs-report", "degrade"])
     parser.add_argument("--label")
     parser.add_argument("--knob", choices=sorted(KNOBS) or None)
     parser.add_argument("--repeats", type=int, default=3)
@@ -569,6 +636,7 @@ def main() -> None:
     parser.add_argument("--injector", choices=["spine1", "leaf1", "none"], default="spine1", help="flap: which end toggles eth1 (none = no fault)")
     parser.add_argument("--holddown", action="store_true", help="flap: run the EMULATED-POLICY hold-down on spine1:eth1")
     parser.add_argument("--conditions", default="y-alone,xy,xy-leafloss", help="jobs: comma list")
+    parser.add_argument("--where", default="leaf1:eth1", help="degrade: lossy leaf uplink (leaf1|leaf2):(eth1|eth2)")
     parser.add_argument("--out", help="mechanism: raw output file name under e8/raw/")
     args = parser.parse_args()
     if args.what == "audit":
@@ -581,6 +649,8 @@ def main() -> None:
         flap(args.label or "baseline-flap", args.repeats, args.settle, args.injector, args.holddown)
     elif args.what == "jobs":
         jobs(args.conditions.split(","), args.repeats, args.settle)
+    elif args.what == "degrade":
+        degrade(args.label or f"degrade-{args.where.replace(':', '-')}", args.repeats, args.settle, args.where)
     elif args.what == "jobs-report":
         print(jobs_report())
     elif args.what == "restore-report":
