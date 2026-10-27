@@ -37,6 +37,7 @@ make fabric-e6            # E6 failure drills under collective load (shaped)
 .venv/bin/python -m fabric.experiments.e6_restore --repeats 3   # E6: instrumented spine restore (shaped)
 .venv/bin/python -m fabric.experiments.e6_restore_report        # its per-run restore timeline
 make fabric-e7            # E7 EVPN-VXLAN tenant evidence + trap drills
+.venv/bin/python -m fabric.experiments.e8 restore|flap|jobs|degrade ...   # E8 (shaped; see E8 doc)
 make fabric-batfish       # render NX-OS (+FRR) and validate OFFLINE with Batfish
 make fabric-down    # destroy the lab
 ```
@@ -128,8 +129,15 @@ outputs.
   spine back in the leaves' kernel ECMP group at link-up (+0.2 s), before
   BGP is up. Loss starts when the leaf resolves the spine's link-local
   address and ends when the spine's FIB has the route (1.3–1.6 s on rail B).
-  `bgp update-delay` doesn't apply (process restart only); no knob added;
-  Still open.
+  `bgp update-delay` doesn't apply (process restart only). H2 tested and
+  fixed in E8.
+- [E8 — restore and flap fixes](experiments/E8-restore-and-flap-fixes.md):
+  timer/DAD audit; H2 confirmed (zebra reinstalls its kept nexthop group at
+  link-up); `no zebra nexthop kernel enable` on the leaves cut spine-restore
+  loss to 0 in 3 / 3 runs; flap step 31.5–37.7 s with an EMULATED-POLICY
+  hold-down giving no gain; DAD-off and spine `coalesce-time` don't shrink the
+  window; a rail-B job is unaffected by leaf1 loss; 1 % loss cost follows the
+  uplink, not the flow count.
 - [E7 — EVPN-VXLAN tenancy](experiments/E7-evpn-tenancy.md): two tenant VRFs
   (symmetric IRB, explicit RTs, anycast gateway MAC) on the front end;
   reachability, isolation (including two tenants on one leaf), VNI captures,
