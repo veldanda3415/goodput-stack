@@ -344,7 +344,7 @@ Then `python -m fabric.experiments.e8 restore --label c1-no-kernel-nhg --knob no
 The knob goes on leaf1–4, followed by one no-traffic spine1 down 3 s / up
 cycle so every route is reinstalled under it. Then 3 restores, then the
 revert (`zebra nexthop kernel enable` + the same cycle). Runs 804–806,
-2026-10-27 11:48–11:52 EDT. A column was added for both install styles:
+2026-10-27, run T0s 11:46:33–11:48:47 EDT. A column was added for both install styles:
 "leaf kernel routes to remote prefixes use spine1" comes from the 10.2.1
 poller's `ip -4 route show proto bgp` grouped by device. The monitor-based
 "group" column only sees nexthop-group objects, and the monitor parser keeps
@@ -461,7 +461,7 @@ as in E6. Raw: [`e8-flap-results.json`](e8-flap-results.json).
   are lost and the queue drains), but no growth across flaps, because each
   flow recovers within 2 s and the backoff resets on the next ACK.
 
-**Results (2026-10-27 12:03–12:16 EDT).** Flap runs 851–853. Same-day
+**Results (2026-10-27, run T0s 11:58:40–12:09:09 EDT).** Flap runs 851–853. Same-day
 no-fault control with the same 60 s window and samplers: runs 854–856
 (`--injector none`). Per-cycle bins:
 [`e8/raw/t4a-flap-bins.txt`](e8/raw/t4a-flap-bins.txt)
@@ -573,7 +573,7 @@ the far end is up: T0+11–13 and T0+19–21 removed = **≈ 4 s**. The hold-dow
 would only cut step time if the flapping went on past the point where the
 link could have stabilised. With this injector it doesn't.
 
-**Results (2026-10-27 12:19–12:33 EDT).** Control runs 857–859, hold-down
+**Results (2026-10-27, run T0s 12:12:55–12:20:37 EDT).** Control runs 857–859, hold-down
 runs 860–862. Bins: [`e8/raw/t4b-flap-bins.txt`](e8/raw/t4b-flap-bins.txt).
 Hold-down event log (T0-relative, identical to ±0.05 s in all three runs,
 e.g. run 860): `down 5.20, up 7.20, down 9.20 → hold_start 9.20, hold_end
