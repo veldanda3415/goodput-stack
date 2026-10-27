@@ -209,3 +209,94 @@ which means "an internal random-generated" seed (ip-sysctl.rst), and every
 spine1. That is a probe-coverage limit, not a change in behaviour. A ping
 gap covers both directions, so a window can open at either leaf's ND (run
 802: leaf2's at 1.72 s, before leaf1's at 2.72 s).
+
+## 3. Spine insertion fix
+
+### 3a. Mechanism (H2)
+
+H2 (#32): the leaf re-adds spine1 to the kernel ECMP group at link-up
+because zebra reinstalls the still-referenced nexthop group as soon as the
+interface is up, independent of BGP.
+
+Method: `python -m fabric.experiments.e8 mechanism` (no traffic). On
+leaf3 (rail B): enable `debug zebra events / nexthop detail / rib / kernel`
+into `log file /tmp/frr-e8.log`, put spine1 eth1–eth4 down, and after 5 s
+snapshot leaf3's kernel nexthops and routes, `show nexthop-group rib`,
+`show ip route 10.210.1.8/30` and `show bgp ipv4 unicast 10.210.1.8/30`. Then
+run `ip -ts monitor nexthop route link` and `ip -6 -ts monitor neigh` on leaf3
+and bring spine1's links up. The debug lines and log file are removed
+afterwards.
+
+**Prediction (written before the run):**
+
+1. With spine1 down, BGP on leaf3 has only spine2's path for remote
+   prefixes, and the kernel route points at a single nexthop (spine2). But
+   zebra's NHG for the two-path group (kernel `id 36 group 28/31` before) is
+   still in `show nexthop-group rib` with the spine1 member inactive, kept by
+   `nexthop-group keep` (180 s) or still referenced.
+2. At link-up, before any BGP event, zebra (`proto zebra`) re-adds the
+   singleton nexthop for spine1's link-local on eth1 and then the group
+   containing it, and moves routes onto that group. The zebra debug log shows
+   the trigger as an interface-up event, not a route update from bgpd.
+
+H2 is **refuted** if the routes stay on the spine2-only nexthop until bgpd
+sends an update, or if the kernel itself (no `proto zebra` object) restores
+the member.
+
+**Result (2026-10-27 11:40:51–11:41:12 EDT, leaf3):** raw
+[`e8/raw/t3a-mechanism.txt`](e8/raw/t3a-mechanism.txt) (snapshots, both
+monitors, the full zebra debug log). **Verdict on H2: yes.** The mechanism
+has two steps, both in zebra, and only the second was in H2:
+
+1. **At link-down, zebra keeps the old group.** bgpd withdraws spine1's
+   path and sends the route with spine2 only. zebra compares it with the
+   installed entry, ignores the now-inactive spine1 member, and keeps the old
+   two-member nexthop entry:
+
+   ```
+   15:40:51 zebra_nhg_rib_compare_old_nhe: 10.210.1.8/30 new id: 28 old id: 36
+   15:40:51 zebra_nhg_nexthop_compare: 10.210.1.8/30 Old is not active going to the next one
+   15:40:51 zebra_nhg_rib_compare_old_nhe:10.210.1.8/30 They are the same, using the old nhg entry
+   15:40:51 netlink_route_multipath_msg_encode: 10.210.1.8/30 nhg_id is 36
+   ```
+
+   Five seconds into the outage, BGP has one path (`Paths: (1 available …)
+   … from eth2`), but zebra's RIB entry still lists spine1
+   (`fe80::…:accb, via eth1 inactive`). Zebra NHG 36 still `Depends: (28)
+   (31)` with RefCnt 11 (all 11 remote routes). The kernel object `id 36` was
+   pruned to `group 28`.
+2. **At link-up, zebra reinstalls that group without asking BGP.** Kernel
+   events and the zebra log, seconds after the restore command (11:40:58.893):
+
+   ```
+   +0.19 [kernel] eth1 … state UP
+   +0.19 [zebra]  Intf eth1(1381) has come UP
+   +0.19 [zebra]  zebra_interface_nhg_reinstall: Installing interface eth1 associated NHGs into kernel
+   +0.19 [zebra]  zebra_interface_nhg_reinstall: Setting the valid flag for nhe 31[fe80::a8c1:abff:feae:accb if 1381 vrfid 0]
+   +0.19 [zebra]  zebra_interface_nhg_reinstall dependent nhe 36[28/31] Setting Reinstall flag
+   +0.19 [kernel] id 31 via fe80::a8c1:abff:feae:accb dev eth1 scope link proto zebra
+   +0.19 [kernel] id 36 group 28/31 proto zebra
+   +0.19 [kernel] 11 routes "nhid 36 proto bgp", now with both nexthops (eth2 + eth1)
+   +1.46 [kernel] fe80::a8c1:abff:feae:accb dev eth1 FAILED      (spine1 LL still tentative)
+   +2.37 [kernel] fe80::a8c1:abff:feae:accb dev eth1 … router DELAY   (ND resolved)
+   +3.74 [kernel] 10.200.0.1 nhid 31 … proto bgp                (first BGP-driven change)
+   ```
+
+The FRR 10.2 source shows why: `if_up()` calls
+`zebra_interface_nhg_reinstall(ifp)` **unconditionally**. Its comment
+reads: "Interface associated NHG's have been deleted on interface down events,
+now that this interface is coming back up, let's resync the zebra -> dplane
+nhg's so that they can be continued to be used". The function's own header
+names the use case "a quick port flap" where zebra believes nothing changed
+([zebra/interface.c](https://github.com/FRRouting/frr/blob/stable/10.2/zebra/interface.c),
+[zebra/zebra_nhg.c](https://github.com/FRRouting/frr/blob/stable/10.2/zebra/zebra_nhg.c)).
+`zebra_nhg_rib_compare_old_nhe` is called from `nexthop_active_update`
+under a changed route of the same type, and neither function checks any
+zebra flag (`nhg keep`, `proto only`, kernel nexthops). So **no 10.2.1 knob
+turns either step off directly**. The reinstall is a deliberate
+fast-recovery feature. It is right for a flap where the far end keeps its
+FIB, and wrong for a spine that comes back with an empty FIB.
+
+Not settled here: the #32 "unexplained" part. Between +0.2 s and ND
+resolution, packets hashed to spine1 wait on an unresolved neighbor. This run
+had no traffic, so it doesn't say whether they are dropped.

@@ -89,6 +89,49 @@ def audit() -> None:
     print(RAW / "t1-audit.txt")
 
 
+DEBUG_ON = ("vtysh -c 'configure terminal' -c 'log file /tmp/frr-e8.log debugging' -c 'debug zebra events' "
+            "-c 'debug zebra nexthop detail' -c 'debug zebra rib' -c 'debug zebra kernel'")
+DEBUG_OFF = ("vtysh -c 'configure terminal' -c 'no debug zebra events' -c 'no debug zebra nexthop detail' "
+             "-c 'no debug zebra rib' -c 'no debug zebra kernel' -c 'no log file'")
+SNAPSHOT = ("ip nexthop show", "ip route show 10.210.1.8/30", "ip -4 route show proto bgp",
+            "vtysh -c 'show nexthop-group rib'", "vtysh -c 'show ip route 10.210.1.8/30'",
+            "vtysh -c 'show bgp ipv4 unicast 10.210.1.8/30'", "vtysh -c 'show interface brief'")
+
+
+def mechanism(leaf: str = "leaf3", down_seconds: float = 5.0, watch_seconds: int = 12) -> None:
+    """3a: what puts spine1 back in the leaf's ECMP group at link-up (no traffic)."""
+    from fabric.experiments.e3.run import background, finish
+    ports = " ".join(SPINE_PORTS)
+    lines = [f"# E8 3a mechanism on {leaf} {datetime.now(timezone.utc).isoformat()} (EMULATED, no traffic)"]
+    lines += [f"\n$ [{leaf}] {DEBUG_ON}", run_raw(leaf, DEBUG_ON).rstrip()]
+    run_raw(leaf, "sh -c ': > /tmp/frr-e8.log'")
+    lines += ["\n## spine1 UP (before)"] + [f"\n$ [{leaf}] {c}\n{run_raw(leaf, c).rstrip()}" for c in SNAPSHOT[:4]]
+    down_t = time.time()
+    lines += [f"\n## {down_t:.3f} spine1: links down", run_raw("spine1", f"sh -c 'for i in {ports}; do ip link set $i down; done'")]
+    time.sleep(down_seconds)
+    lines += ["\n## spine1 DOWN (after %.0f s)" % down_seconds] + [f"\n$ [{leaf}] {c}\n{run_raw(leaf, c).rstrip()}" for c in SNAPSHOT]
+    monitors = {
+        "ip -ts monitor nexthop route link": background(leaf, f"timeout {watch_seconds} ip -ts monitor nexthop route link"),
+        "ip -6 -ts monitor neigh": background(leaf, f"timeout {watch_seconds} ip -6 -ts monitor neigh"),
+    }
+    time.sleep(1.0)
+    up_t = time.time()
+    lines += [f"\n## {up_t:.3f} ({datetime.fromtimestamp(up_t, timezone.utc).isoformat()}) spine1: links up",
+              run_raw("spine1", f"sh -c 'for i in {ports}; do ip link set $i up; done'")]
+    for name, proc in monitors.items():
+        try:
+            out = finish(leaf, proc, timeout=watch_seconds + 30)
+        except RuntimeError as error:  # timeout exits 124: keep what it printed
+            out = str(error)
+        lines += [f"\n$ [{leaf}] {name}  (started {up_t - 1:.3f})", out.rstrip()]
+    lines += ["\n## spine1 UP again (after the watch)"] + [f"\n$ [{leaf}] {c}\n{run_raw(leaf, c).rstrip()}" for c in SNAPSHOT[:4]]
+    lines += [f"\n$ [{leaf}] cat /tmp/frr-e8.log", run_raw(leaf, "cat /tmp/frr-e8.log").rstrip()]
+    lines += [f"\n$ [{leaf}] {DEBUG_OFF}", run_raw(leaf, DEBUG_OFF).rstrip(), run_raw(leaf, "rm -f /tmp/frr-e8.log")]
+    out_path = RAW / "t3a-mechanism.txt"
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(out_path, "restore at", up_t)
+
+
 def apply_commands(commands: list[tuple[str, str]]) -> list[dict[str, Any]]:
     out = []
     for node, command in commands:
@@ -231,7 +274,7 @@ def fmt_restore(label: str | None = None) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("what", choices=["audit", "restore", "restore-report"])
+    parser.add_argument("what", choices=["audit", "mechanism", "restore", "restore-report"])
     parser.add_argument("--label")
     parser.add_argument("--knob", choices=sorted(KNOBS) or None)
     parser.add_argument("--repeats", type=int, default=3)
@@ -239,6 +282,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.what == "audit":
         audit()
+    elif args.what == "mechanism":
+        mechanism()
     elif args.what == "restore":
         restore(args.label or "baseline", args.knob, args.repeats, args.settle)
     elif args.what == "restore-report":
