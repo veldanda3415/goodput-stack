@@ -1,0 +1,66 @@
+# FRR 10.2.1 command definitions present in the running binaries (leaf3 container), 2026-10-27T15:31:12Z
+# grep of 'strings' output; a DEFUN string present here is a command this build parses
+
+$ strings /usr/lib/frr/zebra | grep -E 'nexthop-group keep|zebra nexthop|nexthop proto only|nexthop kernel|coalesce-time|timers connect|update-delay|advertisement-interval|max-med|wait-for-install|suppress-fib|linkdown|connect-retry'
+        leaf advertisement-interval-option {
+  Ignore all v4 routes with linkdown
+  Ignore all v6 routes with linkdown
+ linkdown
+%s: afi: %d if %s, ifindex %d, mpls %s mc_forwarding: %s linkdown %s
+%s: interface %u is mpls on: %d multicast on: %d linkdown: %d
+/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/advertisement-interval-option
+Debug zebra nexthop events
+[no$no] debug zebra nexthop [detail$detail]
+[no] zebra nexthop kernel enable
+[no] zebra nexthop proto only
+[no] zebra nexthop resolve-via-backup
+[no] zebra nexthop-group keep (1-3600)
+__func__, afi, ifp ? ifp->name : "Global", ifp ? ifp->ifindex : ifindex, (zif ? (zif->mpls ? "ON" : "OFF") : "OFF"), (*mcast_set ? "ON" : "OFF"), (*linkdown_set ? "ON" : "OFF")
+__func__, ifindex, mpls_on, mcast_on, linkdown_on
+debug zebra nexthop
+debug zebra nexthop detail
+dplane_ctx_get_netconf_linkdown
+dplane_ctx_set_netconf_linkdown
+no zebra nexthop kernel enable
+no zebra nexthop resolve-via-backup
+zebra nexthop proto only
+zebra nexthop-group keep %u
+
+$ strings /usr/lib/frr/bgpd | grep -E 'nexthop-group keep|zebra nexthop|nexthop proto only|nexthop kernel|coalesce-time|timers connect|update-delay|advertisement-interval|max-med|wait-for-install|suppress-fib|linkdown|connect-retry'
+      leaf coalesce-time {
+      leaf connect-retry-interval {
+      leaf max-med-admin {
+      leaf max-med-onstart-up-time {
+      leaf max-med-onstart-up-value {
+      leaf update-delay-time {
+  deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:global-config-timers/frr-bgp:connect-retry-interval" {
+ bgp max-med administrative
+ bgp max-med on-startup %u
+ bgp suppress-fib-pending
+ coalesce-time %u
+ neighbor %s advertisement-interval %u
+ neighbor %s timers connect %u
+%% update-delay configuration found in vrf %s
+%%Failed: bgp update-delay configured globally. Delete per-vrf not permitted
+%%Failed: global update-delay config not permitted
+%%Failed: per-vrf update-delay config not permitted with global update-delay
+%%Failed: update-delay less than the establish-wait!
+Advertise routes with max-med
+Begin read-only mode - update-delay timer %d seconds
+Read-only mode update-delay limit: %d seconds
+Time (seconds) period for max-med
+[no] bgp suppress-fib-pending
+bgp max-med administrative 
+bgp max-med administrative (0-4294967295)
+bgp max-med on-startup (5-86400) [(0-4294967295)]
+bgp update-delay %d
+bgp update-delay (0-3600)$delay [(1-3600)$wait]
+neighbor <A.B.C.D|X:X::X:X|WORD> advertisement-interval (0-600)
+neighbor <A.B.C.D|X:X::X:X|WORD> timers connect (1-65535)
+no bgp max-med administrative [(0-4294967295)]
+no bgp max-med on-startup [(5-86400) [(0-4294967295)]]
+no bgp update-delay [(0-3600) [(1-3600)]]
+no coalesce-time (0-4294967295)
+no neighbor <A.B.C.D|X:X::X:X|WORD> advertisement-interval [(0-600)]
+no neighbor <A.B.C.D|X:X::X:X|WORD> timers connect [(1-65535)]
+no update-delay [(0-3600) [(1-3600)]]

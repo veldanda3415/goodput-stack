@@ -1,0 +1,1154 @@
+# E8 Task 1 audit 2026-10-27T15:33:58.920475+00:00 (EMULATED, no traffic)
+
+$ [spine1] vtysh -c 'show running-config'
+Building configuration...
+
+Current configuration:
+!
+frr version 10.2.1_git
+frr defaults traditional
+hostname spine1
+domainname localdomain
+log stdout
+!
+interface lo
+ ip address 10.200.0.1/32
+exit
+!
+router bgp 65000
+ bgp router-id 10.200.0.1
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ neighbor PEER_LEAF1 peer-group
+ neighbor PEER_LEAF1 remote-as 65101
+ neighbor PEER_LEAF1 bfd
+ neighbor PEER_LEAF1 bfd profile FABRIC
+ neighbor PEER_LEAF1 timers 3 9
+ neighbor PEER_LEAF1 capability extended-nexthop
+ neighbor PEER_LEAF2 peer-group
+ neighbor PEER_LEAF2 remote-as 65102
+ neighbor PEER_LEAF2 bfd
+ neighbor PEER_LEAF2 bfd profile FABRIC
+ neighbor PEER_LEAF2 timers 3 9
+ neighbor PEER_LEAF2 capability extended-nexthop
+ neighbor PEER_LEAF3 peer-group
+ neighbor PEER_LEAF3 remote-as 65103
+ neighbor PEER_LEAF3 bfd
+ neighbor PEER_LEAF3 bfd profile FABRIC
+ neighbor PEER_LEAF3 timers 3 9
+ neighbor PEER_LEAF3 capability extended-nexthop
+ neighbor PEER_LEAF4 peer-group
+ neighbor PEER_LEAF4 remote-as 65104
+ neighbor PEER_LEAF4 bfd
+ neighbor PEER_LEAF4 bfd profile FABRIC
+ neighbor PEER_LEAF4 timers 3 9
+ neighbor PEER_LEAF4 capability extended-nexthop
+ neighbor eth1 interface peer-group PEER_LEAF1
+ neighbor eth2 interface peer-group PEER_LEAF2
+ neighbor eth3 interface peer-group PEER_LEAF3
+ neighbor eth4 interface peer-group PEER_LEAF4
+ !
+ address-family ipv4 unicast
+  network 10.200.0.1/32
+  neighbor PEER_LEAF1 activate
+  neighbor PEER_LEAF1 route-map FABRIC-IN in
+  neighbor PEER_LEAF1 route-map FABRIC-OUT out
+  neighbor PEER_LEAF2 activate
+  neighbor PEER_LEAF2 route-map FABRIC-IN in
+  neighbor PEER_LEAF2 route-map FABRIC-OUT out
+  neighbor PEER_LEAF3 activate
+  neighbor PEER_LEAF3 route-map FABRIC-IN in
+  neighbor PEER_LEAF3 route-map FABRIC-OUT out
+  neighbor PEER_LEAF4 activate
+  neighbor PEER_LEAF4 route-map FABRIC-IN in
+  neighbor PEER_LEAF4 route-map FABRIC-OUT out
+  maximum-paths 2
+ exit-address-family
+ !
+ address-family l2vpn evpn
+  neighbor PEER_LEAF1 activate
+  neighbor PEER_LEAF1 route-map FABRIC-IN in
+  neighbor PEER_LEAF1 route-map FABRIC-OUT out
+  neighbor PEER_LEAF2 activate
+  neighbor PEER_LEAF2 route-map FABRIC-IN in
+  neighbor PEER_LEAF2 route-map FABRIC-OUT out
+  neighbor PEER_LEAF3 activate
+  neighbor PEER_LEAF3 route-map FABRIC-IN in
+  neighbor PEER_LEAF3 route-map FABRIC-OUT out
+  neighbor PEER_LEAF4 activate
+  neighbor PEER_LEAF4 route-map FABRIC-IN in
+  neighbor PEER_LEAF4 route-map FABRIC-OUT out
+ exit-address-family
+exit
+!
+route-map FABRIC-IN permit 10
+exit
+!
+route-map FABRIC-OUT permit 10
+exit
+!
+bfd
+ profile FABRIC
+  transmit-interval 100
+  receive-interval 100
+ exit
+ !
+exit
+!
+end
+
+$ [spine1] vtysh -c 'show bgp neighbors json'
+{"eth1": {"bgpNeighborAddr": "fe80::a8c1:abff:fee6:a01c", "remoteAs": 65101, "localAs": 65000, "localAsReplaceAsDualAs": false, "nbrExternalLink": true, "localRole": "undefined", "remoteRole": "undefined", "hostname": "leaf1", "domainname": "localdomain", "peerGroup": "PEER_LEAF1", "bgpVersion": 4, "remoteRouterId": "10.200.0.11", "localRouterId": "10.200.0.1", "bgpState": "Established", "bgpTimerUpMsec": 489000, "bgpTimerUpString": "00:08:09", "bgpTimerUpEstablishedEpoch": 1793114750, "bgpTimerLastRead": 0, "bgpTimerLastWrite": 0, "bgpInUpdateElapsedTimeMsecs": 12000, "bgpTimerConfiguredHoldTimeMsecs": 9000, "bgpTimerConfiguredKeepAliveIntervalMsecs": 3000, "bgpTimerHoldTimeMsecs": 9000, "bgpTimerKeepAliveIntervalMsecs": 3000, "bgpTcpMssConfigured": 0, "bgpTcpMssSynced": 9428, "extendedOptionalParametersLength": false, "bgpTimerConfiguredConditionalAdvertisementsSec": 60, "neighborCapabilities": {"4byteAs": "advertisedAndReceived", "extendedMessage": "advertisedAndReceived", "addPath": {"ipv4Unicast": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}, "l2VpnEvpn": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}}, "pathsLimit": {"ipv4Unicast": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}, "l2VpnEvpn": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}}, "extendedNexthop": "advertisedAndReceived", "extendedNexthopFamililesByPeer": {"ipv4Unicast": "recieved"}, "longLivedGracefulRestart": "advertisedAndReceived", "longLivedGracefulRestartByPeer": {"ipv4Unicast": "received"}, "routeRefresh": "advertisedAndReceived", "enhancedRouteRefresh": "advertisedAndReceived", "multiprotocolExtensions": {"ipv4Unicast": {"advertisedAndReceived": true}, "l2VpnEvpn": {"advertisedAndReceived": true}}, "hostName": {"advHostName": "spine1", "advDomainName": "localdomain", "rcvHostName": "leaf1", "rcvDomainName": "localdomain"}, "softwareVersion": {}, "gracefulRestart": "advertisedAndReceived", "gracefulRestartRemoteTimerMsecs": 120000, "addressFamiliesByPeer": "none"}, "gracefulRestartInfo": {"endOfRibSend": {"ipv4Unicast": true, "l2VpnEvpn": true}, "endOfRibRecv": {"ipv4Unicast": true, "l2VpnEvpn": true}, "localGrMode": "Helper*", "remoteGrMode": "Helper", "rBit": true, "nBit": true, "timers": {"configuredRestartTimer": 120, "configuredLlgrStaleTime": 0, "receivedRestartTimer": 120}, "ipv4Unicast": {"fBit": false, "endOfRibStatus": {"endOfRibSend": true, "endOfRibSentAfterUpdate": false, "endOfRibRecv": true}, "timers": {"stalePathTimer": 360, "llgrStaleTime": 0}}}, "messageStats": {"depthInq": 0, "depthOutq": 0, "opensSent": 1, "opensRecv": 1, "notificationsSent": 0, "notificationsRecv": 0, "updatesSent": 63, "updatesRecv": 73, "keepalivesSent": 164, "keepalivesRecv": 164, "routeRefreshSent": 6, "routeRefreshRecv": 6, "capabilitySent": 0, "capabilityRecv": 0, "totalSent": 234, "totalRecv": 244}, "minBtwnAdvertisementRunsTimerMsecs": 0, "addressFamilyInfo": {"ipv4Unicast": {"peerGroupMember": "PEER_LEAF1", "updateGroupId": 1, "subGroupId": 1, "packetQueueLength": 0, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 4, "sentPrefixCounter": 15}, "l2VpnEvpn": {"peerGroupMember": "PEER_LEAF1", "updateGroupId": 2, "subGroupId": 2, "packetQueueLength": 0, "unchangedNextHopPropogatedToNbr": true, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 6, "sentPrefixCounter": 15}}, "connectionsEstablished": 1, "connectionsDropped": 0, "lastResetTimerMsecs": 493000, "lastResetDueTo": "Waiting for peer OPEN", "lastResetCode": 32, "softwareVersion": "n/a", "externalBgpNbrMaxHopsAway": 1, "hostLocal": "fe80::a8c1:abff:feb0:845f", "portLocal": 54258, "hostForeign": "fe80::a8c1:abff:fee6:a01c", "portForeign": 179, "nexthop": "10.200.0.1", "nexthopGlobal": "fe80::a8c1:abff:feb0:845f", "nexthopLocal": "fe80::a8c1:abff:feb0:845f", "bgpConnection": "sharedNetwork", "connectRetryTimer": 120, "estimatedRttInMsecs": 6, "readThread": "on", "writeThread": "on", "peerBfdInfo": {"type": "single hop", "detectMultiplier": 3, "rxMinInterval": 300, "txMinInterval": 300, "status": "Up", "lastUpdate": "0:00:08:08"}}, "eth2": {"bgpNeighborAddr": "fe80::a8c1:abff:fefb:6b76", "remoteAs": 65102, "localAs": 65000, "localAsReplaceAsDualAs": false, "nbrExternalLink": true, "localRole": "undefined", "remoteRole": "undefined", "hostname": "leaf2", "domainname": "localdomain", "peerGroup": "PEER_LEAF2", "bgpVersion": 4, "remoteRouterId": "10.200.0.12", "localRouterId": "10.200.0.1", "bgpState": "Established", "bgpTimerUpMsec": 488000, "bgpTimerUpString": "00:08:08", "bgpTimerUpEstablishedEpoch": 1793114751, "bgpTimerLastRead": 2000, "bgpTimerLastWrite": 2000, "bgpInUpdateElapsedTimeMsecs": 12000, "bgpTimerConfiguredHoldTimeMsecs": 9000, "bgpTimerConfiguredKeepAliveIntervalMsecs": 3000, "bgpTimerHoldTimeMsecs": 9000, "bgpTimerKeepAliveIntervalMsecs": 3000, "bgpTcpMssConfigured": 0, "bgpTcpMssSynced": 9428, "extendedOptionalParametersLength": false, "bgpTimerConfiguredConditionalAdvertisementsSec": 60, "neighborCapabilities": {"4byteAs": "advertisedAndReceived", "extendedMessage": "advertisedAndReceived", "addPath": {"ipv4Unicast": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}, "l2VpnEvpn": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}}, "pathsLimit": {"ipv4Unicast": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}, "l2VpnEvpn": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}}, "extendedNexthop": "advertisedAndReceived", "extendedNexthopFamililesByPeer": {"ipv4Unicast": "recieved"}, "longLivedGracefulRestart": "advertisedAndReceived", "longLivedGracefulRestartByPeer": {"ipv4Unicast": "received"}, "routeRefresh": "advertisedAndReceived", "enhancedRouteRefresh": "advertisedAndReceived", "multiprotocolExtensions": {"ipv4Unicast": {"advertisedAndReceived": true}, "l2VpnEvpn": {"advertisedAndReceived": true}}, "hostName": {"advHostName": "spine1", "advDomainName": "localdomain", "rcvHostName": "leaf2", "rcvDomainName": "localdomain"}, "softwareVersion": {}, "gracefulRestart": "advertisedAndReceived", "gracefulRestartRemoteTimerMsecs": 120000, "addressFamiliesByPeer": "none"}, "gracefulRestartInfo": {"endOfRibSend": {"ipv4Unicast": true, "l2VpnEvpn": true}, "endOfRibRecv": {"ipv4Unicast": true, "l2VpnEvpn": true}, "localGrMode": "Helper*", "remoteGrMode": "Helper", "rBit": true, "nBit": true, "timers": {"configuredRestartTimer": 120, "configuredLlgrStaleTime": 0, "receivedRestartTimer": 120}, "ipv4Unicast": {"fBit": false, "endOfRibStatus": {"endOfRibSend": true, "endOfRibSentAfterUpdate": true, "endOfRibRecv": true}, "timers": {"stalePathTimer": 360, "llgrStaleTime": 0}}}, "messageStats": {"depthInq": 0, "depthOutq": 0, "opensSent": 2, "opensRecv": 1, "notificationsSent": 0, "notificationsRecv": 0, "updatesSent": 66, "updatesRecv": 62, "keepalivesSent": 163, "keepalivesRecv": 163, "routeRefreshSent": 4, "routeRefreshRecv": 2, "capabilitySent": 0, "capabilityRecv": 0, "totalSent": 235, "totalRecv": 228}, "minBtwnAdvertisementRunsTimerMsecs": 0, "addressFamilyInfo": {"ipv4Unicast": {"peerGroupMember": "PEER_LEAF2", "updateGroupId": 7, "subGroupId": 7, "packetQueueLength": 0, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 4, "sentPrefixCounter": 15}, "l2VpnEvpn": {"peerGroupMember": "PEER_LEAF2", "updateGroupId": 8, "subGroupId": 8, "packetQueueLength": 0, "unchangedNextHopPropogatedToNbr": true, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 3, "sentPrefixCounter": 15}}, "connectionsEstablished": 1, "connectionsDropped": 0, "lastResetTimerMsecs": 493000, "lastResetDueTo": "No AFI/SAFI activated for peer", "lastResetCode": 30, "softwareVersion": "n/a", "externalBgpNbrMaxHopsAway": 1, "hostLocal": "fe80::a8c1:abff:feab:f934", "portLocal": 179, "hostForeign": "fe80::a8c1:abff:fefb:6b76", "portForeign": 47146, "nexthop": "10.200.0.1", "nexthopGlobal": "fe80::a8c1:abff:feab:f934", "nexthopLocal": "fe80::a8c1:abff:feab:f934", "bgpConnection": "sharedNetwork", "connectRetryTimer": 120, "estimatedRttInMsecs": 0, "readThread": "on", "writeThread": "on", "peerBfdInfo": {"type": "single hop", "detectMultiplier": 3, "rxMinInterval": 300, "txMinInterval": 300, "status": "Up", "lastUpdate": "0:00:08:07"}}, "eth3": {"bgpNeighborAddr": "fe80::a8c1:abff:fe36:1fb4", "remoteAs": 65103, "localAs": 65000, "localAsReplaceAsDualAs": false, "nbrExternalLink": true, "localRole": "undefined", "remoteRole": "undefined", "hostname": "leaf3", "domainname": "localdomain", "peerGroup": "PEER_LEAF3", "bgpVersion": 4, "remoteRouterId": "10.200.0.13", "localRouterId": "10.200.0.1", "bgpState": "Established", "bgpTimerUpMsec": 489000, "bgpTimerUpString": "00:08:09", "bgpTimerUpEstablishedEpoch": 1793114750, "bgpTimerLastRead": 3000, "bgpTimerLastWrite": 3000, "bgpInUpdateElapsedTimeMsecs": 12000, "bgpTimerConfiguredHoldTimeMsecs": 9000, "bgpTimerConfiguredKeepAliveIntervalMsecs": 3000, "bgpTimerHoldTimeMsecs": 9000, "bgpTimerKeepAliveIntervalMsecs": 3000, "bgpTcpMssConfigured": 0, "bgpTcpMssSynced": 9428, "extendedOptionalParametersLength": false, "bgpTimerConfiguredConditionalAdvertisementsSec": 60, "neighborCapabilities": {"4byteAs": "advertisedAndReceived", "extendedMessage": "advertisedAndReceived", "addPath": {"ipv4Unicast": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}, "l2VpnEvpn": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}}, "pathsLimit": {"ipv4Unicast": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}, "l2VpnEvpn": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}}, "extendedNexthop": "advertisedAndReceived", "extendedNexthopFamililesByPeer": {"ipv4Unicast": "recieved"}, "longLivedGracefulRestart": "advertisedAndReceived", "longLivedGracefulRestartByPeer": {"ipv4Unicast": "received"}, "routeRefresh": "advertisedAndReceived", "enhancedRouteRefresh": "advertisedAndReceived", "multiprotocolExtensions": {"ipv4Unicast": {"advertisedAndReceived": true}, "l2VpnEvpn": {"advertisedAndReceived": true}}, "hostName": {"advHostName": "spine1", "advDomainName": "localdomain", "rcvHostName": "leaf3", "rcvDomainName": "localdomain"}, "softwareVersion": {}, "gracefulRestart": "advertisedAndReceived", "gracefulRestartRemoteTimerMsecs": 120000, "addressFamiliesByPeer": "none"}, "gracefulRestartInfo": {"endOfRibSend": {"ipv4Unicast": true, "l2VpnEvpn": true}, "endOfRibRecv": {"ipv4Unicast": true, "l2VpnEvpn": true}, "localGrMode": "Helper*", "remoteGrMode": "Helper", "rBit": true, "nBit": true, "timers": {"configuredRestartTimer": 120, "configuredLlgrStaleTime": 0, "receivedRestartTimer": 120}, "ipv4Unicast": {"fBit": false, "endOfRibStatus": {"endOfRibSend": true, "endOfRibSentAfterUpdate": false, "endOfRibRecv": true}, "timers": {"stalePathTimer": 360, "llgrStaleTime": 0}}}, "messageStats": {"depthInq": 0, "depthOutq": 0, "opensSent": 1, "opensRecv": 1, "notificationsSent": 0, "notificationsRecv": 0, "updatesSent": 60, "updatesRecv": 87, "keepalivesSent": 163, "keepalivesRecv": 163, "routeRefreshSent": 6, "routeRefreshRecv": 6, "capabilitySent": 0, "capabilityRecv": 0, "totalSent": 230, "totalRecv": 257}, "minBtwnAdvertisementRunsTimerMsecs": 0, "addressFamilyInfo": {"ipv4Unicast": {"peerGroupMember": "PEER_LEAF3", "updateGroupId": 3, "subGroupId": 3, "packetQueueLength": 0, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 3, "sentPrefixCounter": 15}, "l2VpnEvpn": {"peerGroupMember": "PEER_LEAF3", "updateGroupId": 4, "subGroupId": 4, "packetQueueLength": 0, "unchangedNextHopPropogatedToNbr": true, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 3, "sentPrefixCounter": 15}}, "connectionsEstablished": 1, "connectionsDropped": 0, "lastResetTimerMsecs": 493000, "lastResetDueTo": "Waiting for peer OPEN", "lastResetCode": 32, "softwareVersion": "n/a", "externalBgpNbrMaxHopsAway": 1, "hostLocal": "fe80::a8c1:abff:feae:accb", "portLocal": 58830, "hostForeign": "fe80::a8c1:abff:fe36:1fb4", "portForeign": 179, "nexthop": "10.200.0.1", "nexthopGlobal": "fe80::a8c1:abff:feae:accb", "nexthopLocal": "fe80::a8c1:abff:feae:accb", "bgpConnection": "sharedNetwork", "connectRetryTimer": 120, "estimatedRttInMsecs": 5, "readThread": "on", "writeThread": "on", "peerBfdInfo": {"type": "single hop", "detectMultiplier": 3, "rxMinInterval": 300, "txMinInterval": 300, "status": "Up", "lastUpdate": "0:00:08:08"}}, "eth4": {"bgpNeighborAddr": "fe80::a8c1:abff:fe5e:be1a", "remoteAs": 65104, "localAs": 65000, "localAsReplaceAsDualAs": false, "nbrExternalLink": true, "localRole": "undefined", "remoteRole": "undefined", "hostname": "leaf4", "domainname": "localdomain", "peerGroup": "PEER_LEAF4", "bgpVersion": 4, "remoteRouterId": "10.200.0.14", "localRouterId": "10.200.0.1", "bgpState": "Established", "bgpTimerUpMsec": 488000, "bgpTimerUpString": "00:08:08", "bgpTimerUpEstablishedEpoch": 1793114751, "bgpTimerLastRead": 2000, "bgpTimerLastWrite": 2000, "bgpInUpdateElapsedTimeMsecs": 12000, "bgpTimerConfiguredHoldTimeMsecs": 9000, "bgpTimerConfiguredKeepAliveIntervalMsecs": 3000, "bgpTimerHoldTimeMsecs": 9000, "bgpTimerKeepAliveIntervalMsecs": 3000, "bgpTcpMssConfigured": 0, "bgpTcpMssSynced": 9428, "extendedOptionalParametersLength": false, "bgpTimerConfiguredConditionalAdvertisementsSec": 60, "neighborCapabilities": {"4byteAs": "advertisedAndReceived", "extendedMessage": "advertisedAndReceived", "addPath": {"ipv4Unicast": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}, "l2VpnEvpn": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}}, "pathsLimit": {"ipv4Unicast": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}, "l2VpnEvpn": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}}, "extendedNexthop": "advertisedAndReceived", "extendedNexthopFamililesByPeer": {"ipv4Unicast": "recieved"}, "longLivedGracefulRestart": "advertisedAndReceived", "longLivedGracefulRestartByPeer": {"ipv4Unicast": "received"}, "routeRefresh": "advertisedAndReceived", "enhancedRouteRefresh": "advertisedAndReceived", "multiprotocolExtensions": {"ipv4Unicast": {"advertisedAndReceived": true}, "l2VpnEvpn": {"advertisedAndReceived": true}}, "hostName": {"advHostName": "spine1", "advDomainName": "localdomain", "rcvHostName": "leaf4", "rcvDomainName": "localdomain"}, "softwareVersion": {}, "gracefulRestart": "advertisedAndReceived", "gracefulRestartRemoteTimerMsecs": 120000, "addressFamiliesByPeer": "none"}, "gracefulRestartInfo": {"endOfRibSend": {"ipv4Unicast": true, "l2VpnEvpn": true}, "endOfRibRecv": {"ipv4Unicast": true, "l2VpnEvpn": true}, "localGrMode": "Helper*", "remoteGrMode": "Helper", "rBit": true, "nBit": true, "timers": {"configuredRestartTimer": 120, "configuredLlgrStaleTime": 0, "receivedRestartTimer": 120}, "ipv4Unicast": {"fBit": false, "endOfRibStatus": {"endOfRibSend": true, "endOfRibSentAfterUpdate": true, "endOfRibRecv": true}, "timers": {"stalePathTimer": 360, "llgrStaleTime": 0}}}, "messageStats": {"depthInq": 0, "depthOutq": 0, "opensSent": 2, "opensRecv": 1, "notificationsSent": 0, "notificationsRecv": 0, "updatesSent": 54, "updatesRecv": 76, "keepalivesSent": 163, "keepalivesRecv": 163, "routeRefreshSent": 2, "routeRefreshRecv": 4, "capabilitySent": 0, "capabilityRecv": 0, "totalSent": 221, "totalRecv": 244}, "minBtwnAdvertisementRunsTimerMsecs": 0, "addressFamilyInfo": {"ipv4Unicast": {"peerGroupMember": "PEER_LEAF4", "updateGroupId": 5, "subGroupId": 5, "packetQueueLength": 0, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 3, "sentPrefixCounter": 15}, "l2VpnEvpn": {"peerGroupMember": "PEER_LEAF4", "updateGroupId": 6, "subGroupId": 6, "packetQueueLength": 0, "unchangedNextHopPropogatedToNbr": true, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 3, "sentPrefixCounter": 15}}, "connectionsEstablished": 1, "connectionsDropped": 0, "lastResetTimerMsecs": 493000, "lastResetDueTo": "No AFI/SAFI activated for peer", "lastResetCode": 30, "softwareVersion": "n/a", "externalBgpNbrMaxHopsAway": 1, "hostLocal": "fe80::a8c1:abff:fe11:e9da", "portLocal": 179, "hostForeign": "fe80::a8c1:abff:fe5e:be1a", "portForeign": 59820, "nexthop": "10.200.0.1", "nexthopGlobal": "fe80::a8c1:abff:fe11:e9da", "nexthopLocal": "fe80::a8c1:abff:fe11:e9da", "bgpConnection": "sharedNetwork", "connectRetryTimer": 120, "estimatedRttInMsecs": 4, "readThread": "on", "writeThread": "on", "peerBfdInfo": {"type": "single hop", "detectMultiplier": 3, "rxMinInterval": 300, "txMinInterval": 300, "status": "Up", "lastUpdate": "0:00:08:07"}}}
+
+$ [spine1] vtysh -c 'show bgp ipv4 unicast update-groups'
+Update-group 3:
+  Created: Tue Oct 27 15:25:50 2026
+  Outgoing route map: FABRIC-OUT
+  MRAI value (seconds): 0
+
+  Update-subgroup 3:
+    Created: Tue Oct 27 15:25:50 2026
+    Join events: 1
+    Prune events: 0
+    Merge events: 0
+    Split events: 0
+    Update group switch events: 0
+    Peer refreshes combined: 0
+    Merge checks triggered: 1
+    Coalesce Time: 1250
+    Version: 15
+    Packet queue length: 0
+    Total packets enqueued: 10
+    Packet queue high watermark: 1
+    Adj-out list count: 15
+    Advertise list: empty
+    Flags: 
+    Max packet size: 65535
+    Peers:
+      - eth3
+Update-group 5:
+  Created: Tue Oct 27 15:25:51 2026
+  Outgoing route map: FABRIC-OUT
+  MRAI value (seconds): 0
+
+  Update-subgroup 5:
+    Created: Tue Oct 27 15:25:51 2026
+    Join events: 1
+    Prune events: 0
+    Merge events: 0
+    Split events: 0
+    Update group switch events: 0
+    Peer refreshes combined: 0
+    Merge checks triggered: 1
+    Coalesce Time: 1250
+    Version: 15
+    Packet queue length: 0
+    Total packets enqueued: 12
+    Packet queue high watermark: 1
+    Adj-out list count: 15
+    Advertise list: empty
+    Flags: 
+    Max packet size: 65535
+    Peers:
+      - eth4
+Update-group 7:
+  Created: Tue Oct 27 15:25:51 2026
+  Outgoing route map: FABRIC-OUT
+  MRAI value (seconds): 0
+
+  Update-subgroup 7:
+    Created: Tue Oct 27 15:25:51 2026
+    Join events: 1
+    Prune events: 0
+    Merge events: 0
+    Split events: 0
+    Update group switch events: 0
+    Peer refreshes combined: 0
+    Merge checks triggered: 0
+    Coalesce Time: 1250
+    Version: 15
+    Packet queue length: 0
+    Total packets enqueued: 10
+    Packet queue high watermark: 1
+    Adj-out list count: 15
+    Advertise list: empty
+    Flags: 
+    Max packet size: 65535
+    Peers:
+      - eth2
+Update-group 1:
+  Created: Tue Oct 27 15:25:50 2026
+  Outgoing route map: FABRIC-OUT
+  MRAI value (seconds): 0
+
+  Update-subgroup 1:
+    Created: Tue Oct 27 15:25:50 2026
+    Join events: 1
+    Prune events: 0
+    Merge events: 0
+    Split events: 0
+    Update group switch events: 0
+    Peer refreshes combined: 0
+    Merge checks triggered: 1
+    Coalesce Time: 1250
+    Version: 15
+    Packet queue length: 0
+    Total packets enqueued: 13
+    Packet queue high watermark: 1
+    Adj-out list count: 15
+    Advertise list: empty
+    Flags: 
+    Max packet size: 65535
+    Peers:
+      - eth1
+
+$ [spine1] vtysh -c 'show zebra'
+Zebra started at time Tue Oct 27 15:25:46 2026
+Zebra RIB sweep happened at Tue Oct 27 15:25:46 2026
+ OS                             Linux(6.18.33.2-microsoft-standard-WSL2)   
+ ECMP Maximum                   64                                         
+ v4 Forwarding                  On                                         
+ v6 Forwarding                  On                                         
+ MPLS                           Off                                        
+ EVPN                           Off                                        
+ Kernel socket buffer size      4194304                                    
+ v6 Route Replace Semantics     Replace                                    
+ VRF                            l3mdev Available                           
+ v6 with v4 nexthop             Unavaliable                                
+ ASIC offload                   Unavailable                                
+ RA                             Compiled in                                
+ RFC 5549                       BGP is using                               
+ Kernel NHG                     Available                                  
+ Allow Non FRR route deletion   No                                         
+ v4 All LinkDown Routes         Off                                        
+ v4 Default LinkDown Routes     Off                                        
+ v6 All LinkDown Routes         Off                                        
+ v6 Default LinkDown Routes     Off                                        
+ v4 All MC Forwarding           Off                                        
+ v4 Default MC Forwarding       Off                                        
+ v6 All MC Forwarding           Off                                        
+ v6 Default MC Forwarding       Off                                        
+
+                            Route      Route      Neighbor   LSP        LSP
+VRF                         Installs   Removals    Updates   Installs   Removals
+default                           35          0          4          0          0
+
+$ [spine1] vtysh -c 'show nexthop-group rib'
+ID: 16 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:10
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1376
+           is directly connected, eth4 (vrf default), weight 1
+ID: 18 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:09
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1371
+           via fe80::a8c1:abff:fee6:a01c, eth1 (vrf default), weight 1
+ID: 3 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:14
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 2
+           is directly connected, eth0 (vrf default), weight 1
+ID: 20 (zebra)
+     RefCnt: 3
+     Uptime: 00:08:09
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1380
+           via fe80::a8c1:abff:fe36:1fb4, eth3 (vrf default), weight 1
+ID: 4 (zebra)
+     RefCnt: 1
+     Uptime: 00:08:12
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 2
+           via 10.253.0.1, eth0 (vrf default), weight 1
+ID: 22 (zebra)
+     RefCnt: 3
+     Uptime: 00:08:08
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1376
+           via fe80::a8c1:abff:fe5e:be1a, eth4 (vrf default), weight 1
+ID: 6 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:14
+     VRF: default(IPv4)
+     Valid, Installed, Initial Delay
+     Interface Index: 1
+           is directly connected, lo (vrf default), weight 1
+ID: 24 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:08
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1405
+           via fe80::a8c1:abff:fefb:6b76, eth2 (vrf default), weight 1
+ID: 8 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:13
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 2
+           is directly connected, eth0 (vrf default), weight 1
+ID: 10 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:11
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1371
+           is directly connected, eth1 (vrf default), weight 1
+ID: 12 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:11
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1380
+           is directly connected, eth3 (vrf default), weight 1
+ID: 14 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:11
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1405
+           is directly connected, eth2 (vrf default), weight 1
+
+$ [spine1] sh -c 'for i in eth1 eth2 eth3 eth4; do for k in accept_dad dad_transmits router_solicitation_delay optimistic_dad use_optimistic; do echo net.ipv6.conf.$i.$k=$(cat /proc/sys/net/ipv6/conf/$i/$k); done; echo net.ipv6.neigh.$i.retrans_time_ms=$(cat /proc/sys/net/ipv6/neigh/$i/retrans_time_ms); done'
+net.ipv6.conf.eth1.accept_dad=1
+net.ipv6.conf.eth1.dad_transmits=1
+net.ipv6.conf.eth1.router_solicitation_delay=1
+net.ipv6.conf.eth1.optimistic_dad=0
+net.ipv6.conf.eth1.use_optimistic=0
+net.ipv6.neigh.eth1.retrans_time_ms=1000
+net.ipv6.conf.eth2.accept_dad=1
+net.ipv6.conf.eth2.dad_transmits=1
+net.ipv6.conf.eth2.router_solicitation_delay=1
+net.ipv6.conf.eth2.optimistic_dad=0
+net.ipv6.conf.eth2.use_optimistic=0
+net.ipv6.neigh.eth2.retrans_time_ms=1000
+net.ipv6.conf.eth3.accept_dad=1
+net.ipv6.conf.eth3.dad_transmits=1
+net.ipv6.conf.eth3.router_solicitation_delay=1
+net.ipv6.conf.eth3.optimistic_dad=0
+net.ipv6.conf.eth3.use_optimistic=0
+net.ipv6.neigh.eth3.retrans_time_ms=1000
+net.ipv6.conf.eth4.accept_dad=1
+net.ipv6.conf.eth4.dad_transmits=1
+net.ipv6.conf.eth4.router_solicitation_delay=1
+net.ipv6.conf.eth4.optimistic_dad=0
+net.ipv6.conf.eth4.use_optimistic=0
+net.ipv6.neigh.eth4.retrans_time_ms=1000
+
+$ [spine1] sh -c 'for k in fib_multipath_use_neigh fib_multipath_hash_policy; do echo net.ipv4.$k=$(cat /proc/sys/net/ipv4/$k); done'
+net.ipv4.fib_multipath_use_neigh=0
+net.ipv4.fib_multipath_hash_policy=0
+
+$ [leaf1] vtysh -c 'show running-config'
+Building configuration...
+
+Current configuration:
+!
+frr version 10.2.1_git
+frr defaults traditional
+hostname leaf1
+domainname localdomain
+log stdout
+!
+vrf tenant-a
+ vni 50001
+exit-vrf
+!
+vrf tenant-b
+ vni 50002
+exit-vrf
+!
+interface eth3
+ ip address 10.210.0.1/30
+exit
+!
+interface eth4
+ ip address 10.210.0.5/30
+exit
+!
+interface eth5
+ ip address 10.210.0.17/30
+exit
+!
+interface lo
+ ip address 10.200.0.11/32
+exit
+!
+router bgp 65101 vrf tenant-a
+ bgp router-id 10.200.0.11
+ !
+ address-family ipv4 unicast
+  redistribute connected
+ exit-address-family
+ !
+ address-family l2vpn evpn
+  advertise ipv4 unicast
+  route-target import 65000:50001
+  route-target export 65000:50001
+ exit-address-family
+exit
+!
+router bgp 65101 vrf tenant-b
+ bgp router-id 10.200.0.11
+ !
+ address-family ipv4 unicast
+  redistribute connected
+ exit-address-family
+ !
+ address-family l2vpn evpn
+  advertise ipv4 unicast
+  route-target import 65000:50002
+  route-target export 65000:50002
+ exit-address-family
+exit
+!
+router bgp 65101
+ bgp router-id 10.200.0.11
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ neighbor FABRIC peer-group
+ neighbor FABRIC remote-as 65000
+ neighbor FABRIC bfd
+ neighbor FABRIC bfd profile FABRIC
+ neighbor FABRIC timers 3 9
+ neighbor FABRIC capability extended-nexthop
+ neighbor eth1 interface peer-group FABRIC
+ neighbor eth2 interface peer-group FABRIC
+ !
+ address-family ipv4 unicast
+  network 10.200.0.11/32
+  network 10.210.0.0/30
+  network 10.210.0.4/30
+  network 10.210.0.16/30
+  neighbor FABRIC activate
+  neighbor FABRIC route-map FABRIC-IN in
+  neighbor FABRIC route-map FABRIC-OUT out
+  maximum-paths 2
+ exit-address-family
+ !
+ address-family l2vpn evpn
+  neighbor FABRIC activate
+  neighbor FABRIC route-map FABRIC-IN in
+  neighbor FABRIC route-map FABRIC-OUT out
+  advertise-all-vni
+  vni 10201
+   route-target import 65000:10201
+   route-target export 65000:10201
+  exit-vni
+  vni 10101
+   route-target import 65000:10101
+   route-target export 65000:10101
+  exit-vni
+ exit-address-family
+exit
+!
+route-map FABRIC-IN permit 10
+exit
+!
+route-map FABRIC-OUT permit 10
+exit
+!
+bfd
+ profile FABRIC
+  transmit-interval 100
+  receive-interval 100
+ exit
+ !
+exit
+!
+end
+
+$ [leaf1] vtysh -c 'show bgp neighbors json'
+{"eth1": {"bgpNeighborAddr": "fe80::a8c1:abff:feb0:845f", "remoteAs": 65000, "localAs": 65101, "localAsReplaceAsDualAs": false, "nbrExternalLink": true, "localRole": "undefined", "remoteRole": "undefined", "hostname": "spine1", "domainname": "localdomain", "peerGroup": "FABRIC", "bgpVersion": 4, "remoteRouterId": "10.200.0.1", "localRouterId": "10.200.0.11", "bgpState": "Established", "bgpTimerUpMsec": 490000, "bgpTimerUpString": "00:08:10", "bgpTimerUpEstablishedEpoch": 1793114750, "bgpTimerLastRead": 1000, "bgpTimerLastWrite": 1000, "bgpInUpdateElapsedTimeMsecs": 13000, "bgpTimerConfiguredHoldTimeMsecs": 9000, "bgpTimerConfiguredKeepAliveIntervalMsecs": 3000, "bgpTimerHoldTimeMsecs": 9000, "bgpTimerKeepAliveIntervalMsecs": 3000, "bgpTcpMssConfigured": 0, "bgpTcpMssSynced": 9428, "extendedOptionalParametersLength": false, "bgpTimerConfiguredConditionalAdvertisementsSec": 60, "neighborCapabilities": {"4byteAs": "advertisedAndReceived", "extendedMessage": "advertisedAndReceived", "addPath": {"ipv4Unicast": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}, "l2VpnEvpn": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}}, "pathsLimit": {"ipv4Unicast": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}, "l2VpnEvpn": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}}, "extendedNexthop": "advertisedAndReceived", "extendedNexthopFamililesByPeer": {"ipv4Unicast": "recieved"}, "longLivedGracefulRestart": "advertisedAndReceived", "longLivedGracefulRestartByPeer": {"ipv4Unicast": "received"}, "routeRefresh": "advertisedAndReceived", "enhancedRouteRefresh": "advertisedAndReceived", "multiprotocolExtensions": {"ipv4Unicast": {"advertisedAndReceived": true}, "l2VpnEvpn": {"advertisedAndReceived": true}}, "hostName": {"advHostName": "leaf1", "advDomainName": "localdomain", "rcvHostName": "spine1", "rcvDomainName": "localdomain"}, "softwareVersion": {}, "gracefulRestart": "advertisedAndReceived", "gracefulRestartRemoteTimerMsecs": 120000, "addressFamiliesByPeer": "none"}, "gracefulRestartInfo": {"endOfRibSend": {"ipv4Unicast": true, "l2VpnEvpn": true}, "endOfRibRecv": {"ipv4Unicast": true, "l2VpnEvpn": true}, "localGrMode": "Helper*", "remoteGrMode": "Helper", "rBit": true, "nBit": true, "timers": {"configuredRestartTimer": 120, "configuredLlgrStaleTime": 0, "receivedRestartTimer": 120}, "ipv4Unicast": {"fBit": false, "endOfRibStatus": {"endOfRibSend": true, "endOfRibSentAfterUpdate": false, "endOfRibRecv": true}, "timers": {"stalePathTimer": 360, "llgrStaleTime": 0}}}, "messageStats": {"depthInq": 0, "depthOutq": 0, "opensSent": 2, "opensRecv": 1, "notificationsSent": 0, "notificationsRecv": 0, "updatesSent": 73, "updatesRecv": 63, "keepalivesSent": 164, "keepalivesRecv": 164, "routeRefreshSent": 6, "routeRefreshRecv": 6, "capabilitySent": 0, "capabilityRecv": 0, "totalSent": 245, "totalRecv": 234}, "minBtwnAdvertisementRunsTimerMsecs": 0, "addressFamilyInfo": {"ipv4Unicast": {"peerGroupMember": "FABRIC", "updateGroupId": 1, "subGroupId": 1, "packetQueueLength": 0, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 11, "sentPrefixCounter": 16}, "l2VpnEvpn": {"peerGroupMember": "FABRIC", "updateGroupId": 2, "subGroupId": 2, "packetQueueLength": 0, "unchangedNextHopPropogatedToNbr": true, "commAttriSentToNbr": "extendedAndStandard", "advertiseAllVnis": true, "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 9, "sentPrefixCounter": 15}}, "connectionsEstablished": 1, "connectionsDropped": 0, "lastResetTimerMsecs": 494000, "lastResetDueTo": "No AFI/SAFI activated for peer", "lastResetCode": 30, "softwareVersion": "n/a", "externalBgpNbrMaxHopsAway": 1, "hostLocal": "fe80::a8c1:abff:fee6:a01c", "portLocal": 179, "hostForeign": "fe80::a8c1:abff:feb0:845f", "portForeign": 54258, "nexthop": "10.200.0.11", "nexthopGlobal": "fe80::a8c1:abff:fee6:a01c", "nexthopLocal": "fe80::a8c1:abff:fee6:a01c", "bgpConnection": "sharedNetwork", "connectRetryTimer": 120, "estimatedRttInMsecs": 0, "readThread": "on", "writeThread": "on", "peerBfdInfo": {"type": "single hop", "detectMultiplier": 3, "rxMinInterval": 300, "txMinInterval": 300, "status": "Up", "lastUpdate": "0:00:08:09"}}, "eth2": {"bgpNeighborAddr": "fe80::a8c1:abff:fe5a:96c4", "remoteAs": 65000, "localAs": 65101, "localAsReplaceAsDualAs": false, "nbrExternalLink": true, "localRole": "undefined", "remoteRole": "undefined", "hostname": "spine2", "domainname": "localdomain", "peerGroup": "FABRIC", "bgpVersion": 4, "remoteRouterId": "10.200.0.2", "localRouterId": "10.200.0.11", "bgpState": "Established", "bgpTimerUpMsec": 490000, "bgpTimerUpString": "00:08:10", "bgpTimerUpEstablishedEpoch": 1793114750, "bgpTimerLastRead": 1000, "bgpTimerLastWrite": 1000, "bgpInUpdateElapsedTimeMsecs": 13000, "bgpTimerConfiguredHoldTimeMsecs": 9000, "bgpTimerConfiguredKeepAliveIntervalMsecs": 3000, "bgpTimerHoldTimeMsecs": 9000, "bgpTimerKeepAliveIntervalMsecs": 3000, "bgpTcpMssConfigured": 0, "bgpTcpMssSynced": 9428, "extendedOptionalParametersLength": false, "bgpTimerConfiguredConditionalAdvertisementsSec": 60, "neighborCapabilities": {"4byteAs": "advertisedAndReceived", "extendedMessage": "advertisedAndReceived", "addPath": {"ipv4Unicast": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}, "l2VpnEvpn": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}}, "pathsLimit": {"ipv4Unicast": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}, "l2VpnEvpn": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}}, "extendedNexthop": "advertisedAndReceived", "extendedNexthopFamililesByPeer": {"ipv4Unicast": "recieved"}, "longLivedGracefulRestart": "advertisedAndReceived", "longLivedGracefulRestartByPeer": {"ipv4Unicast": "received"}, "routeRefresh": "advertisedAndReceived", "enhancedRouteRefresh": "advertisedAndReceived", "multiprotocolExtensions": {"ipv4Unicast": {"advertisedAndReceived": true}, "l2VpnEvpn": {"advertisedAndReceived": true}}, "hostName": {"advHostName": "leaf1", "advDomainName": "localdomain", "rcvHostName": "spine2", "rcvDomainName": "localdomain"}, "softwareVersion": {}, "gracefulRestart": "advertisedAndReceived", "gracefulRestartRemoteTimerMsecs": 120000, "addressFamiliesByPeer": "none"}, "gracefulRestartInfo": {"endOfRibSend": {"ipv4Unicast": true, "l2VpnEvpn": true}, "endOfRibRecv": {"ipv4Unicast": true, "l2VpnEvpn": true}, "localGrMode": "Helper*", "remoteGrMode": "Helper", "rBit": true, "nBit": true, "timers": {"configuredRestartTimer": 120, "configuredLlgrStaleTime": 0, "receivedRestartTimer": 120}, "ipv4Unicast": {"fBit": false, "endOfRibStatus": {"endOfRibSend": true, "endOfRibSentAfterUpdate": false, "endOfRibRecv": true}, "timers": {"stalePathTimer": 360, "llgrStaleTime": 0}}}, "messageStats": {"depthInq": 0, "depthOutq": 0, "opensSent": 2, "opensRecv": 1, "notificationsSent": 0, "notificationsRecv": 0, "updatesSent": 73, "updatesRecv": 66, "keepalivesSent": 164, "keepalivesRecv": 164, "routeRefreshSent": 6, "routeRefreshRecv": 6, "capabilitySent": 0, "capabilityRecv": 0, "totalSent": 245, "totalRecv": 237}, "minBtwnAdvertisementRunsTimerMsecs": 0, "addressFamilyInfo": {"ipv4Unicast": {"peerGroupMember": "FABRIC", "updateGroupId": 1, "subGroupId": 1, "packetQueueLength": 0, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 11, "sentPrefixCounter": 16}, "l2VpnEvpn": {"peerGroupMember": "FABRIC", "updateGroupId": 2, "subGroupId": 2, "packetQueueLength": 0, "unchangedNextHopPropogatedToNbr": true, "commAttriSentToNbr": "extendedAndStandard", "advertiseAllVnis": true, "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 9, "sentPrefixCounter": 15}}, "connectionsEstablished": 1, "connectionsDropped": 0, "lastResetTimerMsecs": 494000, "lastResetDueTo": "No AFI/SAFI activated for peer", "lastResetCode": 30, "softwareVersion": "n/a", "externalBgpNbrMaxHopsAway": 1, "hostLocal": "fe80::a8c1:abff:fea5:1334", "portLocal": 179, "hostForeign": "fe80::a8c1:abff:fe5a:96c4", "portForeign": 53126, "nexthop": "10.200.0.11", "nexthopGlobal": "fe80::a8c1:abff:fea5:1334", "nexthopLocal": "fe80::a8c1:abff:fea5:1334", "bgpConnection": "sharedNetwork", "connectRetryTimer": 120, "estimatedRttInMsecs": 5, "readThread": "on", "writeThread": "on", "peerBfdInfo": {"type": "single hop", "detectMultiplier": 3, "rxMinInterval": 300, "txMinInterval": 300, "status": "Up", "lastUpdate": "0:00:08:09"}}}
+
+$ [leaf1] vtysh -c 'show zebra'
+Zebra started at time Tue Oct 27 15:25:44 2026
+Zebra RIB sweep happened at Tue Oct 27 15:25:44 2026
+ OS                             Linux(6.18.33.2-microsoft-standard-WSL2)   
+ ECMP Maximum                   64                                         
+ v4 Forwarding                  On                                         
+ v6 Forwarding                  On                                         
+ MPLS                           Off                                        
+ EVPN                           On                                         
+ Kernel socket buffer size      4194304                                    
+ v6 Route Replace Semantics     Replace                                    
+ VRF                            l3mdev Available                           
+ v6 with v4 nexthop             Unavaliable                                
+ ASIC offload                   Unavailable                                
+ RA                             Compiled in                                
+ RFC 5549                       BGP is using                               
+ Kernel NHG                     Available                                  
+ Allow Non FRR route deletion   No                                         
+ v4 All LinkDown Routes         Off                                        
+ v4 Default LinkDown Routes     Off                                        
+ v6 All LinkDown Routes         Off                                        
+ v6 Default LinkDown Routes     Off                                        
+ v4 All MC Forwarding           Off                                        
+ v4 Default MC Forwarding       Off                                        
+ v6 All MC Forwarding           Off                                        
+ v6 Default MC Forwarding       Off                                        
+
+                            Route      Route      Neighbor   LSP        LSP
+VRF                         Installs   Removals    Updates   Installs   Removals
+default                           64          0          2          0          0
+tenant-a                          10          2          0          0          0
+tenant-b                          12          3          0          0          0
+
+$ [leaf1] vtysh -c 'show nexthop-group rib'
+ID: 32 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:12
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1407
+           is directly connected, eth7 (vrf default), weight 1
+ID: 65 (zebra)
+     RefCnt: 1
+     Uptime: 00:05:57
+     VRF: default(bad-value)
+     Valid, Installed
+     Depends: (66)
+           via 10.200.0.12, br50002 (vrf tenant-b) onlink, weight 1
+           via 10.200.0.12, br50002 (vrf tenant-b) onlink, weight 1
+ID: 66 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:09
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 9
+           via 10.200.0.12, br50002 (vrf tenant-b) onlink, weight 1
+     Dependents: (65)
+ID: 34 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:12
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1382
+           is directly connected, eth6 (vrf default), weight 1
+ID: 36 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:12
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1409
+           is directly connected, eth5 (vrf default), weight 1
+ID: 5 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:16
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 2
+           is directly connected, eth0 (vrf default), weight 1
+ID: 38 (zebra)
+     RefCnt: 12
+     Uptime: 00:08:09
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1397
+           via fe80::a8c1:abff:fe5a:96c4, eth2 (vrf default), weight 1
+     Dependents: (47)
+ID: 6 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:16
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 6
+           is directly connected, br10101 (vrf tenant-a), weight 1
+ID: 7 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:16
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 11
+           is directly connected, br10201 (vrf tenant-b), weight 1
+ID: 8 (zebra)
+     RefCnt: 1
+     Uptime: 00:08:13
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 2
+           via 10.253.0.1, eth0 (vrf default), weight 1
+ID: 41 (zebra)
+     RefCnt: 12
+     Uptime: 00:08:10
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1372
+           via fe80::a8c1:abff:feb0:845f, eth1 (vrf default), weight 1
+     Dependents: (47)
+ID: 10 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:15
+     VRF: default(IPv4)
+     Valid, Installed, Initial Delay
+     Interface Index: 1
+           is directly connected, lo (vrf default), weight 1
+ID: 12 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:14
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 2
+           is directly connected, eth0 (vrf default), weight 1
+ID: 46 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:09
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 9
+           via 10.200.0.14, br50002 (vrf tenant-b) onlink, weight 1
+     Dependents: (61)
+ID: 14 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:14
+     VRF: default(IPv4)
+     Valid, Installed, Initial Delay
+     Interface Index: 1387
+           is directly connected, eth3 (vrf default), weight 1
+ID: 47 (zebra)
+     RefCnt: 10
+     Uptime: 00:08:09
+     VRF: default(bad-value)
+     Valid, Installed
+     Depends: (38) (41)
+           via fe80::a8c1:abff:fe5a:96c4, eth2 (vrf default), weight 1
+           via fe80::a8c1:abff:feb0:845f, eth1 (vrf default), weight 1
+ID: 16 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:14
+     VRF: default(IPv4)
+     Valid, Installed, Initial Delay
+     Interface Index: 1394
+           is directly connected, eth4 (vrf default), weight 1
+ID: 49 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:10
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 4
+           via 10.200.0.13, br50001 (vrf tenant-a) onlink, weight 1
+     Dependents: (52)
+ID: 18 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:14
+     VRF: default(IPv4)
+     Valid, Installed, Initial Delay
+     Interface Index: 1409
+           is directly connected, eth5 (vrf default), weight 1
+ID: 52 (zebra)
+     RefCnt: 1
+     Uptime: 00:05:44
+     VRF: default(bad-value)
+     Valid, Installed
+     Depends: (49)
+           via 10.200.0.13, br50001 (vrf tenant-a) onlink, weight 1
+           via 10.200.0.13, br50001 (vrf tenant-a) onlink, weight 1
+ID: 21 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:14
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 11
+           is directly connected, br10201 (vrf tenant-b), weight 1
+ID: 22 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:14
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 6
+           is directly connected, br10101 (vrf tenant-a), weight 1
+ID: 24 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:13
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1397
+           is directly connected, eth2 (vrf default), weight 1
+ID: 27 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:13
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1387
+           is directly connected, eth3 (vrf default), weight 1
+ID: 28 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:13
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1394
+           is directly connected, eth4 (vrf default), weight 1
+ID: 61 (zebra)
+     RefCnt: 1
+     Uptime: 00:07:02
+     VRF: default(bad-value)
+     Valid, Installed
+     Depends: (46)
+           via 10.200.0.14, br50002 (vrf tenant-b) onlink, weight 1
+           via 10.200.0.14, br50002 (vrf tenant-b) onlink, weight 1
+ID: 30 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:13
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1372
+           is directly connected, eth1 (vrf default), weight 1
+
+$ [leaf1] vtysh -c 'show bgp ipv4 unicast update-groups'
+Update-group 1:
+  Created: Tue Oct 27 15:25:50 2026
+  Outgoing route map: FABRIC-OUT
+  MRAI value (seconds): 0
+
+  Update-subgroup 1:
+    Created: Tue Oct 27 15:25:50 2026
+    Join events: 2
+    Prune events: 0
+    Merge events: 0
+    Split events: 0
+    Update group switch events: 0
+    Peer refreshes combined: 1
+    Merge checks triggered: 0
+    Coalesce Time: 1150
+    Version: 26
+    Packet queue length: 0
+    Total packets enqueued: 12
+    Packet queue high watermark: 5
+    Adj-out list count: 16
+    Advertise list: empty
+    Flags: 
+    Max packet size: 65535
+    Peers:
+      - eth1
+      - eth2
+
+$ [leaf1] ip nexthop show
+id 5 dev eth0 scope host proto zebra 
+id 6 dev br10101 scope host proto zebra 
+id 7 dev br10201 scope host proto zebra 
+id 8 via 10.253.0.1 dev eth0 scope link proto zebra 
+id 12 dev eth0 scope link proto zebra 
+id 21 dev br10201 scope link proto zebra 
+id 22 dev br10101 scope link proto zebra 
+id 32 dev eth7 scope link proto zebra 
+id 34 dev eth6 scope link proto zebra 
+id 38 via fe80::a8c1:abff:fe5a:96c4 dev eth2 scope link proto zebra 
+id 41 via fe80::a8c1:abff:feb0:845f dev eth1 scope link proto zebra 
+id 46 via 10.200.0.14 dev br50002 scope link proto zebra onlink 
+id 47 group 38/41 proto zebra 
+id 49 via 10.200.0.13 dev br50001 scope link proto zebra onlink 
+id 52 group 49 proto zebra 
+id 61 group 46 proto zebra 
+id 65 group 66 proto zebra 
+id 66 via 10.200.0.12 dev br50002 scope link proto zebra onlink
+
+$ [leaf1] ip route show 10.210.0.8/30
+10.210.0.8/30 nhid 47 proto bgp metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1
+
+$ [leaf1] ip -4 route show proto bgp
+10.200.0.1 nhid 41 via inet6 fe80::a8c1:abff:feb0:845f dev eth1 metric 20 
+10.200.0.2 nhid 38 via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 metric 20 
+10.200.0.12 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.200.0.13 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.200.0.14 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.210.0.8/30 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.210.0.12/30 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.210.0.20/30 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.210.1.0/30 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.210.1.4/30 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.210.1.8/30 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1 
+10.210.1.12/30 nhid 47 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fe5a:96c4 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feb0:845f dev eth1 weight 1
+
+$ [leaf1] sh -c 'for k in fib_multipath_use_neigh fib_multipath_hash_policy; do echo net.ipv4.$k=$(cat /proc/sys/net/ipv4/$k); done'
+net.ipv4.fib_multipath_use_neigh=0
+net.ipv4.fib_multipath_hash_policy=0
+
+$ [leaf1] sh -c 'for i in eth1 eth2; do for k in accept_dad dad_transmits; do echo net.ipv6.conf.$i.$k=$(cat /proc/sys/net/ipv6/conf/$i/$k); done; done'
+net.ipv6.conf.eth1.accept_dad=1
+net.ipv6.conf.eth1.dad_transmits=1
+net.ipv6.conf.eth2.accept_dad=1
+net.ipv6.conf.eth2.dad_transmits=1
+
+$ [leaf3] vtysh -c 'show running-config'
+Building configuration...
+
+Current configuration:
+!
+frr version 10.2.1_git
+frr defaults traditional
+hostname leaf3
+domainname localdomain
+log stdout
+!
+vrf tenant-a
+ vni 50001
+exit-vrf
+!
+interface eth3
+ ip address 10.210.1.1/30
+exit
+!
+interface eth4
+ ip address 10.210.1.5/30
+exit
+!
+interface lo
+ ip address 10.200.0.13/32
+exit
+!
+router bgp 65103 vrf tenant-a
+ bgp router-id 10.200.0.13
+ !
+ address-family ipv4 unicast
+  redistribute connected
+ exit-address-family
+ !
+ address-family l2vpn evpn
+  advertise ipv4 unicast
+  route-target import 65000:50001
+  route-target export 65000:50001
+ exit-address-family
+exit
+!
+router bgp 65103
+ bgp router-id 10.200.0.13
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ neighbor FABRIC peer-group
+ neighbor FABRIC remote-as 65000
+ neighbor FABRIC bfd
+ neighbor FABRIC bfd profile FABRIC
+ neighbor FABRIC timers 3 9
+ neighbor FABRIC capability extended-nexthop
+ neighbor eth1 interface peer-group FABRIC
+ neighbor eth2 interface peer-group FABRIC
+ !
+ address-family ipv4 unicast
+  network 10.200.0.13/32
+  network 10.210.1.0/30
+  network 10.210.1.4/30
+  neighbor FABRIC activate
+  neighbor FABRIC route-map FABRIC-IN in
+  neighbor FABRIC route-map FABRIC-OUT out
+  maximum-paths 2
+ exit-address-family
+ !
+ address-family l2vpn evpn
+  neighbor FABRIC activate
+  neighbor FABRIC route-map FABRIC-IN in
+  neighbor FABRIC route-map FABRIC-OUT out
+  advertise-all-vni
+  vni 10103
+   route-target import 65000:10103
+   route-target export 65000:10103
+  exit-vni
+ exit-address-family
+exit
+!
+route-map FABRIC-IN permit 10
+exit
+!
+route-map FABRIC-OUT permit 10
+exit
+!
+bfd
+ profile FABRIC
+  transmit-interval 100
+  receive-interval 100
+ exit
+ !
+exit
+!
+end
+
+$ [leaf3] vtysh -c 'show bgp neighbors json'
+{"eth1": {"bgpNeighborAddr": "fe80::a8c1:abff:feae:accb", "remoteAs": 65000, "localAs": 65103, "localAsReplaceAsDualAs": false, "nbrExternalLink": true, "localRole": "undefined", "remoteRole": "undefined", "hostname": "spine1", "domainname": "localdomain", "peerGroup": "FABRIC", "bgpVersion": 4, "remoteRouterId": "10.200.0.1", "localRouterId": "10.200.0.13", "bgpState": "Established", "bgpTimerUpMsec": 492000, "bgpTimerUpString": "00:08:12", "bgpTimerUpEstablishedEpoch": 1793114750, "bgpTimerLastRead": 0, "bgpTimerLastWrite": 0, "bgpInUpdateElapsedTimeMsecs": 15000, "bgpTimerConfiguredHoldTimeMsecs": 9000, "bgpTimerConfiguredKeepAliveIntervalMsecs": 3000, "bgpTimerHoldTimeMsecs": 9000, "bgpTimerKeepAliveIntervalMsecs": 3000, "bgpTcpMssConfigured": 0, "bgpTcpMssSynced": 9428, "extendedOptionalParametersLength": false, "bgpTimerConfiguredConditionalAdvertisementsSec": 60, "neighborCapabilities": {"4byteAs": "advertisedAndReceived", "extendedMessage": "advertisedAndReceived", "addPath": {"ipv4Unicast": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}, "l2VpnEvpn": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}}, "pathsLimit": {"ipv4Unicast": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}, "l2VpnEvpn": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}}, "extendedNexthop": "advertisedAndReceived", "extendedNexthopFamililesByPeer": {"ipv4Unicast": "recieved"}, "longLivedGracefulRestart": "advertisedAndReceived", "longLivedGracefulRestartByPeer": {"ipv4Unicast": "received"}, "routeRefresh": "advertisedAndReceived", "enhancedRouteRefresh": "advertisedAndReceived", "multiprotocolExtensions": {"ipv4Unicast": {"advertisedAndReceived": true}, "l2VpnEvpn": {"advertisedAndReceived": true}}, "hostName": {"advHostName": "leaf3", "advDomainName": "localdomain", "rcvHostName": "spine1", "rcvDomainName": "localdomain"}, "softwareVersion": {}, "gracefulRestart": "advertisedAndReceived", "gracefulRestartRemoteTimerMsecs": 120000, "addressFamiliesByPeer": "none"}, "gracefulRestartInfo": {"endOfRibSend": {"ipv4Unicast": true, "l2VpnEvpn": true}, "endOfRibRecv": {"ipv4Unicast": true, "l2VpnEvpn": true}, "localGrMode": "Helper*", "remoteGrMode": "Helper", "rBit": true, "nBit": true, "timers": {"configuredRestartTimer": 120, "configuredLlgrStaleTime": 0, "receivedRestartTimer": 120}, "ipv4Unicast": {"fBit": false, "endOfRibStatus": {"endOfRibSend": true, "endOfRibSentAfterUpdate": false, "endOfRibRecv": true}, "timers": {"stalePathTimer": 360, "llgrStaleTime": 0}}}, "messageStats": {"depthInq": 0, "depthOutq": 0, "opensSent": 2, "opensRecv": 1, "notificationsSent": 0, "notificationsRecv": 0, "updatesSent": 87, "updatesRecv": 60, "keepalivesSent": 165, "keepalivesRecv": 165, "routeRefreshSent": 6, "routeRefreshRecv": 6, "capabilitySent": 0, "capabilityRecv": 0, "totalSent": 260, "totalRecv": 232}, "minBtwnAdvertisementRunsTimerMsecs": 0, "addressFamilyInfo": {"ipv4Unicast": {"peerGroupMember": "FABRIC", "updateGroupId": 1, "subGroupId": 1, "packetQueueLength": 0, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 12, "sentPrefixCounter": 16}, "l2VpnEvpn": {"peerGroupMember": "FABRIC", "updateGroupId": 2, "subGroupId": 2, "packetQueueLength": 0, "unchangedNextHopPropogatedToNbr": true, "commAttriSentToNbr": "extendedAndStandard", "advertiseAllVnis": true, "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 12, "sentPrefixCounter": 15}}, "connectionsEstablished": 1, "connectionsDropped": 0, "lastResetTimerMsecs": 496000, "lastResetDueTo": "No AFI/SAFI activated for peer", "lastResetCode": 30, "softwareVersion": "n/a", "externalBgpNbrMaxHopsAway": 1, "hostLocal": "fe80::a8c1:abff:fe36:1fb4", "portLocal": 179, "hostForeign": "fe80::a8c1:abff:feae:accb", "portForeign": 58830, "nexthop": "10.200.0.13", "nexthopGlobal": "fe80::a8c1:abff:fe36:1fb4", "nexthopLocal": "fe80::a8c1:abff:fe36:1fb4", "bgpConnection": "sharedNetwork", "connectRetryTimer": 120, "estimatedRttInMsecs": 5, "readThread": "on", "writeThread": "on", "peerBfdInfo": {"type": "single hop", "detectMultiplier": 3, "rxMinInterval": 300, "txMinInterval": 300, "status": "Up", "lastUpdate": "0:00:08:11"}}, "eth2": {"bgpNeighborAddr": "fe80::a8c1:abff:fec8:f751", "remoteAs": 65000, "localAs": 65103, "localAsReplaceAsDualAs": false, "nbrExternalLink": true, "localRole": "undefined", "remoteRole": "undefined", "hostname": "spine2", "domainname": "localdomain", "peerGroup": "FABRIC", "bgpVersion": 4, "remoteRouterId": "10.200.0.2", "localRouterId": "10.200.0.13", "bgpState": "Established", "bgpTimerUpMsec": 492000, "bgpTimerUpString": "00:08:12", "bgpTimerUpEstablishedEpoch": 1793114750, "bgpTimerLastRead": 0, "bgpTimerLastWrite": 0, "bgpInUpdateElapsedTimeMsecs": 15000, "bgpTimerConfiguredHoldTimeMsecs": 9000, "bgpTimerConfiguredKeepAliveIntervalMsecs": 3000, "bgpTimerHoldTimeMsecs": 9000, "bgpTimerKeepAliveIntervalMsecs": 3000, "bgpTcpMssConfigured": 0, "bgpTcpMssSynced": 9428, "extendedOptionalParametersLength": false, "bgpTimerConfiguredConditionalAdvertisementsSec": 60, "neighborCapabilities": {"4byteAs": "advertisedAndReceived", "extendedMessage": "advertisedAndReceived", "addPath": {"ipv4Unicast": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}, "l2VpnEvpn": {"rxAdvertisedAndReceived": true, "rxAdvertised": true, "rxReceived": true}}, "pathsLimit": {"ipv4Unicast": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}, "l2VpnEvpn": {"advertisedAndReceived": true, "advertisedPathsLimit": 0, "receivedPathsLimit": 0}}, "extendedNexthop": "advertisedAndReceived", "extendedNexthopFamililesByPeer": {"ipv4Unicast": "recieved"}, "longLivedGracefulRestart": "advertisedAndReceived", "longLivedGracefulRestartByPeer": {"ipv4Unicast": "received"}, "routeRefresh": "advertisedAndReceived", "enhancedRouteRefresh": "advertisedAndReceived", "multiprotocolExtensions": {"ipv4Unicast": {"advertisedAndReceived": true}, "l2VpnEvpn": {"advertisedAndReceived": true}}, "hostName": {"advHostName": "leaf3", "advDomainName": "localdomain", "rcvHostName": "spine2", "rcvDomainName": "localdomain"}, "softwareVersion": {}, "gracefulRestart": "advertisedAndReceived", "gracefulRestartRemoteTimerMsecs": 120000, "addressFamiliesByPeer": "none"}, "gracefulRestartInfo": {"endOfRibSend": {"ipv4Unicast": true, "l2VpnEvpn": true}, "endOfRibRecv": {"ipv4Unicast": true, "l2VpnEvpn": true}, "localGrMode": "Helper*", "remoteGrMode": "Helper", "rBit": true, "nBit": true, "timers": {"configuredRestartTimer": 120, "configuredLlgrStaleTime": 0, "receivedRestartTimer": 120}, "ipv4Unicast": {"fBit": false, "endOfRibStatus": {"endOfRibSend": true, "endOfRibSentAfterUpdate": false, "endOfRibRecv": true}, "timers": {"stalePathTimer": 360, "llgrStaleTime": 0}}}, "messageStats": {"depthInq": 0, "depthOutq": 0, "opensSent": 1, "opensRecv": 1, "notificationsSent": 0, "notificationsRecv": 0, "updatesSent": 82, "updatesRecv": 67, "keepalivesSent": 165, "keepalivesRecv": 165, "routeRefreshSent": 6, "routeRefreshRecv": 6, "capabilitySent": 0, "capabilityRecv": 0, "totalSent": 254, "totalRecv": 239}, "minBtwnAdvertisementRunsTimerMsecs": 0, "addressFamilyInfo": {"ipv4Unicast": {"peerGroupMember": "FABRIC", "updateGroupId": 1, "subGroupId": 1, "packetQueueLength": 0, "commAttriSentToNbr": "extendedAndStandard", "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 12, "sentPrefixCounter": 16}, "l2VpnEvpn": {"peerGroupMember": "FABRIC", "updateGroupId": 2, "subGroupId": 2, "packetQueueLength": 0, "unchangedNextHopPropogatedToNbr": true, "commAttriSentToNbr": "extendedAndStandard", "advertiseAllVnis": true, "inboundPathPolicyConfig": true, "outboundPathPolicyConfig": true, "routeMapForIncomingAdvertisements": "FABRIC-IN", "routeMapForOutgoingAdvertisements": "FABRIC-OUT", "acceptedPrefixCounter": 12, "sentPrefixCounter": 15}}, "connectionsEstablished": 1, "connectionsDropped": 0, "lastResetTimerMsecs": 496000, "lastResetDueTo": "Waiting for peer OPEN", "lastResetCode": 32, "softwareVersion": "n/a", "externalBgpNbrMaxHopsAway": 1, "hostLocal": "fe80::a8c1:abff:fe98:1ee5", "portLocal": 50104, "hostForeign": "fe80::a8c1:abff:fec8:f751", "portForeign": 179, "nexthop": "10.200.0.13", "nexthopGlobal": "fe80::a8c1:abff:fe98:1ee5", "nexthopLocal": "fe80::a8c1:abff:fe98:1ee5", "bgpConnection": "sharedNetwork", "connectRetryTimer": 120, "estimatedRttInMsecs": 6, "readThread": "on", "writeThread": "on", "peerBfdInfo": {"type": "single hop", "detectMultiplier": 3, "rxMinInterval": 300, "txMinInterval": 300, "status": "Up", "lastUpdate": "0:00:08:11"}}}
+
+$ [leaf3] vtysh -c 'show zebra'
+Zebra started at time Tue Oct 27 15:25:45 2026
+Zebra RIB sweep happened at Tue Oct 27 15:25:45 2026
+ OS                             Linux(6.18.33.2-microsoft-standard-WSL2)   
+ ECMP Maximum                   64                                         
+ v4 Forwarding                  On                                         
+ v6 Forwarding                  On                                         
+ MPLS                           Off                                        
+ EVPN                           On                                         
+ Kernel socket buffer size      4194304                                    
+ v6 Route Replace Semantics     Replace                                    
+ VRF                            l3mdev Available                           
+ v6 with v4 nexthop             Unavaliable                                
+ ASIC offload                   Unavailable                                
+ RA                             Compiled in                                
+ RFC 5549                       BGP is using                               
+ Kernel NHG                     Available                                  
+ Allow Non FRR route deletion   No                                         
+ v4 All LinkDown Routes         Off                                        
+ v4 Default LinkDown Routes     Off                                        
+ v6 All LinkDown Routes         Off                                        
+ v6 Default LinkDown Routes     Off                                        
+ v4 All MC Forwarding           Off                                        
+ v4 Default MC Forwarding       Off                                        
+ v6 All MC Forwarding           Off                                        
+ v6 Default MC Forwarding       Off                                        
+
+                            Route      Route      Neighbor   LSP        LSP
+VRF                         Installs   Removals    Updates   Installs   Removals
+default                           63          0          2          0          0
+tenant-a                          10          2          0          0          0
+
+$ [leaf3] vtysh -c 'show nexthop-group rib'
+ID: 32 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:12
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 4
+           via 10.200.0.11, br50001 (vrf tenant-a) onlink, weight 1
+     Dependents: (39)
+ID: 36 (zebra)
+     RefCnt: 11
+     Uptime: 00:08:11
+     VRF: default(bad-value)
+     Valid, Installed
+     Depends: (28) (31)
+           via fe80::a8c1:abff:feae:accb, eth1 (vrf default), weight 1
+           via fe80::a8c1:abff:fec8:f751, eth2 (vrf default), weight 1
+ID: 4 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:17
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 2
+           is directly connected, eth0 (vrf default), weight 1
+ID: 5 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:17
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 6
+           is directly connected, br10103 (vrf tenant-a), weight 1
+ID: 6 (zebra)
+     RefCnt: 1
+     Uptime: 00:08:15
+     VRF: default(IPv4)
+     Valid, Installed
+     Interface Index: 2
+           via 10.253.0.1, eth0 (vrf default), weight 1
+ID: 39 (zebra)
+     RefCnt: 1
+     Uptime: 00:05:46
+     VRF: default(bad-value)
+     Valid, Installed
+     Depends: (32)
+           via 10.200.0.11, br50001 (vrf tenant-a) onlink, weight 1
+           via 10.200.0.11, br50001 (vrf tenant-a) onlink, weight 1
+ID: 8 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:17
+     VRF: default(IPv4)
+     Valid, Installed, Initial Delay
+     Interface Index: 1
+           is directly connected, lo (vrf default), weight 1
+ID: 10 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:16
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 2
+           is directly connected, eth0 (vrf default), weight 1
+ID: 12 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:16
+     VRF: default(IPv4)
+     Valid, Installed, Initial Delay
+     Interface Index: 1390
+           is directly connected, eth3 (vrf default), weight 1
+ID: 15 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:15
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 6
+           is directly connected, br10103 (vrf tenant-a), weight 1
+ID: 16 (zebra)
+     RefCnt: 4
+     Uptime: 00:08:15
+     VRF: default(IPv4)
+     Valid, Installed, Initial Delay
+     Interface Index: 1417
+           is directly connected, eth4 (vrf default), weight 1
+ID: 18 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:14
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1414
+           is directly connected, eth2 (vrf default), weight 1
+ID: 20 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:14
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1390
+           is directly connected, eth3 (vrf default), weight 1
+ID: 22 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:14
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1373
+           is directly connected, eth5 (vrf default), weight 1
+ID: 25 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:14
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1381
+           is directly connected, eth1 (vrf default), weight 1
+ID: 26 (zebra)
+     RefCnt: 2
+     Uptime: 00:08:14
+     VRF: default(IPv6)
+     Valid, Initial Delay
+     Interface Index: 1417
+           is directly connected, eth4 (vrf default), weight 1
+ID: 28 (zebra)
+     RefCnt: 13
+     Uptime: 00:08:11
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1414
+           via fe80::a8c1:abff:fec8:f751, eth2 (vrf default), weight 1
+     Dependents: (36)
+ID: 31 (zebra)
+     RefCnt: 13
+     Uptime: 00:08:12
+     VRF: default(IPv6)
+     Valid, Installed
+     Interface Index: 1381
+           via fe80::a8c1:abff:feae:accb, eth1 (vrf default), weight 1
+     Dependents: (36)
+
+$ [leaf3] vtysh -c 'show bgp ipv4 unicast update-groups'
+Update-group 1:
+  Created: Tue Oct 27 15:25:50 2026
+  Outgoing route map: FABRIC-OUT
+  MRAI value (seconds): 0
+
+  Update-subgroup 1:
+    Created: Tue Oct 27 15:25:50 2026
+    Join events: 3
+    Prune events: 1
+    Merge events: 1
+    Split events: 1
+    Update group switch events: 0
+    Peer refreshes combined: 1
+    Merge checks triggered: 0
+    Coalesce Time: 1150
+    Version: 35
+    Packet queue length: 0
+    Total packets enqueued: 14
+    Packet queue high watermark: 5
+    Adj-out list count: 16
+    Advertise list: empty
+    Flags: 
+    Max packet size: 65535
+    Peers:
+      - eth1
+      - eth2
+
+$ [leaf3] ip nexthop show
+id 4 dev eth0 scope host proto zebra 
+id 5 dev br10103 scope host proto zebra 
+id 6 via 10.253.0.1 dev eth0 scope link proto zebra 
+id 10 dev eth0 scope link proto zebra 
+id 15 dev br10103 scope link proto zebra 
+id 28 via fe80::a8c1:abff:fec8:f751 dev eth2 scope link proto zebra 
+id 31 via fe80::a8c1:abff:feae:accb dev eth1 scope link proto zebra 
+id 32 via 10.200.0.11 dev br50001 scope link proto zebra onlink 
+id 36 group 28/31 proto zebra 
+id 39 group 32 proto zebra
+
+$ [leaf3] ip route show 10.210.1.8/30
+10.210.1.8/30 nhid 36 proto bgp metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1
+
+$ [leaf3] ip -4 route show proto bgp
+10.200.0.1 nhid 31 via inet6 fe80::a8c1:abff:feae:accb dev eth1 metric 20 
+10.200.0.2 nhid 28 via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 metric 20 
+10.200.0.11 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.200.0.12 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.200.0.14 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.210.0.0/30 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.210.0.4/30 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.210.0.8/30 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.210.0.12/30 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.210.0.16/30 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.210.0.20/30 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.210.1.8/30 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1 
+10.210.1.12/30 nhid 36 metric 20 
+	nexthop via inet6 fe80::a8c1:abff:fec8:f751 dev eth2 weight 1 
+	nexthop via inet6 fe80::a8c1:abff:feae:accb dev eth1 weight 1
+
+$ [leaf3] sh -c 'for k in fib_multipath_use_neigh fib_multipath_hash_policy; do echo net.ipv4.$k=$(cat /proc/sys/net/ipv4/$k); done'
+net.ipv4.fib_multipath_use_neigh=0
+net.ipv4.fib_multipath_hash_policy=0
+
+$ [leaf3] sh -c 'for i in eth1 eth2; do for k in accept_dad dad_transmits; do echo net.ipv6.conf.$i.$k=$(cat /proc/sys/net/ipv6/conf/$i/$k); done; done'
+net.ipv6.conf.eth1.accept_dad=1
+net.ipv6.conf.eth1.dad_transmits=1
+net.ipv6.conf.eth2.accept_dad=1
+net.ipv6.conf.eth2.dad_transmits=1
