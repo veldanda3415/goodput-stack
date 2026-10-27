@@ -16,7 +16,9 @@ Usage: python -m fabric.experiments.e8 audit|restore|flap [--repeats N] [--label
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import threading
 import re
 import time
 from datetime import datetime, timezone
@@ -139,6 +141,207 @@ def mechanism(leaf: str = "leaf3", down_seconds: float = 5.0, watch_seconds: int
     out_path = RAW / out_name
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(out_path, "restore at", up_t)
+
+
+FLAP_PATH = ROOT / "fabric" / "experiments" / "e8-flap-results.json"
+FLAP_DURATION = 60  # E6 used 30 s and the flap step had not completed; 60 s lets it finish
+SENDERS = ("host1", "host2", "host3", "host4")
+# leaf -> host-facing iif for the ring senders behind it (intent links host*-leaf1/leaf2, rail A)
+SENDER_IIF = {"leaf1": {"host1": "eth3", "host2": "eth4"}, "leaf2": {"host3": "eth3", "host4": "eth4"}}
+
+NSTAT_LOOP = ("sh -c 'end=$(( $(date +%s) + {n} )); while [ $(date +%s) -lt $end ]; do echo T $(date +%s.%N); "
+              "nstat -asz TcpRetransSegs TcpExtTCPTimeouts TcpExtTCPLossProbes TcpExtTCPSpuriousRTOs TcpOutSegs "
+              "| tail -n +2; sleep 0.5; done'")
+SS_LOOP = ("sh -c 'end=$(( $(date +%s) + {n} )); while [ $(date +%s) -lt $end ]; do echo T $(date +%s.%N); "
+           "ss -tin state established \\( dport \\>= :8100 and dport \\< :8600 \\); sleep 1; done'")
+UPLINK_POLL = r'''
+import sys, time
+end = time.time() + float(sys.argv[1])
+while time.time() < end:
+    t = time.time()
+    row = [f"{t:.3f}"]
+    for dev in ("eth1", "eth2"):
+        for k in ("tx_bytes", "rx_bytes"):
+            try:
+                row.append(open(f"/sys/class/net/{dev}/statistics/{k}").read().strip())
+            except OSError:
+                row.append("nan")
+    print(" ".join(row), flush=True)
+    time.sleep(max(0.0, 0.1 - (time.time() - t)))
+'''
+
+# EMULATED-POLICY link-flap hold-down on spine1:eth1, standing in for a NOS
+# link-flap error-disable with automatic recovery (e.g. Cisco "errdisable detect
+# cause link-flap" + "errdisable recovery", Arista "errdisable flap-setting cause
+# link-flap"). Policy (E8 §4b): on the 2nd carrier-down within WINDOW s, set the
+# port admin-down; re-enable once HOLD s have passed with no new flap. While the
+# port is admin-down the far end is not observable (veth, like a laser that is
+# off), so a hold ends HOLD s after it starts and a down within WINDOW s of the
+# previous one starts the next hold.
+HOLDDOWN = r'''
+import json, subprocess, sys, time
+dev, run_for, window, hold = sys.argv[1], float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4])
+end = time.time() + run_for
+def oper():
+    try:
+        return open(f"/sys/class/net/{dev}/operstate").read().strip()
+    except OSError:
+        return "?"
+def log(**kw):
+    print(json.dumps({"t": time.time(), **kw}), flush=True)
+downs, last = [], oper()
+log(event="start", oper=last)
+while time.time() < end:
+    now, state = time.time(), oper()
+    if state != last:
+        log(event="oper", oper=state)
+        if last == "up" and state != "up":
+            downs = [d for d in downs if now - d <= window] + [now]
+            if len(downs) >= 2:
+                subprocess.run(["ip", "link", "set", dev, "down"])
+                log(event="hold_start", downs_in_window=len(downs))
+                time.sleep(hold)
+                subprocess.run(["ip", "link", "set", dev, "up"])
+                log(event="hold_end")
+                state = oper()
+                log(event="oper", oper=state)
+        last = state
+    time.sleep(0.01)
+log(event="stop", oper=oper())
+'''
+
+
+def fault_flap_leafside():
+    """E6 flap pattern (down 2 s / up 2 s x5 from T0+5 s) driven from leaf1:eth1, the far end of spine1:eth1."""
+    from fabric.experiments.e3.run import background, finish
+    meta = {"link": "spine1:eth1 <-> leaf1:eth1", "how": "leaf1 ip link set eth1 down 2 s / up 2 s, 5 cycles from T0+5 s",
+            "inject_at": 5.0, "restore_at": 25.0}
+    holder: dict[str, Any] = {}
+
+    def inject():
+        holder["p"] = background(
+            "leaf1", "sh -c 'for i in 1 2 3 4 5; do ip link set eth1 down; sleep 2; ip link set eth1 up; sleep 2; done'")
+        return [{"node": "leaf1", "command": "flap loop start", "t": time.time(), "rc": 0}]
+
+    def restore():
+        finish("leaf1", holder["p"], timeout=40)
+        return [e6_drills.sh("leaf1", "ip link set eth1 up")]
+    return inject, restore, meta
+
+
+def flow_placement() -> dict[str, Any]:
+    """Which uplink each ring flow hashes to on its source leaf (L4 hash, both uplinks up)."""
+    out: dict[str, Any] = {}
+    for leaf, iifs in SENDER_IIF.items():
+        for host, iif in iifs.items():
+            sockets = run_raw(host, "ss -tnH state established '( dport >= :8100 and dport < :8600 )'")
+            flows = []
+            for line in sockets.splitlines():
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+                src, dst = parts[-2].rsplit(":", 1), parts[-1].rsplit(":", 1)
+                cmd = (f"ip route get {dst[0]} from {src[0]} iif {iif} ipproto tcp sport {src[1]} dport {dst[1]}")
+                flows.append({"src": src[0], "sport": int(src[1]), "dst": dst[0], "dport": int(dst[1]), "cmd": cmd})
+            if flows:
+                script = "; ".join(f["cmd"] for f in flows)
+                answers = [l for l in run_raw(leaf, f"sh -c '{script}'").splitlines() if " dev " in l]
+                for flow, answer in zip(flows, answers):
+                    flow["dev"] = answer.split(" dev ")[1].split()[0]
+                    flow["route"] = answer.strip()
+            out[host] = {"leaf": leaf, "iif": iif, "flows": flows,
+                         "per_uplink": {d: sum(1 for f in flows if f.get("dev") == d) for d in ("eth1", "eth2")}}
+    return out
+
+
+def flap(label: str, repeats: int, settle: float, injector: str, holddown: bool) -> None:
+    from fabric.experiments.e3.run import background
+    refuse_probes()
+    intent = load_intent()
+    if not shaping.status(intent)["fully_shaped"]:
+        raise RuntimeError("runs with the shaped profile; run make fabric-shape-on")
+    install_sync([h["name"] for h in rail_hosts(intent, "A")])
+    for node, name, body in (("leaf1", "/tmp/e8_uplinks.py", UPLINK_POLL), ("leaf2", "/tmp/e8_uplinks.py", UPLINK_POLL),
+                             ("spine1", "/tmp/e8_holddown.py", HOLDDOWN)):
+        blob = base64.b64encode(body.encode()).decode()
+        run_raw(node, f"sh -c 'echo {blob} | base64 -d > {name}'")
+    results = load(FLAP_PATH, "e6_drills.run_once flap with a longer window via e8 flap")
+    set_routing(intent, "L4", "ring")
+    run_no = 850 + len(results["runs"])
+    span = FLAP_DURATION + 12
+    try:
+        for repeat in range(1, repeats + 1):
+            run_no += 1
+            procs = {f"nstat:{h}": background(h, NSTAT_LOOP.format(n=span)) for h in SENDERS}
+            procs["ss:host1"] = background("host1", SS_LOOP.format(n=span))
+            procs.update({f"uplinks:{l}": background(l, f"python3 /tmp/e8_uplinks.py {span}") for l in ("leaf1", "leaf2")})
+            if holddown:
+                procs["holddown:spine1"] = background("spine1", f"python3 /tmp/e8_holddown.py eth1 {span} 10 5")
+            placement: dict[str, Any] = {}
+            timer = threading.Timer(7.0, lambda: placement.update(flow_placement()))
+            timer.start()
+            if injector == "none":
+                fault = None
+            else:
+                fault = e6_drills.fault_flap() if injector == "spine1" else fault_flap_leafside()
+            record = e6_drills.run_once(intent, "flap" if fault else "baseline", fault, run_no, FLAP_DURATION)
+            timer.join()
+            record["samplers"] = {}
+            for name, proc in procs.items():
+                node = name.split(":")[1]
+                try:
+                    stdout, _ = proc.communicate(timeout=span + 60)
+                    res = json.loads(stdout)[f"clab-{intent['name']}-{node}"][0]["stdout"]
+                    record["samplers"][name] = res if isinstance(res, str) else json.dumps(res)
+                except Exception as error:  # noqa: BLE001 - a failed sampler is a result
+                    record["samplers"][name] = f"[sampler failed] {error}"[-400:]
+            record.update(label=label, repeat=repeat, injector=injector, holddown=holddown, placement=placement)
+            record["reconverge_wait_seconds"] = e6_drills.converged(intent)
+            results["runs"].append(record)
+            FLAP_PATH.write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
+            print(json.dumps({"label": label, "repeat": repeat, "run": run_no, **flap_summary(record)}), flush=True)
+            time.sleep(settle)
+    finally:
+        set_routing(intent, "L3", "ring")
+        run_raw("spine1", "ip link set eth1 up")
+        run_raw("leaf1", "ip link set eth1 up")
+        FLAP_PATH.write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
+
+
+def flap_summary(run: dict[str, Any]) -> dict[str, Any]:
+    from fabric.experiments import e6_report
+    target = e6_report.summarize()["target_bytes"]  # E6's W (baseline slowest pair at T0+20 s)
+    step = e6_report.step_time(run, target)
+    reached = min(e6_report.cumulative(p)[-1][1] for p in run["pairs"] if "timeline" in p) / target
+    stall, stalled, streams = e6_report.stream_stall(run)
+    return {"step": None if step is None else round(step, 2), "reached_W": round(reached, 3),
+            "stall_s": stall, "streams_stalled_1s": stalled, "streams": streams,
+            "tcp": tcp_counters(run), "placement": {h: v["per_uplink"] for h, v in run.get("placement", {}).items()},
+            "holddown": holddown_events(run)}
+
+
+def tcp_counters(run: dict[str, Any]) -> dict[str, dict[str, int]]:
+    """Per sender: counter deltas over the run (first to last nstat sample)."""
+    out = {}
+    for name, text in run.get("samplers", {}).items():
+        if not name.startswith("nstat:"):
+            continue
+        samples, cur = [], None
+        for line in text.splitlines():
+            if line.startswith("T "):
+                cur = {"t": float(line.split()[1])}
+                samples.append(cur)
+            elif cur is not None and line.split() and line.split()[0].startswith("Tcp"):
+                cur[line.split()[0]] = int(line.split()[1])
+        full = [s for s in samples if "TcpRetransSegs" in s]
+        if len(full) >= 2:
+            out[name.split(":")[1]] = {k: full[-1][k] - full[0][k] for k in full[0] if k != "t"}
+    return out
+
+
+def holddown_events(run: dict[str, Any]) -> list[dict[str, Any]]:
+    text = run.get("samplers", {}).get("holddown:spine1", "")
+    return [json.loads(l) for l in text.splitlines() if l.startswith("{")]
 
 
 def apply_commands(commands: list[tuple[str, str]]) -> list[dict[str, Any]]:
@@ -288,11 +491,13 @@ def fmt_restore(label: str | None = None) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("what", choices=["audit", "mechanism", "restore", "restore-report"])
+    parser.add_argument("what", choices=["audit", "mechanism", "restore", "restore-report", "flap"])
     parser.add_argument("--label")
     parser.add_argument("--knob", choices=sorted(KNOBS) or None)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--settle", type=float, default=15.0)
+    parser.add_argument("--injector", choices=["spine1", "leaf1", "none"], default="spine1", help="flap: which end toggles eth1 (none = no fault)")
+    parser.add_argument("--holddown", action="store_true", help="flap: run the EMULATED-POLICY hold-down on spine1:eth1")
     parser.add_argument("--out", help="mechanism: raw output file name under e8/raw/")
     args = parser.parse_args()
     if args.what == "audit":
@@ -301,6 +506,8 @@ def main() -> None:
         mechanism(out_name=args.out or "t3a-mechanism.txt")
     elif args.what == "restore":
         restore(args.label or "baseline", args.knob, args.repeats, args.settle)
+    elif args.what == "flap":
+        flap(args.label or "baseline-flap", args.repeats, args.settle, args.injector, args.holddown)
     elif args.what == "restore-report":
         print(fmt_restore(args.label))
 

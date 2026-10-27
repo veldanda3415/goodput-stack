@@ -423,3 +423,108 @@ Limits: n = 3 per condition; ping probes see only the uplink their hash
 picks (6 flows); the inline-route install costs zebra more netlink work per
 route change (11 routes here, not measured at scale); the knob is
 undocumented in the 10.2 user guide.
+
+## 4. Flap cost and hold-down
+
+### 4a. Baseline flap, window extended until the step completes
+
+`python -m fabric.experiments.e8 flap --label baseline-flap` = E6's
+`fault_flap` exactly: spine1 `ip link set eth1 down; sleep 2; … up; sleep 2`
+×5 from T0+5 s to T0+25 s, ring L4 16 flows/pair, shaped. The difference:
+`iperf3 -t 60` instead of 30, so the step (slowest pair reaches E6's
+W = 1.204 GB) completes inside the window. Added samplers:
+
+- `nstat -asz TcpRetransSegs TcpExtTCPTimeouts TcpExtTCPLossProbes
+  TcpExtTCPSpuriousRTOs TcpOutSegs` every 0.5 s on the four senders;
+- `ss -tin` every 1 s on host1;
+- leaf1 and leaf2 eth1/eth2 tx/rx byte counters at 10 Hz;
+- at T0+≈4 s, every ring flow's 5-tuple (`ss -tnH` on host1–4) and its uplink
+  from `ip route get <dst> from <src> iif <host port> ipproto tcp sport <s>
+  dport <d>` on its source leaf. That gives the flows that move off spine1
+  on each down and back on each up.
+
+Per-flow throughput comes from iperf3's 0.5 s per-stream server intervals,
+as in E6. Raw: [`e8-flap-results.json`](e8-flap-results.json).
+
+**Prediction (written before the runs):**
+
+- Full step time ≈ 32–36 s, i.e. +12–16 s over the 20.0 s baseline. E6 got
+  89–93 % of W at 30 s. At the ≈ 230–270 Mbit/s fault-window pair rate (half
+  rate), the remaining 7–11 % of 1.2 GB takes another ≈ 3–4 s, plus recovery.
+- About half of each leaf's 32 outgoing flows hash to spine1, and those move
+  on every down and every up: ≈ 16 per leaf1 sender pair, 10 moves per flow
+  over the 5 flaps.
+- "TCP backs off on each flap" would show as RTO counts (`TCPTimeouts`)
+  rising by roughly the number of affected flows per flap, and stalls
+  getting longer across successive flaps (exponential RTO backoff). I expect
+  **partly supported**: RTOs on every down (packets in flight on the dead link
+  are lost and the queue drains), but no growth across flaps, because each
+  flow recovers within 2 s and the backoff resets on the next ACK.
+
+**Results (2026-10-27 12:03–12:16 EDT).** Flap runs 851–853. Same-day
+no-fault control with the same 60 s window and samplers: runs 854–856
+(`--injector none`). Per-cycle bins:
+[`e8/raw/t4a-flap-bins.txt`](e8/raw/t4a-flap-bins.txt)
+(`python fabric/experiments/e8_flap_bins.py`).
+
+| | run 851 | run 852 | run 853 | no-fault 854 / 855 / 856 |
+|---|---|---|---|---|
+| **full step time** (slowest pair reaches W) | **31.53 s** | **37.68 s** | **31.91 s** | 22.47 / 20.69 / 20.14 s |
+| Δ vs E6 baseline 20.0 s | +11.5 | +17.7 | +11.9 | +2.5 / +0.7 / +0.1 |
+| pair rate T0+5…25 (all 4 pairs) | ≈ 180–300 Mbit/s | ≈ 120–380 | ≈ 180–310 | ≈ 420–540 |
+| full rate again from | ≈ T0+27 | **never in the window** (BGP stall, below) | ≈ T0+27 | — |
+| leaf1 eth1 (to spine1) tx in each 2 s up phase | 0 / 0 / 3 / 2 / 0 Mbit/s | 3 / 2 / 2 / 0 / 4 | 0 / 3 / 0 / 3 / 0 | 500 (pre-fault) |
+| RTOs (`TCPTimeouts`) per 4 s flap cycle, 4 senders | 71 / 51 / 64 / 93 / 68 | 66 / 89 / 93 / 88 / 53 | 79 / 51 / 95 / 56 / 73 | 9–24 per same window |
+| RTOs whole run, host1 / host2 / host3 / host4 | 225 / 186 / 89 / 84 | 413 / 408 / 114 / 146 | 217 / 228 / 93 / 82 | 78 / 77 / 16 / 19; 94 / 85 / 22 / 15; 60 / 53 / 39 / 40 |
+| retransmitted segments per 4 s flap cycle | 3,478–4,851 | 3,596–5,789 | 3,510–5,493 | 4,394–8,736 |
+| longest stream stall per flap cycle s (streams ≥ 1 s) | 1.0 (3), 0, 0.5, 0.5, 0.5 | 0.5, 0.5, 1.5 (6), 1.5 (2), 0.5 | 1.0 (1), 1.0 (1), 0.5, 0.5, 2.5 (6) | 0 |
+| ring flows hashed to spine1 at T0+4 (host1 / host2 / host3 / host4, of 17 sockets each*) | 10 / 7 / 9 / 12 | 8 / 9 / 7 / 9 | 10 / 7 / 5 / 6 | — |
+| all-up wait after the run | 2.5 s | **81.2 s** | 2.5 s | — |
+
+\* 16 data streams + iperf3's control connection; `ss` can't tell them
+apart.
+
+Flows that change spine per flap. On leaf1 (host1/host2 senders),
+`ip monitor` shows the group re-adding spine1 at every up (`id 41 via …
+dev eth1`, `id 247 group 38/41`, +15.22 / +19.23 / +23.23 s in run 852).
+So the 15–19 leaf1-sourced flows hashed to spine1 move off at each down and
+back at each up: 10 moves per flow over the window. On leaf2 (host3/host4
+senders toward leaf1), the route monitor shows one change to spine2-only at
+T0+5.3 s and one back at T0+26.8 s (runs 851, 853). So the 11–21
+leaf2-sourced flows on spine1 move once each way, not per flap.
+
+What the counters say:
+
+1. **For the step, the link is out for the entire 20 s flap window.** In
+   the 2 s up phases leaf1 sends 0–4 Mbit/s on eth1 (500 Mbit/s before and
+   after). A 2 s up phase is shorter than the ≈ 3 s it takes a returning link
+   to carry traffic (§2: DAD + ND + BGP), so ECMP never gets the capacity
+   back. All four pairs run at about half rate from T0+5 s to T0+27 s. That
+   alone predicts ≈ +11 s (22 s at half rate), and runs 851 / 853 measured
+   +11.5 / +11.9 s.
+2. **TCP does take RTOs on every flap, at a constant rate.** RTOs per cycle
+   are 3–9× the no-fault rate in the same windows, mostly on the leaf1
+   senders. They don't grow across the five flaps, and per-cycle stalls stay
+   at 0.5–2.5 s. Retransmitted segments per cycle are *lower* than with no
+   fault (less data in flight at half rate).
+3. **Run 852 (+17.7 s) is a different failure.** After the last up, the
+   leaf1↔spine1 session stayed in Active (`bgp_bfd_after`: Active on both
+   ends; all-up wait 81.2 s → ConnectRetry, §1). The pairs never returned to
+   full rate inside the 60 s window: the slowest pair finished at 37.68 s at
+   half rate. After T0+30 s, leaf1 sent 1 Mbit/s on eth1. Also, 15 streams
+   *into* leaf1 (host3→host2 6/16, host4→host1 9/16) received zero bytes
+   from T0+27 to T0+59 s. Yet leaf2's kernel routes to leaf1's prefixes
+   were spine2-only the whole time (route monitor). **Why those 15 streams
+   stopped is not explained** by the data here (no `ss` on host3/host4). A
+   long RTO backoff is the leading candidate; host3/host4 RTOs in this run
+   were 114 / 146 vs 82–93 in the others.
+
+**Verdict on "TCP backs off on each flap": not supported as the
+explanation of the flap cost.** TCP does take a flat 51–95 RTOs per flap
+(3–9× no-fault), but there is no growing back-off. The > +10 s cost is the
+link being unusable for the whole window, because each 2 s up phase is
+shorter than link bring-up, so ECMP capacity is half for ≈ 22 s. Prediction
+check: step 32–36 s predicted, measured 31.5 / 37.7 / 31.9 s (two inside,
+852 outside because of the BGP stall). "≈ 16 flows per leaf1 sender move"
+predicted, measured 7–10 per sender (15–19 per leaf). "Partly supported"
+predicted, measured: RTOs per flap yes, growth no.
