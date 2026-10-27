@@ -503,7 +503,7 @@ What the counters say:
    alone predicts ≈ +11 s (22 s at half rate), and runs 851 / 853 measured
    +11.5 / +11.9 s.
 2. **TCP does take RTOs on every flap, at a constant rate.** RTOs per cycle
-   are 3–9× the no-fault rate in the same windows, mostly on the leaf1
+   are 2–10× the no-fault count in the same windows, mostly on the leaf1
    senders. They don't grow across the five flaps, and per-cycle stalls stay
    at 0.5–2.5 s. Retransmitted segments per cycle are *lower* than with no
    fault (less data in flight at half rate).
@@ -521,7 +521,7 @@ What the counters say:
 
 **Verdict on "TCP backs off on each flap": not supported as the
 explanation of the flap cost.** TCP does take a flat 51–95 RTOs per flap
-(3–9× no-fault), but there is no growing back-off. The > +10 s cost is the
+(2–10× no-fault), but there is no growing back-off. The > +10 s cost is the
 link being unusable for the whole window, because each 2 s up phase is
 shorter than link bring-up, so ECMP capacity is half for ≈ 22 s. Prediction
 check: step 32–36 s predicted, measured 31.5 / 37.7 / 31.9 s (two inside,
