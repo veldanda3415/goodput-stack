@@ -528,3 +528,98 @@ check: step 32–36 s predicted, measured 31.5 / 37.7 / 31.9 s (two inside,
 852 outside because of the BGP stall). "≈ 16 flows per leaf1 sender move"
 predicted, measured 7–10 per sender (15–19 per leaf). "Partly supported"
 predicted, measured: RTOs per flap yes, growth no.
+
+### 4b. Link-flap hold-down (EMULATED-POLICY)
+
+**Label: EMULATED-POLICY.** `HOLDDOWN` in [`e8.py`](e8.py) runs inside
+spine1 and watches `/sys/class/net/eth1/operstate` every 10 ms. Policy: on
+the 2nd carrier-down within 10 s, set spine1:eth1 admin-down and hold it
+until 5 s have passed without a flap; then bring it up. It stands in for a
+NOS link-flap error-disable with automatic recovery (Cisco IOS / NX-OS
+`errdisable detect cause link-flap` + `errdisable recovery cause link-flap`,
+Arista EOS `errdisable flap-setting cause link-flap`). It is not a
+carrier-delay / debounce timer, which hides short drops but doesn't keep a
+flapping port down. Behavioural emulation only, with the 5 s / 10 s values
+from the plan, not vendor defaults.
+
+Two differences from 4a, both forced by the policy:
+
+- **Injector moved to the far end.** The hold-down must own spine1:eth1's
+  admin state, so the same 5 × (down 2 s / up 2 s) from T0+5 s is driven by
+  `ip link set eth1 down/up` on **leaf1**, and spine1 sees carrier loss. Same
+  link, same routing effect. To compare like with like, a **control** runs
+  the leaf-side injector without the hold-down.
+- **Sensing while held.** While spine1 holds eth1 admin-down it can't see
+  the far end: a veth, like a port with its laser off, gives no carrier
+  signal. So "no flap seen for 5 s" means 5 s held. A down within 10 s of the
+  previous one after re-enable starts the next hold.
+
+Commands: `python -m fabric.experiments.e8 flap --label control-leafside --injector leaf1`
+then `… --label holddown --injector leaf1 --holddown`, ×3 each.
+
+**Prediction (written before the runs):** with downs at T0+5, 9, 13, 17,
+21 and ups at T0+7, 11, 15, 19, 23:
+
+- the policy trips at the 2nd down (T0+9) and holds to T0+14;
+- the link returns when leaf1 comes up at T0+15, drops at T0+17 (8 s
+  after the previous down, so a hold) and is held to T0+22;
+- it comes up for good at T0+23, when leaf1 does.
+
+The last usable up is T0+23 with or without the hold-down. Up phases carry
+≈ 0 anyway (4a), so I predict **no step-time gain** (control ≈ hold-down ≈
+31–32 s). Fewer flaps reach the routers and TCP (spine1 sees 3 downs, not
+5), so fewer RTOs and route changes. Extra time the link is held down while
+the far end is up: T0+11–13 and T0+19–21 removed = **≈ 4 s**. The hold-down
+would only cut step time if the flapping went on past the point where the
+link could have stabilised. With this injector it doesn't.
+
+**Results (2026-10-27 12:19–12:33 EDT).** Control runs 857–859, hold-down
+runs 860–862. Bins: [`e8/raw/t4b-flap-bins.txt`](e8/raw/t4b-flap-bins.txt).
+Hold-down event log (T0-relative, identical to ±0.05 s in all three runs,
+e.g. run 860): `down 5.20, up 7.20, down 9.20 → hold_start 9.20, hold_end
+14.20 (far end down), up 15.21, down 17.21 → hold_start 17.21, hold_end
+22.21 (far end down), up 23.21`. That is exactly the predicted sequence.
+
+| | control (leaf-side flap) 857 / 858 / 859 | hold-down 860 / 861 / 862 |
+|---|---|---|
+| **full step time** | **31.50 / 32.35 / 31.28 s** | **33.08 / 32.78 / 32.69 s** |
+| Δ vs E6 baseline 20.0 s | +11.5 / +12.4 / +11.3 | +13.1 / +12.8 / +12.7 |
+| leaf1 eth1 carries > 200 Mbit/s again from | T0+26.38 / 26.82 / 26.27 | T0+26.96 / 26.08 / 27.19 |
+| RTOs, 4 senders, whole run | 787 / 833 / 813 | 551 / 656 / 637 |
+| RTOs per cycle T0+13–17 / 17–21 | 130, 107 / 111, 123 / 119, 108 | 44, 53 / 28, 47 / 36, 95 |
+| downs reaching the routers | 5 | 3 (T0+5, 9, 17); spine1 held 2 × 5.0 s |
+| time held down while the far end was up | — | ≈ 4 s (T0+11–13 and 19–21) |
+| all-up wait after the run | 2.5 / 2.6 / 2.4 s | 2.5 / 2.4 / 2.5 s |
+
+Comparison of full step times:
+
+| Condition (E6 W = 1.204 GB, E6 baseline 20.0 s) | Step time | Δ |
+|---|---|---|
+| E6 dead link (10 s carrier down), E6 runs | 27.40 / 29.10 / 28.13 s | +7.4 / +9.1 / +8.1 s |
+| flap, spine-side injector (E6's), 851–853 | 31.53 / 37.68 / 31.91 s | +11.5 / +17.7 / +11.9 s |
+| flap, leaf-side injector, control, 857–859 | 31.50 / 32.35 / 31.28 s | +11.3 … +12.4 s |
+| flap + hold-down (EMULATED-POLICY), 860–862 | 33.08 / 32.78 / 32.69 s | +12.7 … +13.1 s |
+
+**Verdict: the hold-down does not cut the flap cost here. It costs a bit
+(+1.1 s mean, n = 3, inside 2× the run-to-run spread).** It reduces what
+TCP and the routers see: 3 downs instead of 5, and 21–32 % fewer RTOs.
+Capacity returns at the same moment (T0+26–27 s), because that moment is set
+by the far end's last up (T0+23.2 s) plus the ≈ 3 s a returning link needs
+(§2). The two 2 s up phases the hold-down removed carried ≈ 0 anyway (4a).
+Prediction check: event sequence, ≈ 4 s extra hold, fewer RTOs, and no
+step-time gain all as predicted; the +1.1 s loss was not predicted and is
+not explained by these counters.
+
+Why the step is still > +11 s although the outage is effectively one 20 s
+window: a single 20 s outage at half capacity costs ≈ +10 s by the 4a
+arithmetic. The E6 dead-link drill had a 10 s outage, so +7.4–9.1 s is not
+the right yardstick for a 20 s flap.
+
+### 4c. Recommendation
+
+**Not supported by data for step time:** a flap hold-down (2nd flap in
+10 s → hold until 5 s quiet) didn't shorten a 20 s flap step (+1.1 s, n =
+3); it only cut RTOs by 21–32 %. A hold-down pays off only if it ends the
+flapping sooner than the far end stops on its own. That needs a fault that
+outlasts the hold (not tested), or a hold that keeps the port down until a
+human or a longer stability timer clears it.

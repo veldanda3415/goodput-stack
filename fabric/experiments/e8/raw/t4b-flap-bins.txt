@@ -1,0 +1,72 @@
+run 857 control-leafside nstat spans {'host1': (-5.8, 65.3, 142), 'host2': (-5.7, 65.4, 142), 'host3': (-5.7, 65.4, 142), 'host4': (-5.6, 66.0, 143)}
+   T0+ -2..  5: RTOs    18 (8 2 5 3)  retrans 5984
+   T0+  5..  9: RTOs   122 (38 37 29 18)  retrans 4677
+   T0+  9.. 13: RTOs   120 (36 30 27 27)  retrans 3480
+   T0+ 13.. 17: RTOs   130 (33 34 27 36)  retrans 3676
+   T0+ 17.. 21: RTOs   107 (31 30 19 27)  retrans 3555
+   T0+ 21.. 25: RTOs   118 (31 33 27 27)  retrans 3636
+   T0+ 25.. 29: RTOs    86 (21 20 27 18)  retrans 6487
+   T0+ 29.. 33: RTOs    15 (10 4 0 1)  retrans 7128
+   T0+ 33.. 45: RTOs    27 (10 11 3 3)  retrans 18592
+   T0+ 45.. 59: RTOs    40 (17 14 6 3)  retrans 18654
+   per flap cycle (longest stream stall s, streams stalled>=1s): [(3.5, 27), (4.0, 27), (4.0, 23), (2.0, 22), (1.0, 22)]
+run 858 control-leafside nstat spans {'host1': (-5.8, 65.8, 143), 'host2': (-5.8, 65.8, 143), 'host3': (-5.7, 65.4, 142), 'host4': (-5.6, 65.4, 142)}
+   T0+ -2..  5: RTOs    26 (13 9 1 3)  retrans 15087
+   T0+  5..  9: RTOs   115 (40 32 24 19)  retrans 4413
+   T0+  9.. 13: RTOs   125 (32 39 32 22)  retrans 3357
+   T0+ 13.. 17: RTOs   111 (29 29 32 21)  retrans 3418
+   T0+ 17.. 21: RTOs   123 (33 34 35 21)  retrans 3367
+   T0+ 21.. 25: RTOs   120 (38 28 32 22)  retrans 3370
+   T0+ 25.. 29: RTOs    78 (30 21 16 11)  retrans 3388
+   T0+ 29.. 33: RTOs    36 (10 10 9 7)  retrans 8214
+   T0+ 33.. 45: RTOs    59 (18 24 7 10)  retrans 19070
+   T0+ 45.. 59: RTOs    34 (12 18 1 3)  retrans 19207
+   per flap cycle (longest stream stall s, streams stalled>=1s): [(1.5, 21), (4.0, 20), (4.0, 22), (4.0, 19), (2.0, 22)]
+run 859 control-leafside nstat spans {'host1': (-5.8, 64.8, 141), 'host2': (-5.8, 64.8, 141), 'host3': (-5.8, 65.8, 143), 'host4': (-5.7, 66.0, 143)}
+   T0+ -2..  5: RTOs    29 (19 8 1 1)  retrans 11789
+   T0+  5..  9: RTOs   131 (46 32 28 25)  retrans 4609
+   T0+  9.. 13: RTOs   118 (27 39 27 25)  retrans 3648
+   T0+ 13.. 17: RTOs   119 (36 32 27 24)  retrans 3597
+   T0+ 17.. 21: RTOs   108 (31 27 26 24)  retrans 3482
+   T0+ 21.. 25: RTOs   119 (42 26 27 24)  retrans 3657
+   T0+ 25.. 29: RTOs    88 (26 24 20 18)  retrans 5368
+   T0+ 29.. 33: RTOs    20 (8 10 1 1)  retrans 6146
+   T0+ 33.. 45: RTOs    35 (12 17 3 3)  retrans 15847
+   T0+ 45.. 59: RTOs    42 (20 19 2 1)  retrans 18361
+   per flap cycle (longest stream stall s, streams stalled>=1s): [(1.0, 19), (1.5, 23), (1.5, 20), (4.0, 25), (1.5, 23)]
+run 860 holddown nstat spans {'host1': (-6.1, 65.0, 142), 'host2': (-5.9, 65.2, 142), 'host3': (-5.9, 65.2, 142), 'host4': (-5.8, 64.8, 141)}
+   T0+ -2..  5: RTOs    35 (12 17 3 3)  retrans 12229
+   T0+  5..  9: RTOs    89 (26 27 20 16)  retrans 4698
+   T0+  9.. 13: RTOs    71 (26 32 8 5)  retrans 3772
+   T0+ 13.. 17: RTOs    44 (22 22 0 0)  retrans 3519
+   T0+ 17.. 21: RTOs    53 (22 31 0 0)  retrans 3624
+   T0+ 21.. 25: RTOs    44 (18 26 0 0)  retrans 3576
+   T0+ 25.. 29: RTOs   106 (24 28 24 30)  retrans 4777
+   T0+ 29.. 33: RTOs    18 (9 8 1 0)  retrans 7662
+   T0+ 33.. 45: RTOs    34 (15 16 3 0)  retrans 19308
+   T0+ 45.. 59: RTOs    54 (26 22 4 2)  retrans 18739
+   per flap cycle (longest stream stall s, streams stalled>=1s): [(1.5, 15), (2.5, 1), (0.5, 0), (0.5, 0), (0.5, 0)]
+run 861 holddown nstat spans {'host1': (-6.5, 64.6, 142), 'host2': (-6.5, 64.6, 142), 'host3': (-6.4, 64.7, 142), 'host4': (-6.3, 64.8, 142)}
+   T0+ -2..  5: RTOs    21 (9 6 4 2)  retrans 15783
+   T0+  5..  9: RTOs   149 (46 48 35 20)  retrans 5113
+   T0+  9.. 13: RTOs    89 (25 27 24 13)  retrans 4053
+   T0+ 13.. 17: RTOs    28 (13 15 0 0)  retrans 3636
+   T0+ 17.. 21: RTOs    47 (23 24 0 0)  retrans 3489
+   T0+ 21.. 25: RTOs    76 (35 23 12 6)  retrans 3701
+   T0+ 25.. 29: RTOs   117 (32 31 36 18)  retrans 6500
+   T0+ 29.. 33: RTOs    14 (4 7 1 2)  retrans 8784
+   T0+ 33.. 45: RTOs    53 (24 19 6 4)  retrans 20632
+   T0+ 45.. 59: RTOs    58 (24 20 7 7)  retrans 22494
+   per flap cycle (longest stream stall s, streams stalled>=1s): [(3.5, 29), (2.0, 21), (0.5, 0), (0.5, 0), (0.5, 0)]
+run 862 holddown nstat spans {'host1': (-6.1, 65.0, 142), 'host2': (-6.1, 65.0, 142), 'host3': (-6.0, 64.5, 141), 'host4': (-6.0, 65.6, 143)}
+   T0+ -2..  5: RTOs    28 (15 8 3 2)  retrans 13622
+   T0+  5..  9: RTOs   122 (37 39 29 17)  retrans 5161
+   T0+  9.. 13: RTOs    65 (18 21 18 8)  retrans 3615
+   T0+ 13.. 17: RTOs    36 (19 17 0 0)  retrans 3555
+   T0+ 17.. 21: RTOs    95 (36 20 27 12)  retrans 3676
+   T0+ 21.. 25: RTOs    47 (32 15 0 0)  retrans 3566
+   T0+ 25.. 29: RTOs   118 (33 31 36 18)  retrans 4263
+   T0+ 29.. 33: RTOs    32 (13 11 5 3)  retrans 9787
+   T0+ 33.. 45: RTOs    44 (22 16 1 5)  retrans 18710
+   T0+ 45.. 59: RTOs    43 (19 22 0 2)  retrans 18978
+   per flap cycle (longest stream stall s, streams stalled>=1s): [(1.5, 22), (2.0, 19), (0.5, 0), (1.0, 16), (0.5, 0)]
