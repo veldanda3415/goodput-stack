@@ -38,7 +38,16 @@ SPINE_PORTS = ("eth1", "eth2", "eth3", "eth4")
 
 # Test knobs: name -> (apply, revert), each a list of (node, command). Every
 # knob is reverted after its runs, and the revert is checked by make fabric-test.
-KNOBS: dict[str, tuple[list[tuple[str, str]], list[tuple[str, str]]]] = {}
+# A no-traffic spine1 down/up cycle after a zebra knob change, so every route is
+# reinstalled under the knob before the measured runs (zebra applies it per install).
+SPINE1_CYCLE = ("spine1", "sh -c 'for i in eth1 eth2 eth3 eth4; do ip link set $i down; done; sleep 3; "
+                "for i in eth1 eth2 eth3 eth4; do ip link set $i up; done'")
+KNOBS: dict[str, tuple[list[tuple[str, str]], list[tuple[str, str]]]] = {
+    "no-kernel-nhg": (
+        [(leaf, "vtysh -c 'configure terminal' -c 'no zebra nexthop kernel enable'") for leaf in LEAVES] + [SPINE1_CYCLE],
+        [(leaf, "vtysh -c 'configure terminal' -c 'zebra nexthop kernel enable'") for leaf in LEAVES] + [SPINE1_CYCLE],
+    ),
+}
 
 AUDIT = {
     "spine1": [
@@ -98,7 +107,7 @@ SNAPSHOT = ("ip nexthop show", "ip route show 10.210.1.8/30", "ip -4 route show 
             "vtysh -c 'show bgp ipv4 unicast 10.210.1.8/30'", "vtysh -c 'show interface brief'")
 
 
-def mechanism(leaf: str = "leaf3", down_seconds: float = 5.0, watch_seconds: int = 12) -> None:
+def mechanism(leaf: str = "leaf3", down_seconds: float = 5.0, watch_seconds: int = 12, out_name: str = "t3a-mechanism.txt") -> None:
     """3a: what puts spine1 back in the leaf's ECMP group at link-up (no traffic)."""
     from fabric.experiments.e3.run import background, finish
     ports = " ".join(SPINE_PORTS)
@@ -127,7 +136,7 @@ def mechanism(leaf: str = "leaf3", down_seconds: float = 5.0, watch_seconds: int
     lines += ["\n## spine1 UP again (after the watch)"] + [f"\n$ [{leaf}] {c}\n{run_raw(leaf, c).rstrip()}" for c in SNAPSHOT[:4]]
     lines += [f"\n$ [{leaf}] cat /tmp/frr-e8.log", run_raw(leaf, "cat /tmp/frr-e8.log").rstrip()]
     lines += [f"\n$ [{leaf}] {DEBUG_OFF}", run_raw(leaf, DEBUG_OFF).rstrip(), run_raw(leaf, "rm -f /tmp/frr-e8.log")]
-    out_path = RAW / "t3a-mechanism.txt"
+    out_path = RAW / out_name
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(out_path, "restore at", up_t)
 
@@ -214,6 +223,10 @@ def timeline(run: dict[str, Any]) -> dict[str, Any]:
         row["bfd"][leaf] = rel(poll_first(leaf, lambda s: s["bfd"].get(port) == "up"))
         row["est"][leaf] = rel(poll_first(leaf, lambda s: (s["bgp"].get(port) or [None])[0] == "Established"))
         row["leaf_bgp_fib"][leaf] = first(after(leaf, lambda l: "via inet6" in l and f"dev {port}" in l and "proto bgp" in l))
+        # 10 Hz poller: kernel BGP routes (other than spine1's own loopback) via the spine1 port;
+        # works for nexthop-group and inline multipath routes alike
+        row.setdefault("leaf_uses_spine1", {})[leaf] = rel(poll_first(
+            leaf, lambda s: any(p != "10.200.0.1" for p in s["fib"].get(port, []))))
     first_pfx = [s["t"] for s in run["poll"].get("spine1", []) if "t" in s and s["t"] >= restore_t
                  and any((v or [None, 0])[1] for k, v in s["bgp"].items() if k in SPINE_PORTS)]
     full_pfx = [s["t"] for s in run["poll"].get("spine1", []) if "t" in s and s["t"] >= restore_t
@@ -259,6 +272,7 @@ def fmt_restore(label: str | None = None) -> str:
         ("spine1 first / full prefixes received", lambda t: pair(t["spine_pfx"])),
         ("spine1 kernel FIB: first / last BGP route", lambda t: pair(t["spine_fib"])),
         ("leaf first BGP route via spine1 in FIB (leaf1 / 2 / 3 / 4)", lambda t: leaves(t["leaf_bgp_fib"])),
+        ("leaf kernel routes to remote prefixes use spine1 (poller, leaf1 / 2 / 3 / 4)", lambda t: leaves(t["leaf_uses_spine1"])),
         ("probe loss after restore (last reply → next reply)", lambda t: loss(t["loss_restore"])),
         ("loss at the failure (s after inject)", lambda t: loss(t["loss_fault"])),
         ("wait to all-up after the run, s", None),
@@ -279,11 +293,12 @@ def main() -> None:
     parser.add_argument("--knob", choices=sorted(KNOBS) or None)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--settle", type=float, default=15.0)
+    parser.add_argument("--out", help="mechanism: raw output file name under e8/raw/")
     args = parser.parse_args()
     if args.what == "audit":
         audit()
     elif args.what == "mechanism":
-        mechanism()
+        mechanism(out_name=args.out or "t3a-mechanism.txt")
     elif args.what == "restore":
         restore(args.label or "baseline", args.knob, args.repeats, args.settle)
     elif args.what == "restore-report":

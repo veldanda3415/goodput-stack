@@ -126,6 +126,14 @@
       },
       "additionalProperties": false
     },
+    "zebra": {
+      "type": "object",
+      "description": "zebra RIB/FIB behaviour. leaf_kernel_nexthop_groups=false renders `no zebra nexthop kernel enable` on leaves (E8 §3: keeps a restored spine out of the leaves' ECMP until BGP re-adds it)",
+      "properties": {
+        "leaf_kernel_nexthop_groups": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
     "bfd": {
       "type": "object",
       "required": ["enabled", "transmit_ms", "receive_ms", "detect_multiplier"],

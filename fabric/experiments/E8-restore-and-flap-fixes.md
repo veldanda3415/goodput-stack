@@ -300,3 +300,126 @@ FIB, and wrong for a spine that comes back with an empty FIB.
 Not settled here: the #32 "unexplained" part. Between +0.2 s and ND
 resolution, packets hashed to spine1 wait on an unresolved neighbor. This run
 had no traffic, so it doesn't say whether they are dropped.
+
+### 3b. Candidate fixes
+
+#### Candidate 1: `no zebra nexthop kernel enable` on the leaves
+
+The knob exists in 10.2.1 (`[no] zebra nexthop kernel enable` in the zebra
+binary, `Kernel NHG Available` in `show zebra`). It isn't in the 10.2 user
+guide. With it off, zebra should install routes with inline nexthops
+instead of shared kernel group objects.
+
+**Prediction (written before the runs):** step 1 above (RIB reuse) still
+happens, since it is RIB logic. But with no kernel group object, the link-up
+reinstall (step 2) has no shared object to refresh. Whether the routes come
+back with spine1 before BGP then depends on whether zebra re-processes the
+routes at `if_up`. The source shows `if_up()` doesn't call `rib_update`, so I
+predict **it works**: routes stay spine2-only until bgpd sends two paths
+(+2.9–4.2 s), when spine1 already has the prefixes. Rail-B restore loss → 0,
+no loss at the failure, bring-up (all sessions Established) unchanged.
+Confidence about 60 %. Risk: the kernel itself revives a dead inline nexthop
+at link-up (IPv4 multipath `RTNH_F_DEAD` handling). That would bring back
+the same loss at +0.2 s.
+
+First a no-traffic check that the knob takes effect at runtime (no FRR
+restart allowed).
+
+No-traffic check on leaf3 first ([`e8/raw/t3b-c1-probe.txt`](e8/raw/t3b-c1-probe.txt)):
+the command is accepted and shows in `show running-config`, but installed
+routes keep `nhid 36` until they are reinstalled. The knob applies per
+install. A spine1 down/up cycle with the knob on leaf3
+([`e8/raw/t3b-c1-mechanism.txt`](e8/raw/t3b-c1-mechanism.txt); an
+earlier attempt crashed in my script before saving output and is not
+counted):
+
+- During the outage, routes are inline and spine2-only:
+  `10.210.1.8/30 via 169.254.0.1 dev eth2 proto bgp metric 20 onlink`.
+- At link-up (+0.14 s) there is **no route event**. The kernel does not
+  revive anything.
+- ND resolved at +2.48 s. The first route change is at **+3.98 s**, when all
+  11 remote routes gain `nexthop via 169.254.0.1 dev eth1` from bgpd.
+
+Then `python -m fabric.experiments.e8 restore --label c1-no-kernel-nhg --knob no-kernel-nhg`.
+The knob goes on leaf1–4, followed by one no-traffic spine1 down 3 s / up
+cycle so every route is reinstalled under it. Then 3 restores, then the
+revert (`zebra nexthop kernel enable` + the same cycle). Runs 804–806,
+2026-10-27 11:48–11:52 EDT. A column was added for both install styles:
+"leaf kernel routes to remote prefixes use spine1" comes from the 10.2.1
+poller's `ip -4 route show proto bgp` grouped by device. The monitor-based
+"group" column only sees nexthop-group objects, and the monitor parser keeps
+only each event's first line, so it shows "—" for inline routes. Baseline
+for that column (runs 801–803): **+0.21–0.28 s**.
+
+| | run 804 | run 805 | run 806 |
+|---|---|---|---|
+| spine1 links up | +0.16 | +0.27 | +0.23 |
+| leaf1–4: group re-includes spine1 | — / — / — / — | — / — / — / — | — / — / — / — |
+| spine1 link-local DAD done (first / last) | 1.38 / 1.83 | 1.33 / 2.16 | 1.28 / 2.08 |
+| leaf ND for spine1 resolved (leaf1 / 2 / 3 / 4) | 2.42 / 2.42 / 1.42 / 1.42 | 2.24 / 2.24 / 2.24 / 2.24 | 2.30 / 2.30 / 1.30 / 2.30 |
+| BFD up (leaf1 / 2 / 3 / 4) | 1.92 / 1.88 / 1.61 / 1.43 | 1.94 / 2.26 / 1.95 / 2.32 | 2.16 / 2.32 / 1.38 / 2.07 |
+| BGP Established (leaf1 / 2 / 3 / 4) | 2.42 / 2.48 / 1.61 / 1.43 | 2.24 / 2.26 / 2.25 / 2.32 | 2.36 / 2.32 / — / 2.37 |
+| spine1 first / full prefixes received | 2.59 / 3.60 | 3.45 / 3.45 | 3.49 / — |
+| spine1 kernel FIB: first / last BGP route | 2.64 / 3.64 | 3.46 / 3.46 | 3.51 / 3.51 |
+| leaf first BGP route via spine1 in FIB (leaf1 / 2 / 3 / 4) | — / — / — / — | — / — / — / — | — / — / — / — |
+| leaf kernel routes to remote prefixes use spine1 (poller, leaf1 / 2 / 3 / 4) | 3.82 / 3.78 / 3.01 / 2.93 | 3.64 / 3.57 / 3.55 / 3.62 | 3.77 / 3.72 / — / 3.77 |
+| probe loss after restore (last reply → next reply) | none | none | none |
+| loss at the failure (s after inject) | none | none | none |
+| wait to all-up after the run, s | 2.5 | 3.5 | 105.5 |
+
+Before / after, rail-B probe (host1→host3, leaf3→leaf4) and all probes:
+
+| | Baseline 801 / 802 / 803 | Candidate 1 804 / 805 / 806 |
+|---|---|---|
+| leaves use spine1 for remote prefixes | +0.21–0.28 s | **+2.93–3.82 s** (after spine1's first FIB install, +2.64 / 3.46 / 3.51) |
+| rail-B restore loss window | 1.26 / 1.38 / 2.31 s | **0 / 0 / 0** |
+| any probe, restore loss | 3–4 probes per run, up to 2.3 s | **none** (6 probes × 3 runs) |
+| loss at the failure | none | none |
+| BGP Established (all 4) | +1.71–2.81 s | +1.43–2.48 s (806: leaf3 stalled, below) |
+| wait to all-up after the run | 2.5–2.7 s | 2.5 / 3.5 / **105.5** s |
+
+**Verdict on candidate 1: works.** Mechanism: zebra installs inline
+multipath routes instead of shared kernel group objects, so the link-up
+`zebra_interface_nhg_reinstall` has no shared object to refresh. The routes
+stay on spine2 until bgpd sends the two-path route. eBGP ordering then means
+spine1 already has the prefix. Spine1 carries traffic about 3.5 s later than
+in the baseline. In the baseline those first ≈ 3.5 s were black-holed on
+spine1 anyway, so no useful capacity is lost.
+
+Run 806 hit the 120 s ConnectRetry stall again (leaf3↔spine1 Active; all-up
+wait 105.5 s, as in #32 run 901). Seen 1 of 3 in Build 10, 0 of 3 in today's
+baseline, 1 of 3 here, so I can't attribute it to the knob. It cost no
+loss: with the knob, no leaf sends to spine1 without a BGP path, and the
+other leaves never learned leaf3's prefixes via spine1. Under the default
+config the stalled session would still be black-holed at link-up through
+H2's reinstall. In run 901 that didn't show only because the probes didn't
+hash that way (§2).
+
+Rendered from intent: `zebra.leaf_kernel_nexthop_groups` (default `true`,
+lab unchanged). `false` renders `no zebra nexthop kernel enable` on leaves
+only. Test: `test_renderer_leaf_kernel_nexthop_groups_knob`. The default
+render is byte-identical to before (`make fabric-render`, no diff in
+`fabric/build/example`). The lab default is not flipped in this branch: the
+rules ask for every knob to be reverted, and E1–E7 results were taken with
+kernel nexthop groups.
+
+Revert check: no `zebra nexthop` line on leaf1–4, remote routes back on
+`nhid` objects, `make fabric-test` **69 passed**.
+
+Candidates 2 and 3 were **not tried**: the plan stops at the first
+candidate that removes the loss without adding failure loss or slowing
+bring-up.
+
+### 3c. Summary
+
+| Candidate | Restore loss (rail B, per run) | At-failure loss | Bring-up (sessions) | Verdict |
+|---|---|---|---|---|
+| none (baseline 801–803) | 1.26 / 1.38 / 2.31 s | none | +1.71–2.81 s | — |
+| 1: `no zebra nexthop kernel enable` on leaves (804–806) | 0 / 0 / 0 | none | +1.43–2.48 s (1 ConnectRetry stall, harmless) | **works** |
+| 2: change at the layer 3a found | not tried | | | stopped at candidate 1 |
+| 3: scripted insert procedure | not tried | | | stopped at candidate 1 |
+
+Limits: n = 3 per condition; ping probes see only the uplink their hash
+picks (6 flows); the inline-route install costs zebra more netlink work per
+route change (11 routes here, not measured at scale); the knob is
+undocumented in the 10.2 user guide.
