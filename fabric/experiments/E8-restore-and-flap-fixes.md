@@ -391,9 +391,9 @@ wait 105.5 s, as in #32 run 901). Seen 1 of 3 in Build 10, 0 of 3 in today's
 baseline, 1 of 3 here, so I can't attribute it to the knob. It cost no
 loss: with the knob, no leaf sends to spine1 without a BGP path, and the
 other leaves never learned leaf3's prefixes via spine1. Under the default
-config the stalled session would still be black-holed at link-up through
-H2's reinstall. In run 901 that didn't show only because the probes didn't
-hash that way (§2).
+config, H2's reinstall would still put spine1 into the other leaves' groups
+for leaf3's prefixes at link-up. That is inferred from 3a, not measured with
+a stalled session.
 
 Rendered from intent: `zebra.leaf_kernel_nexthop_groups` (default `true`,
 lab unchanged). `false` renders `no zebra nexthop kernel enable` on leaves
