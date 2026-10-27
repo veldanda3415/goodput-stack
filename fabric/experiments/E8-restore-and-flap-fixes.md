@@ -203,8 +203,9 @@ Seconds after the restore command. Table file: [`e8/raw/t2-baseline-table.md`](e
 
 Difference from Build 10: today the rail-A probe host1→host3 (leaf1→leaf2)
 also lost 1.8–2.3 s in every run (Build 10: none). A single ping flow
-always hashes to one uplink and the ECMP hash seed is new on every
-`fabric-up`, so a probe sees the black hole only if its hash lands on
+always hashes to one uplink. The leaves run `fib_multipath_hash_seed=0`,
+which means "an internal random-generated" seed (ip-sysctl.rst), and every
+`fabric-up` creates new network namespaces, so a probe sees the black hole only if its hash lands on
 spine1. That is a probe-coverage limit, not a change in behaviour. A ping
 gap covers both directions, so a window can open at either leaf's ND (run
 802: leaf2's at 1.72 s, before leaf1's at 2.72 s).
