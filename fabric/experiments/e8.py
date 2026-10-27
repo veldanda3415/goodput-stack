@@ -20,6 +20,7 @@ import base64
 import json
 import threading
 import re
+import statistics
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -344,6 +345,75 @@ def holddown_events(run: dict[str, Any]) -> list[dict[str, Any]]:
     return [json.loads(l) for l in text.splitlines() if l.startswith("{")]
 
 
+JOBS_PATH = ROOT / "fabric" / "experiments" / "e8-jobs-results.json"
+JOB_CONDITIONS = {  # label -> (rails, fault factory or None)
+    "y-alone": (("B",), None),
+    "xy": (("A", "B"), None),
+    "xy-leafloss": (("A", "B"), lambda: e6_drills.fault_leaf_loss()),
+}
+
+
+def jobs(conditions: list[str], repeats: int, settle: float) -> None:
+    """§7: Job X (E6 ring, rail A) and Job Y (same ring on rail B), alone / together / with E6 leaf loss."""
+    refuse_probes()
+    intent = load_intent()
+    if not shaping.status(intent)["fully_shaped"]:
+        raise RuntimeError("runs with the shaped profile; run make fabric-shape-on")
+    e6_drills.parse_ping = e6_restore.parse_ping_full
+    install_sync([h["name"] for h in rail_hosts(intent, "A")])
+    results = load(JOBS_PATH, "e6_drills.run_once(rails=...) via e8 jobs")
+    set_routing(intent, "L4", "ring")
+    run_no = 870 + len(results["runs"])
+    try:
+        for label in conditions:
+            rails, factory = JOB_CONDITIONS[label]
+            for repeat in range(1, repeats + 1):
+                run_no += 1
+                record = e6_drills.run_once(intent, "leaf-loss" if factory else "baseline",
+                                            factory() if factory else None, run_no, e6_drills.DURATION, rails)
+                record.update(label=label, repeat=repeat, rails=list(rails))
+                record["reconverge_wait_seconds"] = e6_drills.converged(intent)
+                results["runs"].append(record)
+                JOBS_PATH.write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
+                print(json.dumps({"label": label, "repeat": repeat, "run": run_no,
+                                  "errors": [p.get("error") for p in record["pairs"] if p.get("error")]}), flush=True)
+                time.sleep(settle)
+    finally:
+        set_routing(intent, "L3", "ring")
+        JOBS_PATH.write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
+
+
+def jobs_report() -> str:
+    """Per run: Job X step (E6 W) and Job Y step (W_Y = mean slowest Y pair at T0+20 s over y-alone runs)."""
+    from fabric.experiments import e6_report
+    runs = json.loads(JOBS_PATH.read_text())["runs"]
+
+    def job(run: dict[str, Any], rail: str) -> dict[str, Any]:
+        return {**run, "pairs": [p for p in run["pairs"] if p.get("rail") == rail]}
+
+    w_x = e6_report.summarize()["target_bytes"]
+    alone = [job(r, "B") for r in runs if r["label"] == "y-alone"]
+    w_y = statistics.mean(min(e6_report.bytes_at(e6_report.cumulative(p), 20.0) for p in r["pairs"]) for r in alone)
+    lines = [f"W_X = {w_x / 1e9:.3f} GB (E6), W_Y = {w_y / 1e9:.3f} GB (y-alone runs)",
+             "| run | condition | Job Y step s | Job Y slowest pair at 30 s (of W_Y) | Job Y stall s | Job X step s | Job X reached (of W_X) | all-up wait s |",
+             "|---|---|---|---|---|---|---|---|"]
+    for r in runs:
+        y = job(r, "B")
+        y_step = e6_report.step_time(y, w_y)
+        y_reach = min(e6_report.cumulative(p)[-1][1] for p in y["pairs"]) / w_y
+        y_stall = e6_report.stream_stall(y)[0]
+        if "A" in r["rails"]:
+            x = job(r, "A")
+            x_step = e6_report.step_time(x, w_x)
+            x_reach = min(e6_report.cumulative(p)[-1][1] for p in x["pairs"]) / w_x
+            x_cells = (f"{x_step:.2f}" if x_step else f">30", f"{100 * x_reach:.0f} %")
+        else:
+            x_cells = ("—", "—")
+        lines.append(f"| {r['run']} | {r['label']} | {y_step:.2f} | {100 * y_reach:.0f} % | {y_stall:.1f} | "
+                     f"{x_cells[0]} | {x_cells[1]} | {r['reconverge_wait_seconds']:.1f} |")
+    return "\n".join(lines)
+
+
 def apply_commands(commands: list[tuple[str, str]]) -> list[dict[str, Any]]:
     out = []
     for node, command in commands:
@@ -491,13 +561,14 @@ def fmt_restore(label: str | None = None) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("what", choices=["audit", "mechanism", "restore", "restore-report", "flap"])
+    parser.add_argument("what", choices=["audit", "mechanism", "restore", "restore-report", "flap", "jobs", "jobs-report"])
     parser.add_argument("--label")
     parser.add_argument("--knob", choices=sorted(KNOBS) or None)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--settle", type=float, default=15.0)
     parser.add_argument("--injector", choices=["spine1", "leaf1", "none"], default="spine1", help="flap: which end toggles eth1 (none = no fault)")
     parser.add_argument("--holddown", action="store_true", help="flap: run the EMULATED-POLICY hold-down on spine1:eth1")
+    parser.add_argument("--conditions", default="y-alone,xy,xy-leafloss", help="jobs: comma list")
     parser.add_argument("--out", help="mechanism: raw output file name under e8/raw/")
     args = parser.parse_args()
     if args.what == "audit":
@@ -508,6 +579,10 @@ def main() -> None:
         restore(args.label or "baseline", args.knob, args.repeats, args.settle)
     elif args.what == "flap":
         flap(args.label or "baseline-flap", args.repeats, args.settle, args.injector, args.holddown)
+    elif args.what == "jobs":
+        jobs(args.conditions.split(","), args.repeats, args.settle)
+    elif args.what == "jobs-report":
+        print(jobs_report())
     elif args.what == "restore-report":
         print(fmt_restore(args.label))
 

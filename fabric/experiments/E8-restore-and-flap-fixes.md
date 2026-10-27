@@ -692,3 +692,80 @@ the right yardstick for a 20 s flap.
 flapping sooner than the far end stops on its own. That needs a fault that
 outlasts the hold (not tested), or a hold that keeps the port down until a
 human or a longer stability timer clears it.
+
+## 7. Unaffected job during leaf loss
+
+Claim tested: "a job with no member behind the failed leaf carries on."
+
+- **Job X** = the E6 ring on rail A (§0.1).
+- **Job Y** = the same ring pattern on **rail B**: host1 10.210.1.2 →
+  host3 10.210.1.10 → host2 10.210.1.6 → host4 10.210.1.14 → host1, via
+  leaf3 / leaf4. Same per-pair settings (TCP, 16 streams, `-t 30`, 0.5 s
+  receiver intervals), own step rule: W_Y = mean over the Y-alone runs of
+  Y's slowest pair's bytes at T0+20 s, and step = time Y's slowest pair
+  reaches W_Y.
+- Both jobs start at the same T0 (`e6_drills.run_once(…, rails=("A", "B"))`;
+  `rails` is a new optional argument, default `("A",)` = unchanged E6).
+
+Links from intent: Job X uses host1/host2–leaf1, host3/host4–leaf2,
+spine1/spine2–leaf1, spine1/spine2–leaf2. Job Y uses host1/host2–leaf3,
+host3/host4–leaf4, spine1/spine2–leaf3, spine1/spine2–leaf4. **Shared
+links: none.** Shared nodes: spine1 and spine2 (different ports), and
+**the four hosts themselves**: Job Y's members are the same host1–4
+containers (same kernel netns, TCP stack and CPU) on their second NIC. Plus
+the one WSL2 VM (16 vCPU) that runs everything. Job Y touches no leaf1 port.
+
+Runs: `python -m fabric.experiments.e8 jobs` = Y alone ×3, X+Y no fault ×3,
+X+Y with E6's leaf loss (leaf1 eth1–eth7 down T0+10 → T0+20) ×3; 30 s window
+as E6. Raw: [`e8-jobs-results.json`](e8-jobs-results.json).
+
+**Prediction (written before the runs):** Y alone ≈ 20 s (rail B mirrors
+rail A). X+Y without a fault: Y within ±5 % of alone; no shared link, but
+twice the TCP/TBF work on one VM could cost a little. X+Y with leaf loss: **Y
+unaffected (within ±5 % of X+Y no-fault)**; X stalls as in E6 (> 30 s,
+≈ 65–71 % of W at 30 s). Risk: host1/host2 lose their rail-A NIC's routes;
+if host-side source routing or the ARP/ND state on the shared host reacts,
+Y's host1/host2 flows could see a blip.
+
+**Results (2026-10-27, runs 871–879).** `python -m fabric.experiments.e8 jobs-report` → [`e8/raw/t46-jobs-table.md`](e8/raw/t46-jobs-table.md):
+
+| run | condition | Job Y step s | Job Y slowest pair at 30 s (of W_Y) | Job Y stall s | Job X step s | Job X reached (of W_X) | all-up wait s |
+|---|---|---|---|---|---|---|---|
+| 871 | y-alone | 19.85 | 152 % | 0.5 | — | — | 2.4 |
+| 872 | y-alone | 19.94 | 151 % | 0.5 | — | — | 2.4 |
+| 873 | y-alone | 20.25 | 147 % | 0.5 | — | — | 2.5 |
+| 874 | xy | 20.20 | 151 % | 0.5 | 20.02 | 151 % | 2.5 |
+| 875 | xy | 20.58 | 148 % | 0.5 | 19.87 | 151 % | 2.3 |
+| 876 | xy | 19.75 | 153 % | 0.5 | 19.99 | 151 % | 2.6 |
+| 877 | xy-leafloss | 19.96 | 152 % | 0.5 | >30 | 78 % | 2.5 |
+| 878 | xy-leafloss | 20.04 | 152 % | 0.0 | >30 | 71 % | 2.5 |
+| 879 | xy-leafloss | 19.64 | 153 % | 0.5 | >30 | 74 % | 2.5 |
+
+W_X = 1.204 GB (E6), W_Y = 1.199 GB.
+
+Mean pair receive rate, Mbit/s, T0+2–10 / T0+10.5–19.5 (fault window) /
+T0+21–29:
+
+| run | Job X pairs (1→3, 3→2, 2→4, 4→1) | Job Y pairs (same order) |
+|---|---|---|
+| 877 leaf loss | 478–509 / **0, 0, 0, 0** / 243–318 | 483–504 / **478–508** / 492–494 |
+| 878 leaf loss | 420–481 / **0, 0, 0, 0** / 278–347 | 475–510 / **484–504** / 488–497 |
+| 879 leaf loss | 416–486 / **0, 0, 0, 0** / 269–319 | 485–499 / **481–504** / 487–498 |
+| 874–876 X+Y, no fault | 464–523 throughout | 460–527 throughout |
+
+**Verdict: Job Y unaffected.** During leaf loss its step was 19.64–20.04 s,
+against 19.75–20.58 s with X running and no fault and 19.85–20.25 s alone.
+Its pairs held 478–508 Mbit/s through the fault window while every Job X
+pair was at 0. Running X alongside cost Y nothing measurable either (same
+range). So with no shared link, the shared hosts (the same host1–4
+containers, second NIC), the shared spines and the shared VM did not couple
+the jobs at this load. Job X: > 30 s in all three (78 / 71 / 74 % of W at
+30 s; E6: 70.5 / 66.5 / 69.0 %). After the restore its pairs ran at only
+243–347 Mbit/s for the rest of the window. Prediction: as predicted for Y,
+for X, and for X+Y without a fault. The host-side blip risk did not show
+(Y's longest stream stall 0–0.5 s, same as alone).
+
+Limit: "no member behind the failed leaf" here still means the *same
+servers*, on a NIC whose leaf survived. A job whose members are on other
+servers would share even less. CPU was not the bottleneck at 8 × 16
+streams on 16 vCPU (not measured separately).

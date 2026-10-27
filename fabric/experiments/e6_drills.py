@@ -301,23 +301,26 @@ def bgp_bfd_snapshot() -> dict[str, Any]:
 
 
 def run_once(intent: dict[str, Any], name: str, fault: tuple[Callable, Callable, dict] | None,
-             run_no: int, duration: int = DURATION) -> dict[str, Any]:
-    hosts = {h["name"]: h for h in rail_hosts(intent, "A")}
-    pairs = collective_pairs(list(hosts), "ring")
+             run_no: int, duration: int = DURATION, rails: tuple[str, ...] = ("A",)) -> dict[str, Any]:
+    """One E6 run. `rails`: one ring job per rail, all started at the same T0 (E6 used rail A only)."""
+    jobs = []  # (rail, src, dst, src_ip, dst_ip)
+    for rail in rails:
+        hosts = {h["name"]: h for h in rail_hosts(intent, rail)}
+        jobs += [(rail, src, dst, hosts[src]["ip"], hosts[dst]["ip"]) for src, dst in collective_pairs(list(hosts), "ring")]
     links_before = link_snapshot(intent)
     monitors = {m: background(m, f"timeout {duration + 6} ip -ts monitor route nexthop") for m in MONITORS}
     servers = {}
-    for index, (_, dst) in enumerate(pairs):
+    for index, (_, _, dst, _, _) in enumerate(jobs):
         port = PORT_BASE + (run_no % 40) * 10 + index
-        servers[dst] = background(dst, f"timeout {duration + 25} iperf3 -s -1 -i {INTERVAL} -J -p {port}")
+        servers[(dst, port)] = background(dst, f"timeout {duration + 25} iperf3 -s -1 -i {INTERVAL} -J -p {port}")
     time.sleep(0.8)
     t0 = time.time() + SYNC_LEAD
     clients = []
-    for index, (src, dst) in enumerate(pairs):
+    for index, (rail, src, dst, src_ip, dst_ip) in enumerate(jobs):
         port = PORT_BASE + (run_no % 40) * 10 + index
-        command = (f"sh {SYNC_SCRIPT} {t0:.6f} timeout {duration + 20} iperf3 -c {hosts[dst]['ip']} "
-                   f"-B {hosts[src]['ip']} -p {port} -P {FLOWS} -t {duration} -i {INTERVAL} --get-server-output --json")
-        clients.append((src, dst, command, background(src, command)))
+        command = (f"sh {SYNC_SCRIPT} {t0:.6f} timeout {duration + 20} iperf3 -c {dst_ip} "
+                   f"-B {src_ip} -p {port} -P {FLOWS} -t {duration} -i {INTERVAL} --get-server-output --json")
+        clients.append((rail, src, dst, command, background(src, command)))
     pings = {}
     count = int(duration / 0.1)
     for label, (node, source, target) in PROBES.items():
@@ -337,22 +340,23 @@ def run_once(intent: dict[str, Any], name: str, fault: tuple[Callable, Callable,
         thread = threading.Thread(target=driver)
         thread.start()
     pair_results = []
-    for src, dst, command, proc in clients:
+    for rail, src, dst, command, proc in clients:
+        extra = {"rail": rail} if rails != ("A",) else {}
         try:
             parsed = parse_sync(finish(src, proc, timeout=duration + 60))
             document = parsed["iperf3"]
             pair_results.append({
-                "source": src, "destination": dst, "command": command,
+                "source": src, "destination": dst, "command": command, **extra,
                 "start_offset": parsed["start"] - t0,
                 "received_bytes": document.get("end", {}).get("sum_received", {}).get("bytes"),
                 "error": document.get("error"),
                 "timeline": server_timeline(document),
             })
         except (RuntimeError, ValueError, json.JSONDecodeError) as error:
-            pair_results.append({"source": src, "destination": dst, "command": command, "error": str(error)[-600:]})
+            pair_results.append({"source": src, "destination": dst, "command": command, **extra, "error": str(error)[-600:]})
     if fault:
         thread.join()
-    for dst, proc in servers.items():
+    for (dst, _), proc in servers.items():
         try:
             finish(dst, proc, timeout=duration + 40)
         except RuntimeError:
