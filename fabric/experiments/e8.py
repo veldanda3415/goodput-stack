@@ -50,6 +50,13 @@ KNOBS: dict[str, tuple[list[tuple[str, str]], list[tuple[str, str]]]] = {
         [(leaf, "vtysh -c 'configure terminal' -c 'no zebra nexthop kernel enable'") for leaf in LEAVES] + [SPINE1_CYCLE],
         [(leaf, "vtysh -c 'configure terminal' -c 'zebra nexthop kernel enable'") for leaf in LEAVES] + [SPINE1_CYCLE],
     ),
+    "spine1-coalesce-100": (
+        [("spine1", "vtysh -c 'configure terminal' -c 'router bgp 65000' -c 'coalesce-time 100'"),
+         ("spine1", "vtysh -c 'show bgp ipv4 unicast update-groups'")],
+        [("spine1", "vtysh -c 'show bgp ipv4 unicast update-groups'"),
+         ("spine1", "vtysh -c 'configure terminal' -c 'router bgp 65000' -c 'no coalesce-time 100'"),
+         ("spine1", "vtysh -c 'show bgp ipv4 unicast update-groups'")],
+    ),
     # takes effect when the link-local address is re-created at link-up (the restore)
     "spine1-dad-off": (
         [("spine1", " ".join(["sysctl", "-w"] + [f"net.ipv6.conf.{i}.dad_transmits=0" for i in SPINE_PORTS]))],
