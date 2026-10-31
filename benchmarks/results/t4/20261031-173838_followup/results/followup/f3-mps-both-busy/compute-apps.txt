@@ -1,0 +1,5 @@
+$ nvidia-smi --query-compute-apps=gpu_bus_id,pid,process_name,used_memory --format=csv,noheader
+# rc=0
+00000000:00:04.0, 328, nvidia-cuda-mps-server, 28 MiB
+00000000:00:04.0, 306, VLLM::EngineCore, 6446 MiB
+00000000:00:04.0, 552, VLLM::EngineCore, 6948 MiB

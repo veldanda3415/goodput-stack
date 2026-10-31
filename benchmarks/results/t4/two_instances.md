@@ -125,3 +125,92 @@ with ≥ 0.15 h of budget.
 ### Predictions (written before the F3 run, verbatim from the assignment)
 
 MPS daemon may not be allowed in the Kaggle container; if it runs, combined output for 16 + 16 users rises above the time-sharing 729.5 tok/s but stays at or below the single-instance 1,081.4; ITL lower than 39.8 ms.
+
+### Decisions made
+
+- **F3 and F4 in one Kaggle session** (run 20261031-173838_followup). This saves one vLLM install. F3 ran first. The
+  install (0.056 h with the `--help` dumps) is counted against F4. F3 is counted from its own start.
+- **MPS daemon command:** `CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe CUDA_MPS_LOG_DIRECTORY=/tmp/goodput-mps/log
+  CUDA_VISIBLE_DEVICES=0 nvidia-cuda-mps-control -d`. Both vLLM servers got the same two `CUDA_MPS_*` variables in
+  their environment. Stop: `echo quit | nvidia-cuda-mps-control` with the same variables.
+- **No time-sharing rerun in this session.** The budget covered only the MPS condition. The time-sharing (729.5) and
+  single-instance (1,081.4) numbers below come from Build 14's session (20261031-085014_twoinst). That session ran at a
+  different SM clock (next section).
+- Everything else is as in Build 14:
+  - Qwen2.5-3B-Instruct-AWQ @ `3559b226…`, `--dtype half --no-enable-prefix-caching --gpu-memory-utilization 0.45`.
+  - The second instance started after the first was up.
+  - 16 + 16 users, prompt 128 / output 256, ignore_eos, temperature 0, 3 requests per user.
+  - One harness process per instance, after a 32-request warm-up wave per instance.
+  - Output tok/s = `vllm:generation_tokens_total` deltas over the joint window (both instances ≥ 0.9 × users running).
+
+### Run (20261031-173838_followup, Kaggle T4, real)
+
+- Git `0fe5a61` (`-dirty` = only the results ledger `runs.jsonl` was uncommitted; the stage code is 0fe5a61), Tesla T4
+  (GPU 0), driver 580.178.04, CUDA 13.0, vLLM 0.31.0, torch 2.13.0+cu130. F3 used **0.093 GPU-h** (marks `f3-begin` →
+  `f3-end`).
+- Command: `make t4-run STAGE=followup ARGS='--args "--parts f3,f4 --session-cap-h 0.48"'`.
+- Rows `f3-*` in [followup.jsonl](20261031-173838_followup/results/followup/followup.jsonl). Raw logs are in
+  `logs/mps-*.txt`, `logs/f3-nvidia-smi-both-up.txt` and `logs/server-f3-mps-i{1,2}.log`. Load data is in
+  [f3-mps-both-busy/](20261031-173838_followup/results/followup/f3-mps-both-busy/).
+
+**MPS is allowed on Kaggle.**
+- `nvidia-cuda-mps-control -d` returned rc 0 with no output. The binaries are in `/opt/bin` (driver 580 / CUDA 13.0
+  build), and the GPU compute mode is `Default`.
+- The control log shows `Starting control daemon using socket /tmp/goodput-mps/pipe/control`, then `NEW SERVER 328:
+  Ready`.
+- Each vLLM EngineCore connected as a client. The log has `NEW CLIENT 306 …` and `NEW CLIENT 552 … Server already
+  exists`, each just after a `User did not send valid credentials` line. Both clients were accepted.
+- `nvidia-smi` with both servers up:
+
+  ```
+  |    0   N/A  N/A             306    M+C   VLLM::EngineCore                       6342MiB |
+  |    0   N/A  N/A             328      C   nvidia-cuda-mps-server                   28MiB |
+  |    0   N/A  N/A             552    M+C   VLLM::EngineCore                       6798MiB |
+  ```
+
+  Both EngineCores show type **M+C**, i.e. MPS clients. (The row's parsed `mps_client_lines` is empty because of a
+  parsing bug in the stage: its regex expected a space before `MiB`. The raw file above is the evidence.)
+- `echo quit | nvidia-cuda-mps-control` returned rc 0, and afterwards no `nvidia-cuda-mps` process was left.
+
+| condition | session | **combined output tok/s** | per instance tok/s | ITL p50 / p95 ms (i1; i2) | TTFT p50 / p95 ms (i1; i2) | joint window s | util.gpu % | SM clock mean (p50) MHz | power mean W | KV pool i1 / i2 (log) |
+|---|---|---:|---|---|---|---:|---:|---:|---:|---|
+| **MPS, both busy (16 + 16)** | this run | **741.0** | 370.8 / 370.3 | **39.4** / 43.1; 39.4 / 43.0 | 565 / 925; 589 / 931 | 32.5 | 100.0 | **962 (975)** | 65.0 | 96,144 / 109,120 |
+| time-sharing, both busy (16 + 16) | Build 14 | 729.5 | 363.4 / 366.1 | 39.8 / 44.4; 39.9 / 44.1 | 728 / 936; 732 / 935 | 31.6 | 100.0 | 1,235 (1,245) | 68.3 | 109,168 / 109,168 |
+| one instance @ 0.90, 32 users | Build 14 | 1,081.4 | — | 26.2 / 30.0 | 403 / 528 | 21.2 | 100.0 | 1,246 (1,260) | 68.5 | 287,072 |
+
+Notes on the MPS run:
+- All 96 requests were OK, with `usage.completion_tokens` 256 each. Harness steady sum: 732.9 tok/s. There were 0
+  preemptions and no NVML throttle-counter time.
+- The VM CPU was 12.7 % busy. The client used 11 % of one core, and each server 17 %.
+- GPU memory in use: 13,873 MiB. Instance 1 under MPS logged 3.30 GiB of available KV memory (96,144 tokens), against
+  3.75 GiB without MPS in Build 14. Instance 2 logged 3.75 GiB (109,120). Startup took 174.9 s and 103.8 s.
+
+**What this shows and what it does not.**
+- Under MPS the two instances made **741.0 tok/s together**. That is +1.6 % over Build 14's time-sharing 729.5 and
+  −31 % from the single instance 1,081.4.
+- ITL p50 was 39.4 ms, against 39.8 under time-sharing.
+- **The sessions are not comparable on clock.** This session's GPU ran at **962 MHz mean (80 °C, 65 W)**. Build 14's
+  time-sharing run ran at **1,235 MHz**. CALCULATED: 741.0 × 1,235 / 962 = 951 tok/s if output scaled linearly with
+  SM clock. That scaling is an assumption, not a measurement. So the +1.6 % is not a clean MPS effect. MPS may be worth
+  more than that, or the clock gap may hide other differences.
+- A same-session time-sharing vs MPS pair is the next step (below).
+
+### Predicted vs measured (F3)
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| MPS daemon may not be allowed in the Kaggle container | **allowed**: rc 0, MPS server started, both EngineCores `M+C` clients | the "may not" case did not happen |
+| if it runs, combined 16 + 16 output rises above time-sharing 729.5 | **741.0** (+1.6 %) | above, but by less than the session-to-session clock difference (962 vs 1,235 MHz), so not shown to be an MPS effect |
+| … but stays at or below the single instance 1,081.4 | 741.0 | as predicted |
+| ITL lower than 39.8 ms | **39.4** ms p50 (p95 43.1 vs 44.4) | lower, by 1 %, within the same caveat |
+
+### Does NOT show (F3)
+
+- No same-session time-sharing or single-instance control. The comparison is with Build 14's session, at a ~22 %
+  higher SM clock.
+- One MPS run (96 requests, 32.5 s joint window), no repeat. No MPS settings were tuned
+  (`CUDA_MPS_ACTIVE_THREAD_PERCENTAGE` was not set).
+- MPS memory and fault isolation were not tested. Instance 1 got a smaller KV pool under MPS (96,144 vs 109,168
+  tokens); why was not separated.
+- **Next step:** one session that runs time-sharing both-busy, then MPS both-busy, back to back (`followup` stage F3
+  plus Build 14's `start_pair("ts")` condition), ≈ 0.15 GPU-h.

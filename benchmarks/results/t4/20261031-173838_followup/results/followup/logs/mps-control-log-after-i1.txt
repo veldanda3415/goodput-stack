@@ -1,0 +1,23 @@
+$ tail -n 40 /tmp/goodput-mps/log/control.log
+# rc=0
+[2026-10-31 21:42:03.341 Control   223] Starting control daemon using socket /tmp/goodput-mps/pipe/control
+[2026-10-31 21:42:03.341 Control   223] To connect CUDA applications to this daemon, set env CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe
+[2026-10-31 21:42:03.341 Control   223] CUDA MPS Control binary version: 13000
+[2026-10-31 21:42:05.349 Control   223] Accepting connection...
+[2026-10-31 21:42:05.349 Control   223] NEW UI
+[2026-10-31 21:42:05.349 Control   223] Cmd:get_server_list
+[2026-10-31 21:42:05.349 Control   223] UI closed
+[2026-10-31 21:42:59.231 Control   223] Accepting connection...
+[2026-10-31 21:42:59.231 Control   223] User did not send valid credentials
+[2026-10-31 21:42:59.231 Control   223] Accepting connection...
+[2026-10-31 21:42:59.232 Control   223] NEW CLIENT 306 from user 0: Server is not ready, push client to pending list
+[2026-10-31 21:42:59.232 Control   328] Starting new server 328 for user 0
+[2026-10-31 21:42:59.238 Control   223] Accepting connection...
+[2026-10-31 21:42:59.547 Control   223] NEW SERVER 328: Ready
+[2026-10-31 21:43:00.165 Control   223] Accepting connection...
+[2026-10-31 21:43:00.165 Control   223] NEW CLIENT 306 from user 0: Server already exists
+[2026-10-31 21:45:00.289 Control   223] Accepting connection...
+[2026-10-31 21:45:00.289 Control   223] NEW UI
+[2026-10-31 21:45:00.289 Control   223] Cmd:get_server_list
+[2026-10-31 21:45:00.289 Control   223] 328
+[2026-10-31 21:45:00.290 Control   223] UI closed

@@ -1,0 +1,2 @@
+$ echo quit | nvidia-cuda-mps-control
+# rc=0
