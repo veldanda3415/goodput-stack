@@ -179,3 +179,9 @@ full and busy. It is not a direct CPU measurement.
 - The ceiling line uses datasheet peaks (65 TFLOPS FP16, 300 GB/s), not a measured roofline of this card.
 - Offline sampling is temperature 1.0 (hard-coded in the tool). The HTTP comparison and the memory-limited case did not run.
 - One repeat per point; no spread.
+
+## F2 — memory-limited case (follow-up)
+
+### Predictions (written before the F2 run, verbatim from the assignment)
+
+KV pool at 0.95 ≈ 192,000–206,000 tokens (Build 14); with input 3,840 / output 256 each sequence needs up to 4,096 tokens → KV full at ≈ 47–50 sequences (CALCULATED); at max-num-seqs 64, preemptions appear and output tok/s falls well below the short-context 941.5 at 64; at 32 no preemptions.
