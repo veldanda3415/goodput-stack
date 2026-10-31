@@ -119,3 +119,9 @@ with ≥ 0.15 h of budget.
 - No MIG (T4 has none) and no MPS result (not run).
 - AWQ INT4 only, one model, one workload (128/256, 16 + 16 or 32 users), one session, one repeat.
 - NVML util.gpu, not DCGM; no per-process SM share.
+
+## F3 — MPS for two instances (follow-up)
+
+### Predictions (written before the F3 run, verbatim from the assignment)
+
+MPS daemon may not be allowed in the Kaggle container; if it runs, combined output for 16 + 16 users rises above the time-sharing 729.5 tok/s but stays at or below the single-instance 1,081.4; ITL lower than 39.8 ms.

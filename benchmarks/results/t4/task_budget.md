@@ -204,3 +204,9 @@ signals (AUC 0.58 and 0.65, upper CI bounds 0.64 and 0.75). The checks catch for
   same budget; a fresh-context escalation was not measured.
 - Dollar figures are CALCULATED with an attribution that double-counts overlapping pool time; not a bill.
 - No live migration: a decode in flight is never moved between pods (its KV stays on the pod), and nothing here claims it.
+
+## F4 — escalate with a fresh context (follow-up)
+
+### Predictions (written before the F4 run, verbatim from the assignment)
+
+escalate_fresh success close to baseline (within ~10 points); tokens per successful task at or above baseline, because the cheap pool passes step 1 first try in only ~34/150 tasks so most steps escalate anyway; escalate_carry reproduces Build 14's very low success.
