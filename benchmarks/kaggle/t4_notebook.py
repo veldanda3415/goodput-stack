@@ -4,6 +4,7 @@
     python -m benchmarks.kaggle.t4_notebook --stage baseline --vllm-versions 0.31.0,0.30.0
     python -m benchmarks.kaggle.t4_notebook --stage nccl [--smoke]      # needs Kaggle "GPU T4 x2"
     python -m benchmarks.kaggle.t4_notebook --stage p8x2                # P8 on 2 x T4 (scripts/probe_p8_t4x2.py)
+    python -m benchmarks.kaggle.t4_notebook --stage ridge               # Part A: offline ceiling vs max-num-seqs, HTTP at 384
 
 Every stage writes /kaggle/working/results/<stage>/ (override: GOODPUT_RESULTS):
     <stage>.jsonl   result rows; each carries provenance (time, git sha, GPU/driver/CUDA, vLLM version,
@@ -1668,8 +1669,459 @@ STAGE_ARGS["p8x2"] = [
 ]
 
 
+# ---------------------------------------------------------------- shared: CPU + /metrics samplers, windows (ridge, twoinst, taskbudget)
+
+class CpuSampler:
+    """1 Hz CPU use with psutil: system-wide % (all vCPUs = 100) and, per named group, the summed % of one core of
+    a root process and all its children (e.g. `vllm serve` = API server + EngineCore). CSV: t_unix, sys_pct,
+    sys_max_core_pct, <group>_pct ... Group roots are callables, so a server started later is picked up."""
+
+    def __init__(self, out: Path, groups: dict, interval_s: float = 1.0):
+        import threading
+        self.out, self.groups, self.interval_s = Path(out), groups, interval_s
+        self._stop = threading.Event()
+        self._procs: dict = {}
+
+    def _tree_pct(self, roots: list[int]) -> float:
+        import psutil
+        total = 0.0
+        for root in roots:
+            try:
+                p = psutil.Process(root)
+                procs = [p] + p.children(recursive=True)
+            except psutil.Error:
+                continue
+            for q in procs:
+                cached = self._procs.setdefault(q.pid, q)
+                try:
+                    total += cached.cpu_percent(None)
+                except psutil.Error:
+                    self._procs.pop(q.pid, None)
+        return round(total, 1)
+
+    def _loop(self) -> None:
+        import csv
+        import psutil
+        psutil.cpu_percent(None)
+        psutil.cpu_percent(None, percpu=True)
+        names = list(self.groups)
+        with open(self.out, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["t_unix", "sys_pct", "sys_max_core_pct"] + [f"{n}_pct" for n in names])
+            while not self._stop.wait(self.interval_s):
+                per = psutil.cpu_percent(None, percpu=True)
+                row = [round(time.time(), 3), round(sum(per) / len(per), 1), max(per)]
+                for n in names:
+                    try:
+                        row.append(self._tree_pct(list(self.groups[n]())))
+                    except Exception:
+                        row.append("")
+                w.writerow(row)
+                f.flush()
+
+    def __enter__(self) -> "CpuSampler":
+        import threading
+        self.out.parent.mkdir(parents=True, exist_ok=True)
+        self._t = threading.Thread(target=self._loop, daemon=True)
+        self._t.start()
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self._stop.set()
+        self._t.join(5)
+
+
+class MetricsScraper:
+    """1 Hz /metrics scrape of one or more vLLM servers in a thread (sync httpx). Rows: {t_unix, server, metrics}."""
+
+    def __init__(self, out: Path, servers: dict, interval_s: float = 1.0):
+        import threading
+        self.out, self.servers, self.interval_s = Path(out), servers, interval_s
+        self._stop = threading.Event()
+        self.rows: list[dict] = []
+
+    def _loop(self) -> None:
+        import httpx
+        from benchmarks.harness.client import parse_prometheus
+        with httpx.Client(timeout=5) as c, open(self.out, "a") as f:
+            while True:
+                for name, url in self.servers.items():
+                    row = {"t_unix": round(time.time(), 3), "server": name}
+                    try:
+                        row["metrics"] = parse_prometheus(c.get(url + "/metrics").text)
+                    except Exception as exc:
+                        row["error"] = repr(exc)[:200]
+                    self.rows.append(row)
+                    f.write(json.dumps(row) + "\n")
+                f.flush()
+                if self._stop.wait(self.interval_s):
+                    return
+
+    def __enter__(self) -> "MetricsScraper":
+        import threading
+        self.out.parent.mkdir(parents=True, exist_ok=True)
+        self._t = threading.Thread(target=self._loop, daemon=True)
+        self._t.start()
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self._stop.set()
+        self._t.join(10)
+
+
+def csv_window(path: Path, t0: float, t1: float, cols: list[str], prefix: str = "") -> dict:
+    """mean / p50 / min / max of CSV columns for rows with t0 <= t_unix <= t1."""
+    import csv
+    import statistics
+    if not Path(path).exists():
+        return {}
+    with open(path) as f:
+        rows = [r for r in csv.DictReader(f) if not r.get("error") and t0 <= float(r["t_unix"]) <= t1]
+    out: dict = {f"{prefix}samples": len(rows)}
+    for col in cols:
+        vals = [float(r[col]) for r in rows if r.get(col) not in (None, "")]
+        if vals:
+            out |= {f"{prefix}{col}_mean": round(statistics.fmean(vals), 2), f"{prefix}{col}_p50": statistics.median(vals),
+                    f"{prefix}{col}_min": min(vals), f"{prefix}{col}_max": max(vals)}
+    return out
+
+
+GPU_COLS = ["util_gpu_pct", "sm_clock_mhz", "power_w", "mem_used_mib", "util_mem_pct", "temp_c"]
+
+
+def metrics_window(rows: list[dict], t0: float, t1: float, server: str | None = None, prefix: str = "srv_") -> dict:
+    """running / waiting / KV usage means and maxima, preemption and generation-token deltas in [t0, t1]."""
+    import statistics
+    ms = [r for r in rows if "metrics" in r and t0 <= r["t_unix"] <= t1 and (server is None or r.get("server") == server)]
+    if not ms:
+        return {f"{prefix}samples": 0}
+    out: dict = {f"{prefix}samples": len(ms)}
+    for role, names in (("running", ("num_requests_running", "vllm:num_requests_running")),
+                        ("waiting", ("num_requests_waiting", "vllm:num_requests_waiting")),
+                        ("kv_usage", ("kv_cache_usage_perc", "vllm:kv_cache_usage_perc"))):
+        vals = [next((r["metrics"][n] for n in names if n in r["metrics"]), None) for r in ms]
+        vals = [v for v in vals if v is not None]
+        if vals:
+            out |= {f"{prefix}{role}_mean": round(statistics.fmean(vals), 4), f"{prefix}{role}_max": max(vals)}
+    for role, names in (("preemptions", ("num_preemptions_total", "vllm:num_preemptions")),
+                        ("generation_tokens", ("generation_tokens_total", "vllm:generation_tokens")),
+                        ("prompt_tokens", ("prompt_tokens_total", "vllm:prompt_tokens"))):
+        vals = [(r["t_unix"], next((r["metrics"][n] for n in names if n in r["metrics"]), None)) for r in ms]
+        vals = [(t, v) for t, v in vals if v is not None]
+        if len(vals) >= 2:
+            out[f"{prefix}{role}_delta"] = vals[-1][1] - vals[0][1]
+            if role != "preemptions" and vals[-1][0] > vals[0][0]:
+                out[f"{prefix}{role}_per_s"] = round((vals[-1][1] - vals[0][1]) / (vals[-1][0] - vals[0][0]), 2)
+    return out
+
+
+def full_window(rows: list[dict], level: float, server: str | None = None) -> tuple[float, float] | None:
+    """First and last /metrics sample with running >= level (the batch is full in between)."""
+    ts = [r["t_unix"] for r in rows if "metrics" in r and (server is None or r.get("server") == server)
+          and r["metrics"].get("num_requests_running", r["metrics"].get("vllm:num_requests_running", 0)) >= level]
+    return (ts[0], ts[-1]) if len(ts) >= 2 else None
+
+
+def system_info(logs: Path) -> dict:
+    sh(["lscpu"], out=logs / "lscpu.txt")
+    sh(["bash", "-lc", "nproc; free -m; cat /proc/meminfo | head -3"], out=logs / "nproc-free.txt")
+    try:
+        import psutil
+        return {"vcpus_os": os.cpu_count(), "cpus_physical_psutil": psutil.cpu_count(logical=False),
+                "ram_total_gib": round(psutil.virtual_memory().total / 2**30, 1)}
+    except Exception as exc:
+        return {"vcpus_os": os.cpu_count(), "psutil_error": repr(exc)}
+
+
+SCHED_PROBE_PY = r"""
+import json, sys
+from vllm.engine.arg_utils import EngineArgs
+from vllm.usage.usage_lib import UsageContext
+model, rev, util, mns, ctx = sys.argv[1], sys.argv[2], float(sys.argv[3]), int(sys.argv[4]), sys.argv[5]
+ea = EngineArgs(model=model, revision=rev, dtype="half", gpu_memory_utilization=util, max_num_seqs=mns, enable_prefix_caching=False)
+cfg = ea.create_engine_config(getattr(UsageContext, ctx))
+sc = cfg.scheduler_config
+print("SCHEDCFG " + json.dumps({"usage_context": ctx, "max_model_len": cfg.model_config.max_model_len,
+      **{k: getattr(sc, k, None) for k in ("max_num_batched_tokens", "max_num_seqs", "enable_chunked_prefill", "policy")}}, default=str))
+"""
+
+
+def sched_probe(model: str, rev: str, util: float, mns: int, ctx: str, logs: Path) -> dict:
+    """Scheduler config vLLM resolves for these settings in a usage context (LLM_CLASS = offline bench,
+    OPENAI_API_SERVER = vllm serve). Separate process, before any engine starts."""
+    rc, out = sh([sys.executable, "-c", SCHED_PROBE_PY, model, rev, str(util), str(mns), ctx], timeout=600,
+                 out=logs / f"sched-probe-{ctx}-mns{mns}.txt", env=dict(os.environ, CUDA_VISIBLE_DEVICES="0"))
+    m = re.search(r"^SCHEDCFG (.*)$", out, re.M)
+    return json.loads(m.group(1)) if m else {"usage_context": ctx, "rc": rc, "error_tail": out[-500:]}
+
+
+def budget_left_h(budget_h: float) -> float:
+    return budget_h - session_elapsed_h()
+
+
+# ---------------------------------------------------------------- ridge (Part A): offline ceiling, HTTP at 384, memory-limited case
+
+RIDGE_LABEL = "Kaggle T4, real"
+
+
+def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts: int, in_len: int, out_len: int,
+                  util: float, warmups: int, timeout_s: float, prov: dict) -> dict:
+    """One `vllm bench throughput` run (benchmarks/kaggle/offline_throughput.py) with NVML, CPU and engine-metric sampling."""
+    from benchmarks.gpu_sampler import GpuSampler
+    bench_json, mfile = st.dir / f"{key}.bench.json", st.dir / f"{key}.engine-metrics.json"
+    bench_args = ["--backend", "vllm", "--model", model, "--revision", rev, "--dtype", "half",
+                  "--gpu-memory-utilization", str(util), "--no-enable-prefix-caching", "--max-num-seqs", str(mns),
+                  "--dataset-name", "random", "--random-input-len", str(in_len), "--random-output-len", str(out_len),
+                  "--random-range-ratio", "0.0", "--num-prompts", str(n_prompts), "--num-warmups", str(warmups),
+                  "--seed", "0", "--output-json", str(bench_json)]
+    cmd = [sys.executable, "-m", "benchmarks.kaggle.offline_throughput", str(mfile), "--", *bench_args]
+    log_path = st.logs / f"{key}.log"
+    t_th0 = throttle_counters()
+    with open(log_path, "w") as lf:
+        lf.write("$ CUDA_VISIBLE_DEVICES=0 " + shlex.join(cmd) + "\n")
+        lf.flush()
+        proc = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT, env=dict(os.environ, CUDA_VISIBLE_DEVICES="0"),
+                                start_new_session=True)
+        with GpuSampler(st.dir / f"{key}.gpu.csv", 1.0, 0), \
+                CpuSampler(st.dir / f"{key}.cpu.csv", {"bench": lambda: [proc.pid]}):
+            try:
+                rc = proc.wait(timeout_s)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait(30)
+                rc = "timeout"
+    t_th1 = throttle_counters()
+    text = log_path.read_text(errors="replace")
+    row: dict = {"kind": "offline", "label": RIDGE_LABEL, "max_num_seqs": mns, "num_prompts": n_prompts, "num_warmups": warmups,
+                 "input_len": in_len, "output_len": out_len, "gpu_memory_utilization": util, "rc": rc,
+                 "bench_cmd": "vllm bench throughput " + shlex.join(bench_args),
+                 "how_run": "benchmarks/kaggle/offline_throughput.py = vllm.benchmarks.throughput add_cli_args + main "
+                            "(what `vllm bench throughput` calls) + 1 Hz engine-registry sampler",
+                 "sampling": "temperature=1.0 top_p=1.0 ignore_eos=True, hard-coded in vllm/benchmarks/throughput.py "
+                             "_run_vllm_requests (0.31.0); no flag sets temperature",
+                 "throttle_us_delta": {k: t_th1[k] - t_th0.get(k, 0) for k in t_th1}}
+    m = re.search(r"Throughput:\s*([\d.]+) requests/s,\s*([\d.]+) total tokens/s,\s*([\d.]+) output tokens/s", text)
+    if m:
+        row |= {"req_s": float(m.group(1)), "total_tok_s": float(m.group(2)), "output_tok_s": float(m.group(3))}
+    for k, pat in (("total_prompt_tokens", r"Total num prompt tokens:\s*(\d+)"), ("total_output_tokens", r"Total num output tokens:\s*(\d+)")):
+        mm = re.search(pat, text)
+        if mm:
+            row[k] = int(mm.group(1))
+    if bench_json.exists():
+        row["bench_json"] = json.loads(bench_json.read_text())
+    row |= {k: v for k, v in parse_startup(text).items() if k != "startup_lines"}
+    row |= chunked_prefill_info(text, "")
+    if rc != 0:
+        row["error_lines"] = error_lines(text)
+    em = json.loads(mfile.read_text()) if mfile.exists() else {}
+    elapsed = (row.get("bench_json") or {}).get("elapsed_time")
+    if em and elapsed:
+        t1 = em["t_end_unix"]
+        t0 = t1 - elapsed
+        row["timed_window_unix"] = [round(t0, 3), round(t1, 3)]
+        samples = em.get("samples", [])
+        row |= metrics_window(samples, t0, t1, prefix="eng_")
+        row["eng_preemptions_total_incl_warmup"] = (em.get("final") or {}).get("vllm:num_preemptions")
+        row["eng_metric_samples_total"] = len(samples)
+        row |= csv_window(st.dir / f"{key}.gpu.csv", t0, t1, GPU_COLS, prefix="gpu_")
+        row |= csv_window(st.dir / f"{key}.cpu.csv", t0, t1, ["sys_pct", "sys_max_core_pct", "bench_pct"], prefix="cpu_")
+    return st.write(key, row, **prov)
+
+
+def mp_client(base_url: str, cfg: dict, out_path: str) -> None:
+    """One closed-loop harness process (multiprocessing spawn target) for the multi-process HTTP run."""
+    import asyncio
+    from benchmarks.harness import client
+    records, wall_s, steady, _ = asyncio.run(client.run_load(base_url, cfg))
+    with open(out_path, "w") as f:
+        f.write(json.dumps({"wall_s": wall_s, "steady": steady, "records": records}) + "\n")
+
+
+def http_run(st: Stage, key: str, srv: VllmServer, model: str, users: int, n_procs: int, in_len: int, out_len: int,
+             requests_per_user: int, prov: dict) -> dict:
+    """Closed-loop streaming harness at `users` concurrent streams, in 1 or n_procs client processes."""
+    import multiprocessing as mp
+    from benchmarks.gpu_sampler import GpuSampler
+    from benchmarks.harness import stats
+    d = st.dir / key
+    d.mkdir(parents=True, exist_ok=True)
+    per = users // n_procs
+    cfgs = [client_cfg(model, per, per * requests_per_user, prompt_tokens=in_len, max_tokens=out_len, warmup=2 if i == 0 else 0)
+            | {"max_tokens_jitter": 0, "start_jitter_s": 1.0} for i in range(n_procs)]
+    procs: list = []
+    t_th0 = throttle_counters()
+    with GpuSampler(d / "gpu.csv", 1.0, 0), MetricsScraper(d / "metrics.jsonl", {"srv": srv.base_url}) as scr, \
+            CpuSampler(d / "cpu.csv", {"client": lambda: [os.getpid()] + [p.pid for p in procs if p.pid],
+                                       "server": lambda: [srv.proc.pid]}):
+        t0 = time.time()
+        if n_procs == 1:
+            import asyncio
+            from benchmarks.harness import client
+            records, wall_s, steady, _ = asyncio.run(client.run_load(srv.base_url, cfgs[0]))
+            parts = [{"wall_s": wall_s, "steady": steady, "records": records}]
+        else:
+            ctx = mp.get_context("spawn")
+            procs.extend(ctx.Process(target=mp_client, args=(srv.base_url, cfgs[i], str(d / f"client{i}.json")))
+                         for i in range(n_procs))
+            for p in procs:
+                p.start()
+            for p in procs:
+                p.join(1800)
+            parts = [json.loads((d / f"client{i}.json").read_text()) for i in range(n_procs) if (d / f"client{i}.json").exists()]
+        t1 = time.time()
+        time.sleep(1.5)
+    t_th1 = throttle_counters()
+    recs = [r for p in parts for r in p["records"]]
+    with open(d / "requests.jsonl", "w") as f:
+        for r in recs:
+            f.write(json.dumps(r) + "\n")
+    ok = [r for r in recs if r.get("ok")]
+    row: dict = {"kind": "http", "label": RIDGE_LABEL, "users": users, "client_processes": n_procs, "users_per_process": per,
+                 "requests": len(recs), "requests_ok": len(ok), "errors": len(recs) - len(ok),
+                 "error_examples": [r.get("error") for r in recs if not r.get("ok")][:3],
+                 "client_tool": "benchmarks/harness client.run_load (closed loop, /v1/completions streamed, temperature 0)",
+                 "harness_steady_output_tok_s_sum": round(sum((p["steady"] or {}).get("steady_output_tok_s", 0) for p in parts), 2),
+                 "harness_steady_s": [(p["steady"] or {}).get("steady_s") for p in parts],
+                 "wall_s": round(t1 - t0, 1), "throttle_us_delta": {k: t_th1[k] - t_th0.get(k, 0) for k in t_th1}}
+    row |= stats.dist("ttft_ms", [r["ttft_ms"] for r in ok]) | stats.dist("itl_ms", [x for r in ok for x in r["itl_ms"]])
+    row |= stats.dist("tpot_ms", [r["tpot_ms"] for r in ok if r.get("tpot_ms") is not None])
+    row["usage_prompt_tokens"] = sorted({(r.get("usage") or {}).get("prompt_tokens") for r in ok})[:5]
+    row["usage_completion_tokens"] = sorted({(r.get("usage") or {}).get("completion_tokens") for r in ok})[:5]
+    win = full_window(scr.rows, 0.9 * users)
+    row["full_window_rule"] = f"/metrics samples with num_requests_running >= {0.9 * users:.0f} (0.9 x users)"
+    if win:
+        row["full_window_unix"] = [round(win[0], 3), round(win[1], 3)]
+        row["full_window_s"] = round(win[1] - win[0], 1)
+        row |= metrics_window(scr.rows, *win)
+        row |= csv_window(d / "gpu.csv", *win, GPU_COLS, prefix="gpu_")
+        row |= csv_window(d / "cpu.csv", *win, ["sys_pct", "sys_max_core_pct", "client_pct", "server_pct"], prefix="cpu_")
+    row |= {f"run_{k}": v for k, v in metrics_window(scr.rows, t0, t1).items()}
+    return st.write(key, row, **prov)
+
+
+def stage_ridge(a) -> None:
+    """Part A: offline engine ceiling (vllm bench throughput) vs max-num-seqs, the same through HTTP at 384 users, and
+    a memory-limited offline case. One session, GPU 0 only. Budget-guarded (GOODPUT_SESSION_T0)."""
+    st = Stage("ridge")
+    sysinfo = system_info(st.logs)
+    st.write("system", {"kind": "system", **sysinfo, "env": st.env})
+    try:
+        inst = install_pinned(st, a.vllm_version, a.installer)
+        st.write("install", {"kind": "install", **inst, "session_h": round(session_elapsed_h(), 3)})
+        help_serve = serve_help(st.logs, a.vllm_version)
+        rc, help_tp = sh(["vllm", "bench", "throughput", "--help=all"], timeout=300, out=st.logs / "vllm-bench-throughput-help.txt")
+        want_tp = ["--backend", "--model", "--dataset-name", "--random-input-len", "--random-output-len", "--random-range-ratio",
+                   "--num-prompts", "--num-warmups", "--output-json", "--max-num-seqs", "--gpu-memory-utilization", "--dtype",
+                   "--no-enable-prefix-caching", "--revision", "--seed"]
+        missing = require_flags(help_tp, want_tp) + require_flags(help_serve, ["--max-num-seqs", "--gpu-memory-utilization",
+                                                                               "--no-enable-prefix-caching", "--revision"])
+        rev = full_revision(a.model, a.revision)
+        prov = {"label": RIDGE_LABEL, "model": a.model, "model_revision": rev, "vllm_version": a.vllm_version,
+                "vllm_version_reported": inst.get("vllm_version_reported"), "torch": inst["torch_after_install"],
+                "flag_source": "vllm bench throughput --help=all, vllm serve --help=all (logs/)", "vcpus": sysinfo.get("vcpus_os")}
+        st.write("flags", {"kind": "flags", "missing": missing, "bench_throughput_help_rc": rc}, **prov)
+        if missing or not rev:
+            st.write("abort", {"kind": "abort", "reason": f"flags missing {missing}" if missing else "revision not found"}, **prov)
+            return
+        for ctx in ("LLM_CLASS", "OPENAI_API_SERVER"):
+            st.write(f"sched-{ctx}", {"kind": "sched_config", **sched_probe(a.model, rev, a.gpu_mem, 384, ctx, st.logs)}, **prov)
+        done = st.done()
+        mns_list = [int(x) for x in a.mns.split(",")]
+        for mns in mns_list:
+            key = f"offline-mns{mns}"
+            if key in done:
+                continue
+            if budget_left_h(a.budget_h) < 0.06:
+                st.write(key, {"kind": "skipped", "reason": f"budget: session {session_elapsed_h():.3f} h of {a.budget_h}"}, **prov)
+                continue
+            offline_point(st, key, a.model, rev, mns, a.prompts_factor * mns, a.input_len, a.output_len, a.gpu_mem,
+                          a.warmups, budget_left_h(a.budget_h) * 3600, prov)
+        # Task 3: HTTP at 384 users, same engine settings, 1 then n client processes
+        if "http" in a.parts:
+            if budget_left_h(a.budget_h) < 0.10:
+                st.write("http", {"kind": "skipped", "reason": f"budget: session {session_elapsed_h():.3f} h"}, **prov)
+            else:
+                flags = ["--dtype", "half", "--gpu-memory-utilization", str(a.gpu_mem), "--no-enable-prefix-caching",
+                         "--max-num-seqs", str(a.http_users), "--revision", rev]
+                srv = VllmServer(a.model, flags, st.logs / "server-http.log", gpu="0")
+                with srv:
+                    res = srv.start()
+                    text = srv.log_text()
+                    st.write("http-startup", {"kind": "startup", **res, "serve_cmd": "CUDA_VISIBLE_DEVICES=0 " + shlex.join(srv.cmd),
+                                              **{k: v for k, v in parse_startup(text).items() if k != "startup_lines"},
+                                              **chunked_prefill_info(text, help_serve),
+                                              "cache_config_info": cache_config_info(metrics_text(srv.base_url)) if res["started"] else None,
+                                              **({} if res["started"] else {"error_lines": error_lines(text)})}, **prov, serving_flags=flags)
+                    if res["started"]:
+                        # warm-up wave (discarded): temperature 0, 64 concurrent short requests
+                        import asyncio
+                        from benchmarks.harness import client
+                        asyncio.run(client.run_load(srv.base_url, client_cfg(a.model, 64, 64, prompt_tokens=a.input_len, max_tokens=16, warmup=1)))
+                        for n_procs in [int(x) for x in a.http_procs.split(",")]:
+                            key = f"http-u{a.http_users}-p{n_procs}"
+                            if key in done:
+                                continue
+                            if budget_left_h(a.budget_h) < 0.05:
+                                st.write(key, {"kind": "skipped", "reason": f"budget: session {session_elapsed_h():.3f} h"}, **prov)
+                                continue
+                            http_run(st, key, srv, a.model, a.http_users, n_procs, a.input_len, a.output_len,
+                                     a.http_requests_per_user, prov | {"serving_flags": flags})
+                        (st.logs / "metrics-end-http.txt").write_text(metrics_text(srv.base_url))
+        # extra point if output tok/s still rises at the top of the list (and the KV pool holds the batch)
+        rows = {r["key"]: r for r in st.rows() if r.get("kind") == "offline" and r.get("output_tok_s")}
+        top, prev = rows.get(f"offline-mns{mns_list[-1]}"), rows.get(f"offline-mns{mns_list[-2]}") if len(mns_list) > 1 else None
+        if top and prev and a.extra_mns:
+            rising = top["output_tok_s"] > 1.05 * prev["output_tok_s"]
+            kv_ok = (top.get("gpu_kv_cache_tokens") or 0) >= a.extra_mns * (a.input_len + a.output_len)
+            key = f"offline-mns{a.extra_mns}"
+            if key not in done:
+                if rising and kv_ok and budget_left_h(a.budget_h) > 0.07:
+                    offline_point(st, key, a.model, rev, a.extra_mns, a.prompts_factor * a.extra_mns, a.input_len, a.output_len,
+                                  a.gpu_mem, a.warmups, budget_left_h(a.budget_h) * 3600, prov)
+                else:
+                    st.write(key, {"kind": "skipped", "reason": "rule: run only if output tok/s rose > 5 % from the previous point, "
+                                   "KV pool >= batch x (in+out) and budget > 0.07 h",
+                                   "rising": rising, "kv_ok": kv_ok, "session_h": round(session_elapsed_h(), 3)}, **prov)
+        # Task 4: memory-limited offline case
+        if "memlimit" in a.parts:
+            key = f"memlimit-in{a.mem_input_len}-mns{a.mem_mns}"
+            if key not in done:
+                if budget_left_h(a.budget_h) > 0.06:
+                    offline_point(st, key, a.model, rev, a.mem_mns, a.mem_prompts, a.mem_input_len, a.output_len, a.gpu_mem,
+                                  a.mem_warmups, budget_left_h(a.budget_h) * 3600, prov)
+                else:
+                    st.write(key, {"kind": "skipped", "reason": f"budget: session {session_elapsed_h():.3f} h of {a.budget_h}"}, **prov)
+    finally:
+        st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 3)})
+
+
+STAGE_ARGS["ridge"] = [
+    lambda p: p.add_argument("--vllm-version", default="0.31.0"),
+    lambda p: p.add_argument("--installer", choices=["pip", "uv"], default="uv"),
+    lambda p: p.add_argument("--model", default="Qwen/Qwen2.5-3B-Instruct"),
+    lambda p: p.add_argument("--revision", default="aa8e7253"),
+    lambda p: p.add_argument("--gpu-mem", type=float, default=0.95),
+    lambda p: p.add_argument("--input-len", type=int, default=128),
+    lambda p: p.add_argument("--output-len", type=int, default=256),
+    lambda p: p.add_argument("--mns", default="64,128,256,384", help="offline --max-num-seqs points, in run order"),
+    lambda p: p.add_argument("--extra-mns", type=int, default=512, help="0 = never"),
+    lambda p: p.add_argument("--prompts-factor", type=int, default=4, help="num-prompts = factor x max-num-seqs"),
+    lambda p: p.add_argument("--warmups", type=int, default=32, help="--num-warmups per offline run (discarded by the bench)"),
+    lambda p: p.add_argument("--parts", default="http,memlimit"),
+    lambda p: p.add_argument("--http-users", type=int, default=384),
+    lambda p: p.add_argument("--http-procs", default="1,4"),
+    lambda p: p.add_argument("--http-requests-per-user", type=int, default=2),
+    lambda p: p.add_argument("--mem-input-len", type=int, default=3840),
+    lambda p: p.add_argument("--mem-mns", type=int, default=64),
+    lambda p: p.add_argument("--mem-prompts", type=int, default=128),
+    lambda p: p.add_argument("--mem-warmups", type=int, default=8),
+    lambda p: p.add_argument("--budget-h", type=float, default=0.45),
+]
+
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
-          "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2}
+          "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2,
+          "ridge": stage_ridge}
 
 
 def main() -> None:
