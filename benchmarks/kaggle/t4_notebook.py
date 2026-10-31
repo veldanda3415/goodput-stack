@@ -6,6 +6,7 @@
     python -m benchmarks.kaggle.t4_notebook --stage p8x2                # P8 on 2 x T4 (scripts/probe_p8_t4x2.py)
     python -m benchmarks.kaggle.t4_notebook --stage ridge               # Part A: offline ceiling vs max-num-seqs, HTTP at 384
     python -m benchmarks.kaggle.t4_notebook --stage twoinst             # Part B: two vLLM instances on one T4, time-sharing vs MPS
+    python -m benchmarks.kaggle.t4_notebook --stage taskbudget --strong-util U --cheap-util U   # Part C: cost per completed task
 
 Every stage writes /kaggle/working/results/<stage>/ (override: GOODPUT_RESULTS):
     <stage>.jsonl   result rows; each carries provenance (time, git sha, GPU/driver/CUDA, vLLM version,
@@ -2413,9 +2414,182 @@ STAGE_ARGS["twoinst"] = [
 ]
 
 
+# ---------------------------------------------------------------- taskbudget (Part C): cancellation check + cost per completed task
+
+CANCEL_METRICS = re.compile(r"^vllm:(num_requests_running|num_requests_waiting|kv_cache_usage_perc|request_success_total)\b.*$", re.M)
+
+
+async def cancel_probe(base_url: str, model: str, hold_s: float, watch_s: float, interval_s: float) -> dict:
+    """One long streamed request (ignore_eos, max_tokens 2000); the client disconnects after `hold_s`; /metrics is
+    scraped every `interval_s` from before the request until `watch_s` after the disconnect. Raw metric lines kept."""
+    import asyncio
+    import httpx
+    samples: list[dict] = []
+    stop = asyncio.Event()
+    t_ref = time.time()
+
+    async def scrape(c: httpx.AsyncClient) -> None:
+        while not stop.is_set():
+            try:
+                text = (await c.get(base_url + "/metrics", timeout=5)).text
+                samples.append({"t_rel_s": round(time.time() - t_ref, 3),
+                                "lines": [l for l in text.splitlines() if CANCEL_METRICS.match(l)]})
+            except httpx.HTTPError as exc:
+                samples.append({"t_rel_s": round(time.time() - t_ref, 3), "error": repr(exc)[:200]})
+            await asyncio.sleep(interval_s)
+
+    body = {"model": model, "messages": [{"role": "user", "content": DECODE_PROMPT}], "max_tokens": 2000, "temperature": 0.0,
+            "ignore_eos": True, "stream": True, "stream_options": {"include_usage": True, "continuous_usage_stats": True}}
+    out: dict = {"hold_s": hold_s, "watch_s": watch_s, "interval_s": interval_s, "request": {k: v for k, v in body.items() if k != "messages"}}
+    async with httpx.AsyncClient() as mc, httpx.AsyncClient() as rc:
+        task = asyncio.create_task(scrape(mc))
+        await asyncio.sleep(1.0)
+        chunks, last_usage = 0, None
+        t_send = time.time()
+        async with rc.stream("POST", base_url + "/v1/chat/completions", json=body, timeout=60) as r:
+            out["status"] = r.status_code
+            async for line in r.aiter_lines():
+                if line.startswith("data: ") and line != "data: [DONE]":
+                    j = json.loads(line[6:])
+                    chunks += 1
+                    last_usage = j.get("usage") or last_usage
+                if time.time() - t_send >= hold_s:
+                    break
+        out |= {"t_send_rel_s": round(t_send - t_ref, 3), "t_disconnect_rel_s": round(time.time() - t_ref, 3),
+                "chunks_before_disconnect": chunks, "usage_at_disconnect": last_usage}
+        await asyncio.sleep(watch_s)
+        stop.set()
+        await task
+    out["samples"] = samples
+    # first sample after the disconnect with num_requests_running == 0 (summed over label sets)
+    def running(s: dict) -> float | None:
+        vals = [float(l.rsplit(" ", 1)[1]) for l in s.get("lines") or [] if l.startswith("vllm:num_requests_running")]
+        return sum(vals) if vals else None
+    after = [s for s in samples if s["t_rel_s"] >= out["t_disconnect_rel_s"] and running(s) is not None]
+    freed = next((s for s in after if running(s) == 0), None)
+    out["running_before_disconnect"] = next((running(s) for s in reversed(samples)
+                                             if s["t_rel_s"] < out["t_disconnect_rel_s"] and running(s) is not None), None)
+    out["freed"] = freed is not None
+    out["freed_after_s"] = round(freed["t_rel_s"] - out["t_disconnect_rel_s"], 3) if freed else None
+    out["freed_sample_lines"] = freed["lines"] if freed else None
+    return out
+
+
+def stage_taskbudget(a) -> None:
+    """Part C: strong (3B AWQ) and cheap (0.5B FP16) pools as two vLLM instances on GPU 0; Task 7 cancellation check on
+    both; then 150 GSM8K tasks: baseline (sets the budget = p75 tokens per successful task), then all four policies with
+    a random policy order per batch of 8 tasks. Policy in client; gateway not exercised."""
+    import asyncio as aio
+    from benchmarks.gpu_sampler import GpuSampler
+    from benchmarks.task_budget import driver
+    st = Stage("taskbudget")
+    sysinfo = system_info(st.logs)
+    st.write("system", {"kind": "system", **sysinfo, "env": st.env})
+    srvs: list[VllmServer] = []
+    label = "Kaggle T4, real; policy in client; gateway not exercised"
+    try:
+        inst = install_pinned(st, a.vllm_version, a.installer)
+        st.write("install", {"kind": "install", **inst, "session_h": round(session_elapsed_h(), 3)})
+        help_text = serve_help(st.logs, a.vllm_version)
+        srev = full_revision(a.strong_model, a.strong_revision)
+        crev = full_revision(a.cheap_model, a.cheap_revision) if a.cheap_revision else model_revision(a.cheap_model)
+        prov = {"label": label, "vllm_version": a.vllm_version, "vllm_version_reported": inst.get("vllm_version_reported"),
+                "torch": inst["torch_after_install"], "strong": {"model": a.strong_model, "revision": srev, "util": a.strong_util},
+                "cheap": {"model": a.cheap_model, "revision": crev, "util": a.cheap_util}, "vcpus": sysinfo.get("vcpus_os"),
+                "flag_source": f"vllm serve --help=all (logs/vllm-serve-help-{a.vllm_version}.txt)"}
+        missing = require_flags(help_text, ["--dtype", "--gpu-memory-utilization", "--no-enable-prefix-caching", "--revision"])
+        if missing or not srev or not crev:
+            st.write("abort", {"kind": "abort", "reason": f"flags missing {missing} / revisions {srev} {crev}"}, **prov)
+            return
+        sflags = ["--dtype", "half", "--no-enable-prefix-caching", "--gpu-memory-utilization", str(a.strong_util), "--revision", srev]
+        cflags = ["--dtype", "half", "--no-enable-prefix-caching", "--gpu-memory-utilization", str(a.cheap_util), "--revision", crev]
+        strong = VllmServer(a.strong_model, sflags, st.logs / "server-strong.log", port=8000, gpu="0")
+        cheap = VllmServer(a.cheap_model, cflags, st.logs / "server-cheap.log", port=8001, gpu="0")
+        for name, s in (("strong", strong), ("cheap", cheap)):   # one after the other: vLLM profiles free memory at start
+            srvs.append(s)
+            res = s.start()
+            startup_row(st, f"startup-{name}", s, res, help_text, prov, compute_apps=compute_apps(st.logs / f"compute-apps-{name}.txt"))
+            if not res["started"]:
+                raise RuntimeError(f"{name} server did not start: {res}")
+        pools = {"strong": driver.Pool("strong", strong.base_url, a.strong_model),
+                 "cheap": driver.Pool("cheap", cheap.base_url, a.cheap_model)}
+        # warm both: 8 concurrent 3-step tasks per pool (discarded), temperature 0
+        warm_tasks = driver.load_tasks()[:8]
+
+        async def warmup() -> None:
+            import httpx
+            async with httpx.AsyncClient() as c:
+                for pool in ("strong", "cheap"):
+                    one = {"strong": pools[pool], "cheap": pools[pool]}
+                    await aio.gather(*(driver.run_task(c, t, driver.Policy("baseline", max_retries=0), one) for t in warm_tasks))
+        aio.run(warmup())
+        done = st.done()
+        # Task 7: cancellation on vLLM called directly
+        for name, s in (("strong", strong), ("cheap", cheap)):
+            for i in range(a.cancel_n):
+                key = f"cancel-{name}-{i}"
+                if key in done:
+                    continue
+                r = aio.run(cancel_probe(s.base_url, s.served_name, a.cancel_hold_s, a.cancel_watch_s, a.cancel_interval_s))
+                st.write(key, {"kind": "cancel", "pool": name, "trial": i, **r}, **prov)
+        # Task 10
+        tasks = driver.load_tasks(limit=a.limit)
+        out = st.dir / "tasks.jsonl"
+        deadline = float(os.environ.get("GOODPUT_SESSION_T0", T_STAGE0)) + a.budget_h * 3600
+        with GpuSampler(st.dir / "gpu.csv", 1.0, 0), MetricsScraper(st.dir / "metrics.jsonl",
+                                                                    {"strong": strong.base_url, "cheap": cheap.base_url}), \
+                CpuSampler(st.dir / "cpu.csv", {"stage": lambda: [os.getpid()], "strong": lambda: [strong.proc.pid],
+                                                "cheap": lambda: [cheap.proc.pid]}):
+            t0 = time.time()
+            rows = aio.run(driver.run_batches(tasks, [driver.Policy("baseline")], pools, out, a.batch, a.seed, "calibration", deadline))
+            ok_tokens = [r["tokens"] for r in rows if r["success"]]
+            budget = driver.p75(ok_tokens) if ok_tokens else None
+            st.write("calibration", {"kind": "calibration", "tasks": len(rows), "successes": len(ok_tokens),
+                                     "success_rate": round(len(ok_tokens) / len(rows), 4) if rows else None,
+                                     "budget_tokens": budget, "budget_rule": "75th percentile (nearest rank) of tokens "
+                                     "(prompt + completion, all calls) per successful task, calibration baseline run",
+                                     "window_unix": [round(t0, 3), round(time.time(), 3)], "session_h": round(session_elapsed_h(), 3)}, **prov)
+            if budget:
+                t1 = time.time()
+                pols = [driver.Policy("baseline")] + [driver.Policy(n, budget) for n in ("hard_cut", "downgrade", "escalate")]
+                rows2 = aio.run(driver.run_batches(tasks, pols, pools, out, a.batch, a.seed + 1, "policies", deadline))
+                st.write("policies", {"kind": "policies_run", "task_runs": len(rows2), "budget_tokens": budget,
+                                      "complete": len(rows2) == 4 * len(tasks), "window_unix": [round(t1, 3), round(time.time(), 3)],
+                                      "concurrency_tasks": a.batch, "order": "per batch of tasks, a random policy order (seed "
+                                      f"{a.seed + 1}); the tasks of one (batch, policy) run concurrently",
+                                      "session_h": round(session_elapsed_h(), 3)}, **prov)
+        for name, s in (("strong", strong), ("cheap", cheap)):
+            (st.logs / f"metrics-end-{name}.txt").write_text(metrics_text(s.base_url))
+    finally:
+        for s in srvs:
+            s.stop()
+        st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 3)})
+
+
+STAGE_ARGS["taskbudget"] = [
+    lambda p: p.add_argument("--vllm-version", default="0.31.0"),
+    lambda p: p.add_argument("--installer", choices=["pip", "uv"], default="uv"),
+    lambda p: p.add_argument("--strong-model", default="Qwen/Qwen2.5-3B-Instruct-AWQ"),
+    lambda p: p.add_argument("--strong-revision", default="3559b226"),
+    lambda p: p.add_argument("--cheap-model", default="Qwen/Qwen2.5-0.5B-Instruct"),
+    lambda p: p.add_argument("--cheap-revision", default="", help="commit prefix; empty = current main sha (recorded)"),
+    lambda p: p.add_argument("--strong-util", type=float, required=True),
+    lambda p: p.add_argument("--cheap-util", type=float, required=True),
+    lambda p: p.add_argument("--cancel-n", type=int, default=3),
+    lambda p: p.add_argument("--cancel-hold-s", type=float, default=3.0),
+    lambda p: p.add_argument("--cancel-watch-s", type=float, default=15.0),
+    lambda p: p.add_argument("--cancel-interval-s", type=float, default=0.25),
+    lambda p: p.add_argument("--limit", type=int, default=None),
+    lambda p: p.add_argument("--batch", type=int, default=8),
+    lambda p: p.add_argument("--seed", type=int, default=10),
+    lambda p: p.add_argument("--budget-h", type=float, default=0.6),
+]
+
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
           "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2,
-          "ridge": stage_ridge, "twoinst": stage_twoinst}
+          "ridge": stage_ridge, "twoinst": stage_twoinst,
+          "taskbudget": stage_taskbudget}
 
 
 def main() -> None:

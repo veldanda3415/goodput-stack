@@ -48,7 +48,7 @@ REPO = Path(__file__).resolve().parents[2]
 RESULTS = REPO / "benchmarks" / "results" / "t4"
 PAYLOAD_FILES = ["benchmarks/__init__.py", "benchmarks/harness", "benchmarks/gpu_sampler.py",
                  "benchmarks/kaggle/__init__.py", "benchmarks/kaggle/t4_notebook.py", "scripts/probe_p8_t4x2.py",
-                 "benchmarks/kaggle/offline_throughput.py"]
+                 "benchmarks/kaggle/offline_throughput.py", "benchmarks/task_budget"]
 TERMINAL = ("complete", "error", "cancelacknowledged", "cancelrequested")
 
 
@@ -217,7 +217,7 @@ def fetch(run_dir: Path, poll_s: int, timeout_min: float) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--stage", help="t4_notebook stage: smoke, baseline, kvgrid, sweep, quant, nccl, p8x2, ridge")
+    ap.add_argument("--stage", help="t4_notebook stage: smoke, baseline, kvgrid, sweep, quant, nccl, p8x2, ridge, twoinst, taskbudget")
     ap.add_argument("--args", default="", help="extra args for the stage, one shell-quoted string")
     ap.add_argument("--resume", type=Path, help="earlier run dir of the same stage; its results are re-uploaded and skipped")
     ap.add_argument("--fetch", type=Path, help="poll + download an already pushed run dir")
