@@ -1,0 +1,22 @@
+{
+  "stage": "twoinst",
+  "run_id": "20261031-085014_twoinst",
+  "git_sha": "7290550",
+  "runtime_s": 1017.8,
+  "args": {
+    "stage": "twoinst",
+    "vllm_version": "0.31.0",
+    "installer": "uv",
+    "model": "Qwen/Qwen2.5-3B-Instruct-AWQ",
+    "revision": "3559b226",
+    "share_util": 0.45,
+    "input_len": 128,
+    "output_len": 256,
+    "users_single": 32,
+    "users_shared": 16,
+    "rpu": 3,
+    "cheap_model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "cheap_util": 0.3,
+    "budget_h": 0.3
+  }
+}
