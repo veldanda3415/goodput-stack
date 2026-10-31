@@ -1,0 +1,3 @@
+$ echo get_server_list | nvidia-cuda-mps-control
+# rc=0
+328

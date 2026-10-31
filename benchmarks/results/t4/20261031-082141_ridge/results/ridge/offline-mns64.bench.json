@@ -1,0 +1,8 @@
+{
+    "model_id": "Qwen/Qwen2.5-3B-Instruct",
+    "elapsed_time": 69.61149694199992,
+    "num_requests": 256,
+    "total_num_tokens": 98304,
+    "requests_per_second": 3.6775534393880136,
+    "tokens_per_second": 1412.1805207249972
+}

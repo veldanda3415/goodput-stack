@@ -1,0 +1,23 @@
+{
+  "stage": "followup",
+  "run_id": "20261031-171557_followup",
+  "git_sha": "0593862",
+  "runtime_s": 1288.0,
+  "args": {
+    "stage": "followup",
+    "vllm_version": "0.31.0",
+    "installer": "uv",
+    "model": "Qwen/Qwen2.5-3B-Instruct",
+    "revision": "aa8e7253",
+    "parts": "f1,f2",
+    "f1_budget_h": 0.25,
+    "f1a_procs": "4,1",
+    "f1a_rpu": 2,
+    "f1a_extra_min_h": 0.15,
+    "f2_budget_h": 0.15,
+    "f2_mns": "64,32,48",
+    "f2_input_len": 3840,
+    "f2_prompts_factor": 1,
+    "f2_warmups": 2
+  }
+}

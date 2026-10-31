@@ -1,0 +1,4 @@
+$ nvidia-smi --query-compute-apps=gpu_bus_id,pid,process_name,used_memory --format=csv,noheader
+# rc=0
+00000000:00:04.0, 815, VLLM::EngineCore, 7544 MiB
+00000000:00:04.0, 948, VLLM::EngineCore, 5134 MiB

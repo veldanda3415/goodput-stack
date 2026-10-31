@@ -1,0 +1,2 @@
+$ nvidia-cuda-mps-control -d
+# rc=0

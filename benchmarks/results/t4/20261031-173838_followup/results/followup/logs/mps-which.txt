@@ -1,0 +1,6 @@
+$ command -v nvidia-cuda-mps-control nvidia-cuda-mps-server; ls -la $(dirname $(command -v nvidia-smi))/nvidia-cuda-mps* 2>&1
+# rc=0
+/opt/bin/nvidia-cuda-mps-control
+/opt/bin/nvidia-cuda-mps-server
+-rwxr-xr-x 1 root root 70784 Oct 23 01:07 /opt/bin/nvidia-cuda-mps-control
+-rwxr-xr-x 1 root root 18664 Oct 23 01:07 /opt/bin/nvidia-cuda-mps-server

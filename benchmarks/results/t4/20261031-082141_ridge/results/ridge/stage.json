@@ -1,0 +1,29 @@
+{
+  "stage": "ridge",
+  "run_id": "20261031-082141_ridge",
+  "git_sha": "e2f06c1",
+  "runtime_s": 1410.2,
+  "args": {
+    "stage": "ridge",
+    "vllm_version": "0.31.0",
+    "installer": "uv",
+    "model": "Qwen/Qwen2.5-3B-Instruct",
+    "revision": "aa8e7253",
+    "gpu_mem": 0.95,
+    "input_len": 128,
+    "output_len": 256,
+    "mns": "64,128,256,384",
+    "extra_mns": 512,
+    "prompts_factor": 4,
+    "warmups": 32,
+    "parts": "http,memlimit",
+    "http_users": 384,
+    "http_procs": "1,4",
+    "http_requests_per_user": 2,
+    "mem_input_len": 3840,
+    "mem_mns": 64,
+    "mem_prompts": 128,
+    "mem_warmups": 8,
+    "budget_h": 0.45
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "run_id": "20261031-085014_twoinst",
+  "stage": "twoinst",
+  "args": [],
+  "kernel": "raviveldanda/goodput-t4",
+  "git_sha": "7290550",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-31T12:50:16+00:00",
+  "push_output": "Warning: Looks like you're using an outdated `kaggle` version (installed: 2.2.3), please consider upgrading to the latest version (2.2.5)\nKernel version 22 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4",
+  "output_cmd_output": "sults/twoinst/ts-both-busy/cpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-both-busy/gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-both-busy/metrics.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-both-busy/requests-i1.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-both-busy/requests-i2.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-one-busy/client-i1.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-one-busy/compute-apps.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-one-busy/cpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-one-busy/gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-one-busy/metrics.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/ts-one-busy/requests-i1.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/results/twoinst/twoinst.jsonl\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-085014_twoinst/_download/goodput-t4.log",
+  "finished_at_utc": "2026-10-31T13:10:48+00:00",
+  "status": "complete",
+  "wall_push_to_done_min": 20.5,
+  "script_session_s": 1018.2,
+  "gpu_hours_script": 0.283,
+  "gpu_hours_upper_bound": 0.342
+}
