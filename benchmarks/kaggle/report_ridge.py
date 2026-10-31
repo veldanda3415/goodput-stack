@@ -89,7 +89,7 @@ def chart(off: list[dict], http: list[dict]) -> None:
         if v:
             ax.plot([r["users"]], [v], "s", color="#d08c2c", label=f"HTTP, {r['users']} users, {r['client_processes']} client proc (measured)")
             ax.annotate(f"{v:,.0f}", (r["users"], v), textcoords="offset points", xytext=(10, -12), fontsize=8, color="#d08c2c")
-    ax.set_xlabel("--max-num-seqs (offline) / concurrent users (HTTP)")
+    ax.set_xlabel("max requests per step (--max-num-seqs)")
     ax.set_ylabel("output tokens / s")
     ax.set_title("Qwen2.5-3B-Instruct FP16 on one T4, prompt 128 / output 256 — Kaggle T4, real", fontsize=10)
     ax.set_ylim(0, 7600)
