@@ -376,3 +376,39 @@ row `f4-cancel-metric`):
 - One run per policy, one session, 150 tasks, two small models on one T4.
 - The cancellation metric answer covers one cancelled stream plus the run-level cross-check, on vLLM 0.31.0 called
   directly. Other versions and a gateway in the path were not checked.
+
+## L4 — escalate redesign (leftover)
+
+### Predictions (written before the L4 run, verbatim from the assignment)
+
+Policy 3 success within ~10 points of baseline with fewer strong-pool tokens; policy 4 fewer aborts than escalate_fresh.
+
+### Change (code)
+
+Two policies in [driver.py](../../task_budget/driver.py), unit-tested in
+[test_task_budget.py](../../task_budget/tests/test_task_budget.py) (fake OpenAI servers, one per pool):
+
+- `escalate_fresh_strong_final`: steps 1–2 are escalate_fresh (cheap pool first; after a checker failure the step
+  moves to the strong pool with a fresh context). Step 3 always runs on the strong pool. Abort at 951 tokens, as before.
+- `per_step_budget`: the 951 tokens are split per step. Each step starts on the cheap pool and is capped at its share:
+  the stream is cancelled when the step's tokens (all its attempts) reach the share. A cheap attempt that fails its
+  checker or hits its share escalates the step once to the strong pool, with a fresh context. The strong attempt is
+  capped only by what is left of 951. The task is aborted only when 951 is spent.
+- Tests: no failed cheap reply ever appears in a strong-pool prompt; a share cut escalates and does not abort; the cap
+  counts the step's earlier attempts; a task aborts only at the total; step 3 of policy 3 never reaches the cheap pool.
+
+### Decisions made
+
+- **The per-step split comes from Build 15's F4 baseline**, not from this run, because the split must be fixed before
+  the run starts. The source is run 20261031-173838_followup, `tasks.jsonl`, policy baseline, the median of
+  `steps[].tokens` over all task runs that reached the step. The medians are 216.5 / 223 / 440 tokens (150 / 149 / 142
+  task runs). The split is **234 / 241 / 476** (`driver.step_shares(951, ...)`).
+- **"Escalates once" means the pool changes once.** After the first failed cheap attempt, the rest of the step's
+  attempts (up to 2 retries, as in every policy) run on the strong pool.
+- **Same pools, tasks, budget and order rule as F4:** strong Qwen2.5-3B-AWQ @0.50, cheap Qwen2.5-0.5B @0.35, budget
+  951, batches of 8 tasks with a random policy order per batch (seed 15). The policies are baseline, escalate_fresh
+  (for continuity), escalate_fresh_strong_final and per_step_budget.
+- **Cancellations** are counted as `http_requests_total{handler="/v1/chat/completions"}` − Σ `vllm:request_success_total`.
+  Both pools' /metrics are saved before and after the run. The same expression is added as query C of
+  [grafana-panel-tokens-per-completed-task.json](../../task_budget/observability/grafana-panel-tokens-per-completed-task.json).
+- Stage `leftover --parts l3,l4` (`leftover_l4`).

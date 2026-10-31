@@ -126,3 +126,19 @@ averages.
 - One run per point, no spread. One model (Qwen2.5-3B FP16), one T4, one session.
 - NVML util.gpu (a kernel was running), not SM occupancy. CPU % is psutil per process tree at 1 Hz.
 - `vllm serve` called directly, no gateway in the path.
+
+## L1 — F1c: the old 64-user point at max-num-batched-tokens 8,192 (leftover)
+
+### Predictions (written before the L1 run, verbatim from the assignment)
+
+Change < 10 %.
+
+### Decisions made
+
+- **Same session for both points.** F1b (2,048) runs first, then F1c (8,192), on the same Kaggle machine. Each gets its
+  own `vllm serve` start and the same discarded warm-up wave (32 short requests) as F1b in Build 15.
+- **The harness setup is F1b's.** That is `client_cfg(model, 64, 256)`: prompt 256 tokens, output 128 ± 25 %, start
+  jitter 1 s, ignore_eos, temperature 0, 256 requests, one client process. The serve flags are
+  `--dtype half --gpu-memory-utilization 0.9 --max-model-len 4096 --no-enable-prefix-caching --max-num-batched-tokens N`.
+- Stage `leftover --parts l1,...` in [t4_notebook.py](../../kaggle/t4_notebook.py) (`leftover_l1`). L1 budget 0.15 h,
+  the install counted against the first part.

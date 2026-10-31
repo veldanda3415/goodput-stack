@@ -214,3 +214,21 @@ Notes on the MPS run:
   tokens); why was not separated.
 - **Next step:** one session that runs time-sharing both-busy, then MPS both-busy, back to back (`followup` stage F3
   plus Build 14's `start_pair("ts")` condition), ≈ 0.15 GPU-h.
+
+## L3 — time-sharing vs MPS, back to back in one session (leftover)
+
+### Predictions (written before the L3 run, verbatim from the assignment)
+
+MPS > time-sharing by a measurable margin at the same clock; both < single instance.
+
+### Decisions made
+
+- **One session, three conditions in a fixed order:** (1) one instance at 0.90 with 32 users; (2) two instances at
+  0.45, time-sharing, 16 + 16 users; (3) the MPS control daemon, then the same two instances, 16 + 16 users. The harness
+  setup is Build 14's `load_condition`: in 128 / out 256, ignore_eos, temperature 0, 3 requests per user, start jitter
+  1 s, one client process per instance. Each instance gets a discarded warm-up wave.
+- **The order is not randomised.** One repeat of each condition fits the 0.3 h budget, not two. The SM clock is
+  recorded per condition, so a clock difference between conditions is visible.
+- **MPS-client check fixed.** `smi_process_lines` now accepts `6342MiB` (no space). It is unit-tested on the F3 raw file
+  (`benchmarks/tests/test_notebook_helpers.py`). The `l3-mps-clients` row counts the EngineCores listed as `M+C`.
+- Stage `leftover --parts l3,l4` (`leftover_l3`).

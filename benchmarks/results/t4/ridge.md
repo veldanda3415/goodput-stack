@@ -260,3 +260,18 @@ What happened at 64 (engine log `loggers.py` lines, 10–17 s averages, and the 
 - Why prefill at 3,840 tokens runs at ~900 tok/s on this card is not separated (attention backend, chunk size, clock).
   The only measured facts are the rates above.
 - One run, one session, temperature 1.0 (offline tool).
+
+## L2 — long-conversation memory limit, steady state (leftover)
+
+### Predictions (written before the L2 run, verbatim from the assignment)
+
+No preemptions at 32; first preemptions around 48–53; output far below the short-context numbers.
+
+### Decisions made
+
+- **Point order 32, 48, 64.** The prediction is about 32 (no preemptions) and 48–53 (first preemptions). Those two run
+  first. 64 runs only if its estimated time fits the L2 budget (0.5 h): 4 × N prompts × 3,840 tokens at F2's ~900
+  prompt tok/s, plus 150 s for the engine start.
+- **num-prompts = 4 × max-num-seqs** (steady state with a queue), `--num-warmups 2`, `--max-num-batched-tokens 8192`,
+  everything else as F2. The GPU sampler runs at 2 Hz with the nvidia-smi columns.
+- Stage `leftover --parts l1,l2` (`leftover_l2`).

@@ -1774,6 +1774,15 @@ class MetricsScraper:
         self._t.join(10)
 
 
+def smi_window(path: Path, t0: float, t1: float, prefix: str = "smi_") -> dict:
+    """nvidia-smi clocks / power / limits / throttle-reason fractions (benchmarks/gpu_sampler.py) in [t0, t1]."""
+    from benchmarks.gpu_sampler import summarize
+    try:
+        return {k: v for k, v in summarize(path, t0, t1, prefix=prefix).items() if k != f"{prefix}samples"}
+    except Exception as exc:
+        return {f"{prefix}summary_error": repr(exc)[:200]}
+
+
 def csv_window(path: Path, t0: float, t1: float, cols: list[str], prefix: str = "") -> dict:
     """mean / p50 / min / max of CSV columns for rows with t0 <= t_unix <= t1."""
     import csv
@@ -2235,8 +2244,20 @@ def load_condition(st: Stage, key: str, targets: dict, servers: dict, model: str
                                                                      for n in targets), 2)
             row |= csv_window(d / "gpu.csv", j0, j1, GPU_COLS, prefix="gpu_")
             row |= csv_window(d / "cpu.csv", j0, j1, ["sys_pct", "client_pct"] + [f"srv_{n}_pct" for n in servers], prefix="cpu_")
+            row |= smi_window(d / "gpu.csv", j0, j1)
     row["combined_harness_steady_output_tok_s"] = round(sum(row[f"inst_{n}"].get("harness_steady_output_tok_s") or 0 for n in targets), 2)
     return st.write(key, row, **prov)
+
+
+def smi_process_lines(text: str) -> list[str]:
+    """Process rows of plain `nvidia-smi` output, e.g. '|    0   N/A  N/A   306    M+C   VLLM::EngineCore   6342MiB |'
+    (no space before MiB: F3's first regex required one and found nothing)."""
+    return [l.strip() for l in text.splitlines()
+            if re.search(r"\s(C|G|M\+C|C\+G|M)\s", l) and re.search(r"\d+\s*MiB\s*\|?\s*$", l)]
+
+
+def mps_clients(text: str) -> list[str]:
+    return [l for l in smi_process_lines(text) if re.search(r"\sM\+C\s", l)]
 
 
 def mps_env() -> dict:
@@ -2677,6 +2698,7 @@ def http_load(st: Stage, key: str, srv: VllmServer, cfgs: list[dict], prov: dict
         row |= metrics_window(scr.rows, *win)
         row |= csv_window(d / "gpu.csv", *win, GPU_COLS, prefix="gpu_")
         row |= csv_window(d / "cpu.csv", *win, cpu_cols, prefix="cpu_")
+        row |= smi_window(d / "gpu.csv", *win)
     return st.write(key, row, **prov)
 
 
@@ -2828,7 +2850,7 @@ def followup_f3(st: Stage, a, inst: dict, help_serve: str, sysinfo: dict, done: 
             if not res["started"]:
                 return
         rc, smi = sh(["nvidia-smi"], timeout=60, out=st.logs / "f3-nvidia-smi-both-up.txt")
-        procs = [l for l in smi.splitlines() if re.search(r"\s(C|G|M\+C|C\+G|M)\s", l) and re.search(r"\d+\s+MiB", l)]
+        procs = smi_process_lines(smi)
         st.write("f3-mps-clients", {"kind": "mps", "nvidia_smi_process_lines": procs,
                                     "mps_client_lines": [l for l in procs if "M+C" in l], **mps_check(st.logs, "both-up")}, **prov)
         if 0.15 - (session_elapsed_h() - t0) < 0.02:
@@ -3297,10 +3319,255 @@ STAGE_ARGS["bneck"] = [
     lambda p: p.add_argument("--clk-targets", default="600,900,1200"),
 ]
 
+
+# ---------------------------------------------------------------- leftover (Part L): Builds 14-15 leftovers
+# l1  F1c: the old 64-user sweep point with --max-num-batched-tokens 8192, plus F1b (2,048) again, same session
+# l2  long context steady state: offline in 3,840 / out 256 at max-num-seqs 32, 48, 64, num-prompts 4 x max-num-seqs
+# l3  AWQ: one instance @0.90 (32 users); two @0.45 time-sharing (16 + 16); the same two under MPS (16 + 16)
+# l4  escalate redesign: baseline, escalate_fresh, escalate_fresh_strong_final, per_step_budget on 150 GSM8K tasks
+
+def stage_leftover(a) -> None:
+    st = Stage("leftover")
+    sysinfo = system_info(st.logs)
+    st.write("system", {"kind": "system", **sysinfo, "env": st.env, "parts": a.parts})
+    parts = a.parts.split(",")
+    done = st.done()
+    try:
+        inst = install_pinned(st, a.vllm_version, a.installer)
+        st.write("install", {"kind": "install", **inst, "session_h": round(session_elapsed_h(), 3)})
+        help_serve = serve_help(st.logs, a.vllm_version)
+        rc, help_tp = sh(["vllm", "bench", "throughput", "--help=all"], timeout=300, out=st.logs / "vllm-bench-throughput-help.txt")
+        missing = require_flags(help_serve, ["--dtype", "--gpu-memory-utilization", "--no-enable-prefix-caching", "--revision",
+                                             "--max-num-seqs", "--max-num-batched-tokens", "--max-model-len"]) \
+            + require_flags(help_tp, ["--max-num-batched-tokens", "--max-num-seqs", "--num-warmups"])
+        st.write("flags", {"kind": "flags", "missing": missing})
+        install_h = session_elapsed_h()
+        for part in parts:
+            t0 = session_elapsed_h()
+            mark(st, f"{part}-begin")
+            try:
+                {"l1": leftover_l1, "l2": leftover_l2, "l3": leftover_l3, "l4": leftover_l4}[part](st, a, inst, sysinfo, help_serve, done, t0)
+            except Exception as exc:
+                st.write(f"{part}-error", {"kind": "error", "error": f"{type(exc).__name__}: {exc}"[:600],
+                                           "traceback": traceback.format_exc()[-2000:]})
+            mark(st, f"{part}-end", part_gpu_h=round(session_elapsed_h() - t0, 4), install_h=round(install_h, 4))
+    finally:
+        if os.environ.get("CUDA_MPS_PIPE_DIRECTORY"):
+            st.write("mps-stop-finally", {"kind": "mps", **mps_stop(st.logs)})
+        st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 3)})
+
+
+def fp16_prov(a, inst: dict, sysinfo: dict, rev: str | None) -> dict:
+    return {"label": RIDGE_LABEL, "model": a.model, "model_revision": rev, "vllm_version": a.vllm_version,
+            "vllm_version_reported": inst.get("vllm_version_reported"), "torch": inst["torch_after_install"],
+            "flag_source": "vllm serve --help=all, vllm bench throughput --help=all (logs/)", "vcpus": sysinfo.get("vcpus_os")}
+
+
+def leftover_l1(st: Stage, a, inst: dict, sysinfo: dict, help_serve: str, done: set, t0: float) -> None:
+    """F1b (2,048) then F1c (8,192): the old sweep point (prompt 256, output 128 +- 25 %, start jitter 1 s, ignore_eos,
+    temperature 0, 64 closed-loop users, 256 requests) through vllm serve, same harness setup as F1b."""
+    rev = full_revision(a.model, a.revision)
+    prov = fp16_prov(a, inst, sysinfo, rev)
+    for tag, mbt in (("l1-f1b", 2048), ("l1-f1c", 8192)):
+        key = f"{tag}-u64-mbt{mbt}"
+        if key in done:
+            continue
+        left = a.l1_budget_h - (session_elapsed_h() - t0)
+        if left < 0.04:
+            st.write(key, {"kind": "skipped", "reason": f"L1 budget: {left:.3f} h left"}, **prov)
+            continue
+        flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching",
+                 "--max-num-batched-tokens", str(mbt), "--revision", rev]
+        srv = VllmServer(a.model, flags, st.logs / f"server-{tag}.log", gpu="0")
+        res = srv.start()
+        startup_row(st, f"startup-{tag}", srv, res, help_serve, prov, serving_flags=flags)
+        with srv:
+            if not res["started"]:
+                continue
+            warm(srv, a.model, 128)
+            http_load(st, key, srv, [client_cfg(a.model, 64, 256)], prov | {"serving_flags": flags}, part="L1",
+                      replay_of="20261014-220946_sweep closed-mnsdefault-c64 (615.46 harness steady tok/s)")
+            (st.logs / f"metrics-end-{tag}.txt").write_text(metrics_text(srv.base_url))
+
+
+def leftover_l2(st: Stage, a, inst: dict, sysinfo: dict, help_serve: str, done: set, t0: float) -> None:
+    """Offline input 3,840 / output 256, util 0.95, max-num-batched-tokens 8,192, num-prompts = 4 x max-num-seqs."""
+    rev = full_revision(a.model, a.revision)
+    prov = fp16_prov(a, inst, sysinfo, rev)
+    for mns in [int(x) for x in a.l2_mns.split(",")]:
+        key = f"l2-in3840-mns{mns}"
+        if key in done:
+            continue
+        left = a.l2_budget_h - (session_elapsed_h() - t0)
+        est = (4 * mns * 3840 / a.l2_prefill_tok_s + 150) / 3600
+        if left < est:
+            st.write(key, {"kind": "skipped", "reason": f"L2 budget: {left:.3f} h left < estimate {est:.3f} h "
+                                                        f"(4 x {mns} prompts x 3,840 tokens at {a.l2_prefill_tok_s} prompt tok/s + 150 s start)"}, **prov)
+            continue
+        offline_point(st, key, a.model, rev, mns, 4 * mns, 3840, 256, 0.95, 2, max(900.0, left * 3600 + 300), prov | {"part": "L2"},
+                      extra_args=["--max-num-batched-tokens", "8192"], gpu_interval_s=0.5)
+
+
+def leftover_l3(st: Stage, a, inst: dict, sysinfo: dict, help_serve: str, done: set, t0: float) -> None:
+    """Qwen2.5-3B-AWQ, back to back in one session: (1) one instance @0.90, 32 users; (2) two @0.45 time-sharing, 16 + 16;
+    (3) the same two under MPS, 16 + 16. Same harness setup as Build 14 (in 128 / out 256, ignore_eos, temperature 0,
+    3 requests per user, start jitter 1 s)."""
+    rev = full_revision(a.awq_model, a.awq_revision)
+    prov = awq_prov(a, inst, sysinfo, rev, "Kaggle T4, real; one GPU, one or two vLLM processes")
+    prov["workload"] = {"prompt_tokens": 128, "output_tokens": 256, "ignore_eos": True, "temperature": 0, "requests_per_user": 3}
+    base = ["--dtype", "half", "--no-enable-prefix-caching", "--revision", rev or a.awq_revision]
+    flags = lambda u: base + ["--gpu-memory-utilization", str(u)]
+    srvs: list[VllmServer] = []
+
+    def start(tag: str, util: float, port: int) -> VllmServer | None:
+        s = VllmServer(a.awq_model, flags(util), st.logs / f"server-{tag}.log", port=port, gpu="0")
+        srvs.append(s)
+        res = s.start(timeout_s=600)
+        rc, smi = sh(["nvidia-smi"], timeout=60, out=st.logs / f"nvidia-smi-{tag}.txt")
+        startup_row(st, f"startup-{tag}", s, res, help_serve, prov, util=util, serving_flags=flags(util),
+                    process_lines=smi_process_lines(smi), mps_client_lines=mps_clients(smi))
+        return s if res["started"] else None
+
+    def stop_all() -> None:
+        for s in srvs:
+            s.stop()
+        srvs.clear()
+
+    try:
+        if "l3-single" not in done:
+            s = start("l3-single", 0.90, 8000)
+            if s:
+                warm(s, a.awq_model, 128)
+                load_condition(st, "l3-single", {"i1": 32}, {"i1": s}, a.awq_model, 128, 256, 3,
+                               prov | {"condition": "one instance 0.90, 32 users", "serving_flags": flags(0.90)})
+            stop_all()
+        if "l3-ts-both-busy" not in done:
+            pair = [start("l3-ts-i1", 0.45, 8000), start("l3-ts-i2", 0.45, 8001)]
+            if all(pair):
+                for s in pair:
+                    warm(s, a.awq_model, 128)
+                load_condition(st, "l3-ts-both-busy", {"i1": 16, "i2": 16}, {"i1": pair[0], "i2": pair[1]}, a.awq_model, 128, 256, 3,
+                               prov | {"condition": "time-sharing: two instances 0.45, 16 users each", "serving_flags": flags(0.45)})
+            stop_all()
+        if "l3-mps-both-busy" not in done:
+            ms = mps_start(st.logs)
+            ms["start_cmd"] = ("CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe CUDA_MPS_LOG_DIRECTORY=/tmp/goodput-mps/log "
+                               "CUDA_VISIBLE_DEVICES=0 nvidia-cuda-mps-control -d")
+            st.write("l3-mps-start", {"kind": "mps", **ms}, **prov)
+            if not (ms["start_rc"] == 0 and ms["daemon_running"]):
+                st.write("l3-mps-both-busy", {"kind": "skipped", "reason": "MPS control daemon did not start"}, **prov)
+                return
+            os.environ.update(mps_env())
+            pair = [start("l3-mps-i1", 0.45, 8000), start("l3-mps-i2", 0.45, 8001)]
+            rc, smi = sh(["nvidia-smi"], timeout=60, out=st.logs / "l3-nvidia-smi-mps-both-up.txt")
+            clients = mps_clients(smi)
+            st.write("l3-mps-clients", {"kind": "mps", "nvidia_smi_process_lines": smi_process_lines(smi), "mps_client_lines": clients,
+                                        "engine_cores_as_mps_clients": sum("EngineCore" in l for l in clients),
+                                        **mps_check(st.logs, "l3-both-up")}, **prov)
+            if all(pair):
+                for s in pair:
+                    warm(s, a.awq_model, 128)
+                load_condition(st, "l3-mps-both-busy", {"i1": 16, "i2": 16}, {"i1": pair[0], "i2": pair[1]}, a.awq_model, 128, 256, 3,
+                               prov | {"condition": "MPS: two instances 0.45, 16 users each", "serving_flags": flags(0.45)})
+            st.write("l3-mps-check-end", {"kind": "mps", **mps_check(st.logs, "l3-end")}, **prov)
+    finally:
+        stop_all()
+        if os.environ.get("CUDA_MPS_PIPE_DIRECTORY"):
+            st.write("l3-mps-stop", {"kind": "mps", **mps_stop(st.logs)}, **prov)
+            for k in mps_env():
+                os.environ.pop(k, None)
+
+
+def leftover_l4(st: Stage, a, inst: dict, sysinfo: dict, help_serve: str, done: set, t0: float) -> None:
+    """Strong (3B AWQ @0.50) and cheap (0.5B @0.35) pools; 150 GSM8K tasks under baseline, escalate_fresh,
+    escalate_fresh_strong_final and per_step_budget (budget 951), a random policy order per batch of 8. /metrics of both
+    pools saved before and after (cancellations = http_requests_total{chat} - sum request_success_total)."""
+    import asyncio as aio
+    from benchmarks.gpu_sampler import GpuSampler
+    from benchmarks.task_budget import driver
+    srev, crev = full_revision(a.awq_model, a.awq_revision), full_revision(a.cheap_model, a.cheap_revision)
+    prov = {"label": "Kaggle T4, real; policy in client; gateway not exercised", "vllm_version": a.vllm_version,
+            "vllm_version_reported": inst.get("vllm_version_reported"), "torch": inst["torch_after_install"],
+            "strong": {"model": a.awq_model, "revision": srev, "util": 0.50}, "cheap": {"model": a.cheap_model, "revision": crev, "util": 0.35},
+            "vcpus": sysinfo.get("vcpus_os"), "flag_source": f"vllm serve --help=all (logs/vllm-serve-help-{a.vllm_version}.txt)"}
+    if not srev or not crev:
+        st.write("l4-abort", {"kind": "abort", "reason": f"revisions {srev} {crev}"}, **prov)
+        return
+    medians = [float(x) for x in a.l4_step_medians.split(",")]
+    shares = driver.step_shares(a.l4_budget_tokens, medians)
+    sflags = ["--dtype", "half", "--no-enable-prefix-caching", "--gpu-memory-utilization", "0.50", "--revision", srev]
+    cflags = ["--dtype", "half", "--no-enable-prefix-caching", "--gpu-memory-utilization", "0.35", "--revision", crev]
+    strong = VllmServer(a.awq_model, sflags, st.logs / "server-l4-strong.log", port=8000, gpu="0")
+    cheap = VllmServer(a.cheap_model, cflags, st.logs / "server-l4-cheap.log", port=8001, gpu="0")
+    srvs: list[VllmServer] = []
+    try:
+        for name, s, fl in (("strong", strong, sflags), ("cheap", cheap, cflags)):
+            srvs.append(s)
+            res = s.start()
+            startup_row(st, f"l4-startup-{name}", s, res, help_serve, prov, serving_flags=fl,
+                        compute_apps=compute_apps(st.logs / f"l4-compute-apps-{name}.txt"))
+            if not res["started"]:
+                return
+        pools = {"strong": driver.Pool("strong", strong.base_url, a.awq_model), "cheap": driver.Pool("cheap", cheap.base_url, a.cheap_model)}
+
+        async def warmup() -> None:
+            import httpx
+            async with httpx.AsyncClient() as c:
+                for pool in ("strong", "cheap"):
+                    one = {"strong": pools[pool], "cheap": pools[pool]}
+                    await aio.gather(*(driver.run_task(c, t, driver.Policy("baseline", max_retries=0), one) for t in driver.load_tasks()[:8]))
+        aio.run(warmup())
+        for name, s in (("strong", strong), ("cheap", cheap)):
+            (st.logs / f"l4-metrics-before-{name}.txt").write_text(metrics_text(s.base_url))
+        pols = [driver.Policy("baseline"), driver.Policy("escalate_fresh", a.l4_budget_tokens),
+                driver.Policy("escalate_fresh_strong_final", a.l4_budget_tokens),
+                driver.Policy("per_step_budget", a.l4_budget_tokens, step_shares=shares)]
+        deadline = float(os.environ.get("GOODPUT_SESSION_T0", T_STAGE0)) + (t0 + a.l4_budget_h) * 3600
+        with GpuSampler(st.dir / "l4-gpu.csv", 0.5, 0), MetricsScraper(st.dir / "l4-metrics.jsonl", {"strong": strong.base_url, "cheap": cheap.base_url}), \
+                CpuSampler(st.dir / "l4-cpu.csv", {"stage": lambda: [os.getpid()], "strong": lambda: [strong.proc.pid], "cheap": lambda: [cheap.proc.pid]}):
+            w0 = time.time()
+            rows = aio.run(driver.run_batches(driver.load_tasks(), pols, pools, st.dir / "tasks.jsonl", 8, a.l4_seed, "l4", deadline))
+            st.write("l4", {"kind": "policies_run", "task_runs": len(rows), "budget_tokens": a.l4_budget_tokens,
+                            "policies": [p.name for p in pols], "complete": len(rows) == len(pols) * 150,
+                            "step_shares": shares, "step_share_rule": "budget split in proportion to the median tokens per step of the "
+                            "Build 15 F4 baseline (run 20261031-173838_followup, all 150 baseline task runs that reached the step)",
+                            "step_medians": medians, "window_unix": [round(w0, 3), round(time.time(), 3)], "concurrency_tasks": 8,
+                            "order": f"per batch of 8 tasks, a random policy order (driver.batch_plan, seed {a.l4_seed})",
+                            "plan": driver.batch_plan(150, 8, [p.name for p in pols], a.l4_seed),
+                            "deadline_unix": round(deadline, 1), "session_h": round(session_elapsed_h(), 3)}, **prov)
+        for name, s in (("strong", strong), ("cheap", cheap)):
+            (st.logs / f"l4-metrics-end-{name}.txt").write_text(metrics_text(s.base_url))
+    finally:
+        for s in srvs:
+            s.stop()
+
+
+STAGE_ARGS["leftover"] = [
+    lambda p: p.add_argument("--parts", default="l1,l2"),
+    lambda p: p.add_argument("--vllm-version", default="0.31.0"),
+    lambda p: p.add_argument("--installer", choices=["pip", "uv"], default="uv"),
+    lambda p: p.add_argument("--model", default="Qwen/Qwen2.5-3B-Instruct"),
+    lambda p: p.add_argument("--revision", default="aa8e7253"),
+    lambda p: p.add_argument("--awq-model", default="Qwen/Qwen2.5-3B-Instruct-AWQ"),
+    lambda p: p.add_argument("--awq-revision", default="3559b226"),
+    lambda p: p.add_argument("--cheap-model", default="Qwen/Qwen2.5-0.5B-Instruct"),
+    lambda p: p.add_argument("--cheap-revision", default="7ae55760"),
+    lambda p: p.add_argument("--l1-budget-h", type=float, default=0.15),
+    lambda p: p.add_argument("--l2-budget-h", type=float, default=0.5),
+    lambda p: p.add_argument("--l2-mns", default="32,48,64", help="run order"),
+    lambda p: p.add_argument("--l2-prefill-tok-s", type=float, default=900, help="F2's measured prompt rate, for the budget estimate"),
+    lambda p: p.add_argument("--l4-budget-h", type=float, default=0.6, help="no new L4 batch after this much part time"),
+    lambda p: p.add_argument("--l4-budget-tokens", type=int, default=951),
+    lambda p: p.add_argument("--l4-step-medians", default="216.5,223,440",
+                             help="Build 15 F4 baseline median tokens per step 1,2,3 (all task runs reaching the step)"),
+    lambda p: p.add_argument("--l4-seed", type=int, default=15),
+]
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
           "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2,
           "ridge": stage_ridge, "twoinst": stage_twoinst,
-          "taskbudget": stage_taskbudget, "followup": stage_followup, "bneck": stage_bneck}
+          "taskbudget": stage_taskbudget, "followup": stage_followup, "bneck": stage_bneck,
+          "leftover": stage_leftover}
 
 
 def main() -> None:
