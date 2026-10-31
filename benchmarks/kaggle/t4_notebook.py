@@ -2028,7 +2028,7 @@ def stage_ridge(a) -> None:
         for ctx in ("LLM_CLASS", "OPENAI_API_SERVER"):
             st.write(f"sched-{ctx}", {"kind": "sched_config", **sched_probe(a.model, rev, a.gpu_mem, 384, ctx, st.logs)}, **prov)
         done = st.done()
-        mns_list = [int(x) for x in a.mns.split(",")]
+        mns_list = [int(x) for x in a.mns.split(",") if x.strip()]
         for mns in mns_list:
             key = f"offline-mns{mns}"
             if key in done:
@@ -2040,7 +2040,7 @@ def stage_ridge(a) -> None:
                           a.warmups, budget_left_h(a.budget_h) * 3600, prov)
         # Task 3: HTTP at 384 users, same engine settings, 1 then n client processes
         if "http" in a.parts:
-            if budget_left_h(a.budget_h) < 0.10:
+            if budget_left_h(a.budget_h) < a.http_min_h:
                 st.write("http", {"kind": "skipped", "reason": f"budget: session {session_elapsed_h():.3f} h"}, **prov)
             else:
                 flags = ["--dtype", "half", "--gpu-memory-utilization", str(a.gpu_mem), "--no-enable-prefix-caching",
@@ -2071,7 +2071,8 @@ def stage_ridge(a) -> None:
                         (st.logs / "metrics-end-http.txt").write_text(metrics_text(srv.base_url))
         # extra point if output tok/s still rises at the top of the list (and the KV pool holds the batch)
         rows = {r["key"]: r for r in st.rows() if r.get("kind") == "offline" and r.get("output_tok_s")}
-        top, prev = rows.get(f"offline-mns{mns_list[-1]}"), rows.get(f"offline-mns{mns_list[-2]}") if len(mns_list) > 1 else None
+        top = rows.get(f"offline-mns{mns_list[-1]}") if mns_list else None
+        prev = rows.get(f"offline-mns{mns_list[-2]}") if len(mns_list) > 1 else None
         if top and prev and a.extra_mns:
             rising = top["output_tok_s"] > 1.05 * prev["output_tok_s"]
             kv_ok = (top.get("gpu_kv_cache_tokens") or 0) >= a.extra_mns * (a.input_len + a.output_len)
@@ -2113,6 +2114,7 @@ STAGE_ARGS["ridge"] = [
     lambda p: p.add_argument("--http-users", type=int, default=384),
     lambda p: p.add_argument("--http-procs", default="1,4"),
     lambda p: p.add_argument("--http-requests-per-user", type=int, default=2),
+    lambda p: p.add_argument("--http-min-h", type=float, default=0.10, help="start the HTTP part only with this much budget left"),
     lambda p: p.add_argument("--mem-input-len", type=int, default=3840),
     lambda p: p.add_argument("--mem-mns", type=int, default=64),
     lambda p: p.add_argument("--mem-prompts", type=int, default=128),
