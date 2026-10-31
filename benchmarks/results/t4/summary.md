@@ -356,5 +356,6 @@ Engine: vLLM None, chunked prefill None, max_num_batched_tokens 2048, max_num_se
 | 20261022-221119_p8x2 | p8x2 | complete | 1,889.9 | 0.525 | 0.537 |
 | 20261031-082141_ridge | ridge | complete | 1,410.4 | 0.392 | 0.442 |
 | 20261031-085014_twoinst | twoinst | complete | 1,018.2 | 0.283 | 0.342 |
-| **total** | | | | **7.117** | **7.689** |
+| 20261031-091201_taskbudget | taskbudget | complete | 1,462.2 | 0.406 | 0.425 |
+| **total** | | | | **7.523** | **8.114** |
 

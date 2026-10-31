@@ -69,3 +69,138 @@ Pools: strong = Qwen2.5-3B-Instruct-AWQ, cheap = Qwen/Qwen2.5-0.5B-Instruct FP16
 memory measured in Part B at 0.45 (3B AWQ) and 0.30 (0.5B). The strong instance starts first; the cheap one asks
 for 0.35 × 14.56 = 5.10 GiB of the ≈ 7.1 GiB left, so vLLM's start-up check passes. Both pools need only a few
 thousand KV tokens at 8 tasks in flight, so the split leaves headroom.
+
+## Run (20261031-091201_taskbudget, Kaggle T4, real; policy in client; gateway not exercised)
+
+One session, script session 1,462 s = **0.406 GPU-h**. git `61ca1f8`, Tesla T4 (GPU 0 only), driver 580.178.04,
+CUDA 13.0, vLLM 0.31.0 (torch 2.13.0+cu130). Stage: `make t4-run STAGE=taskbudget ARGS='--args "--strong-util 0.50
+--cheap-util 0.35 --cheap-revision 7ae55760"'`. Serve flags per pool: `--dtype half --no-enable-prefix-caching
+--gpu-memory-utilization {0.50 | 0.35} --revision <sha>`, everything else default. Startup: strong weights 1.95 GiB,
+KV 4.03 GiB = **117,408 tokens** (CALCULATED ≈ 130,500); cheap weights 0.93 GiB, KV 3.35 GiB = **293,040 tokens**
+(CALCULATED ≈ 293,300). `nvidia-smi --query-compute-apps`: 7,088 MiB + 5,134 MiB. Both warmed with 8 concurrent
+discarded tasks each. Client: driver in the kernel, temperature 0, `max_tokens` 256 / 128 / 384 for steps 1 / 2 / 3,
+8 tasks in flight. Order: calibration baseline (150 tasks, 180 s), then 600 task runs (4 policies × 150, 607 s), with a
+random policy order per batch of 8 tasks (seed 11): baseline ran first in 3 of 19 batches, hard_cut in 7, downgrade in
+2, escalate in 7 (the last batch has 6 tasks).
+
+## Task 7 — does vLLM free a cancelled stream? (vLLM 0.31.0, called directly)
+
+`cancel_probe`: one streamed chat request (`ignore_eos`, `max_tokens` 2,000, temperature 0), client disconnects 3.0 s
+after sending, `/metrics` scraped every 0.25 s from 1 s before the request to 15 s after the disconnect; n = 3 per pool,
+both pools up, no other load. Raw metric lines per sample are in the `cancel-*` rows.
+
+| pool | trial | tokens received before disconnect (usage) | last sample before disconnect: running / KV usage | first sample after disconnect | freed after | at +15 s |
+|---|---:|---|---|---|---:|---|
+| strong (3B AWQ) | 0 | 48 prompt + 252 completion | 1 / 0.00259 | running 0, KV 0.0 | **0.155 s** | running 0, KV 0.0 |
+| strong | 1 | 48 + 245 | 1 / 0.00245 | running 0, KV 0.0 | **0.147 s** | 0 / 0.0 |
+| strong | 2 | 48 + 242 | 1 / 0.00245 | running 0, KV 0.0 | **0.146 s** | 0 / 0.0 |
+| cheap (0.5B) | 0 | 48 + 503 | 1 / 0.00186 | running 0, KV 0.0 | **0.167 s** | 0 / 0.0 |
+| cheap | 1 | 48 + 502 | 1 / 0.00186 | running 0, KV 0.0 | **0.173 s** | 0 / 0.0 |
+| cheap | 2 | 48 + 500 | 1 / 0.00186 | running 0, KV 0.0 | **0.170 s** | 0 / 0.0 |
+
+**vLLM 0.31.0 frees the sequence and its KV blocks on a streaming client disconnect, 6/6, at the first scrape after the
+disconnect (≤ 0.17 s; the 0.25 s sampling is the resolution).** `vllm:request_success_total{finished_reason="abort"}`
+stayed **0.0** in every trial: the cancelled request is not counted in that counter, so it cannot be used to count cancellations.
+
+Known for the other engines (not re-measured here; [GAPS P3](../../../deploy/gateway/GAPS.md#p3--does-a-client-disconnect-free-the-engine-slot)):
+llama.cpp called directly frees a streamed slot after ~1.5 s; **through agentgateway it is not freed within 15 s**
+(issue #19); non-streamed requests are never freed; llm-d-inference-sim never cancels on disconnect (SIMULATED).
+So "cut" policies are valid here (vLLM, direct, streamed). They would not free capacity behind agentgateway, and they are
+untestable on the simulator.
+
+## Task 10/11 — results
+
+Budget = **951 tokens** per task: 75th percentile (nearest rank) of tokens per successful task in the calibration
+baseline (95 / 150 successes). Policy table: the 600 randomized-order runs.
+
+| policy | success | abort | **tokens per SUCCESSFUL task** | tokens per attempted task | mean tokens of a successful task | tokens wasted on aborted tasks | tokens strong / cheap pool | task wall p50 / p95 s | $ per successful task CALCULATED |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|
+| baseline | **94 / 150 (0.627)** | 0 | **1,566** | 981 | 896 | 0 | 147,205 / 0 | 6.26 / 8.84 | 0.000311 |
+| hard_cut | 72 / 150 (0.480) | 52 (0.347) | **1,818** | 873 | 795 | 51,798 | 130,889 / 0 | 5.65 / 7.52 | 0.000341 |
+| downgrade | 92 / 150 (0.613) | 0 | **1,588** | 974 | 870 | 0 | 130,269 / 15,858 | 6.45 / 10.51 | 0.000339 |
+| escalate | 4 / 150 (0.027) | 97 (0.647) | **36,079** | 962 | 677 | 103,928 | 74,877 / 69,440 | 4.85 / 6.38 | 0.006570 |
+
+Tokens = prompt + completion of every call. Chart: [charts/task_budget_cost_per_success.png](charts/task_budget_cost_per_success.png).
+Analysis: [analysis.json](20261031-091201_taskbudget/results/taskbudget/analysis.json)
+(`python -m benchmarks.task_budget.analyze benchmarks/results/t4/20261031-091201_taskbudget`). Raw task records
+(task ID, policy, pool per attempt, tokens per step, checker result and reply per attempt, retries, success, wall time):
+[tasks.jsonl](20261031-091201_taskbudget/results/taskbudget/tasks.jsonl).
+
+**Dollars (CALCULATED, secondary).** Per policy, GPU-seconds = completion tokens on a pool ÷ that pool's output tok/s
+while it had a request running in the policy phase (strong 236.4 tok/s over 597.6 s busy, cheap 143.2 tok/s over 164.0 s
+busy; `vllm:generation_tokens_total` deltas), × $0.526/h (Azure NC4as_T4_v3, the repo's cited price), ÷ successes.
+**Caveat:** the two pools share one GPU and were busy at the same time for ≥ 154 s of the 607 s phase, and each pool's
+busy time is charged at the full GPU price, so the overlap is double-counted (up to +27 %). Prompt tokens are not
+charged separately. Tokens per successful task is the primary metric.
+
+What happened per policy:
+
+- **baseline** — 94 successes; failures: 48 wrong final number (step 3), 7 at step 2, 1 at step 1. The calibration pass
+  gave 95; 149 of 150 tasks had the same outcome in both passes.
+- **hard_cut** — aborted 52 tasks, 41 of them cut in flight during step 3's first attempt (the step that costs most,
+  511 tokens mean in the baseline). **23 of the 52 cut tasks succeeded in the baseline.** It saved 11 % of all tokens
+  (130,889 vs 147,205) but lost 23 % of the successes, so tokens per success went **up 16 %** (1,566 → 1,818).
+- **downgrade** — 20 tasks crossed 70 % of the budget and finished on the cheap pool; 92 successes. Practically the
+  baseline: −1 % tokens per attempted task, +1 % per success.
+- **escalate** — the cheap 0.5B passed step 1 on the first try in **34 / 150** tasks (strong: 148 / 150). On a failure the
+  step moves to the strong pool **with the cheap model's failed reply and the checker's reason in its context** (the
+  retry design), and the strong model often repeated the cheap model's mistake (task 2: both replies named a quantity
+  `"House cost"`, not an identifier). Two failed attempts and a third prompt that carries both exceed the 951-token cap: 49
+  tasks were cut at step 1, 13 at step 2, 35 at step 3; 57 of the 97 cut tasks succeeded in the baseline. 4 successes,
+  36,079 tokens per success.
+
+### Early signals: do per-step checks predict the outcome?
+
+Strong-pool baseline, policy pass (n = 150, 94 successes). AUC = P(signal of a random success > signal of a random
+failure); 95 % CI from 2,000 bootstrap resamples. 2×2 = step-k checker passed on the first try × final success.
+
+| signal | 2×2: pass & success / pass & fail / fail & success / fail & fail | AUC (95 % CI) |
+|---|---|---|
+| step 1 first-try pass | 93 / 55 / 1 / 1 | **0.504 (0.485 … 0.526)** |
+| step 1 passed (after retries) | 94 / 55 / 0 / 1 | 0.509 (0.500 … 0.531) |
+| tokens used after step 1 (fewer = higher) | — | 0.570 (0.472 … 0.671) |
+| step 2 first-try pass | 93 / 46 / 1 / 10 | **0.584 (0.536 … 0.638)** |
+| step 2 passed (after retries) | 94 / 48 / 0 / 8 | 0.571 (0.528 … 0.621) |
+| tokens used after step 2 | — | 0.654 (0.565 … 0.747) |
+| tokens after step 2, only tasks whose step 2 passed first try (n = 139) | — | 0.587 (0.486 … 0.682) |
+
+The calibration pass gives the same picture (step 1 first try 0.504, 0.485 … 0.527; step 2 first try 0.586, 0.537 …
+0.640; tokens after step 2 0.657, 0.568 … 0.752).
+
+**Three pairs that looked identical after step 1 and ended in opposite outcomes** (both passed step 1 on the first
+try on the strong pool with the same token count; `example_pairs` in analysis.json has the replies):
+
+| pair | success | failure |
+|---|---|---|
+| 1 | **task 44** (gold 20): step 1 ok, 270 tok; step 2 ok, expression evaluates to **380** (wrong); step 3 recomputes from the problem and answers **20** ✓ (1,083 tok) | **task 389** (gold 6): step 1 ok, 270 tok; step 2 ok, `30-(30+18)` = −18; step 3 answers **−18** ✗ (1,058 tok) |
+| 2 | **task 54** (gold 40): step 1 ok, 238 tok; step 2 `7.0 + 21.0 + 12.0` = 40; step 3 answers 40 ✓ (793 tok) | **task 1146** (gold 16): step 1 ok, 238 tok; step 2 ok, expression = 180; step 3 answers **180** ✗ (1,067 tok) |
+| 3 | **task 92** (gold 4): step 1 ok, 215 tok; step 2 ok, expression = **17** (wrong); step 3 answers **4** ✓ (892 tok) | **task 495** (gold 200): step 1 ok, 215 tok; step 2 fails 3 times (quoted JSON paths, `"quantities.hours_per_day.value" * …`), task ends at 1,262 tok ✗ |
+
+Two of the three successes went through a **wrong** intermediate expression that the step-2 checker accepted (it can
+only check that the expression parses and evaluates), and step 3 recovered. A per-step check that passes does not mean
+the chain is on track, and a later step can repair an earlier one.
+
+**Can a per-step check tell drift from a hard step about to pay off? Not in this data.** The step-1 check passed for 148 of
+150 tasks, successes and failures alike (AUC 0.504, CI 0.485 … 0.526). The step-2 check and tokens-so-far are only weak
+signals (AUC 0.58 and 0.65, upper CI bounds 0.64 and 0.75). The checks catch format failures, not wrong reasoning.
+
+## Predicted vs measured
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| Baseline success 0.45–0.75 | **0.627** (94/150; calibration 0.633) | inside the range; close to the earlier lm-eval 0.624 for this model |
+| Hard cut lowers tokens per attempted task; raises tokens per success only if it mostly kills would-be successes | per attempted 981 → **873** (lower); per success 1,566 → **1,818** (higher), while only **23 of 52** cut tasks (44 %) were would-be successes | first half holds. Second half **wrong**: tokens per success rose without the cut killing *mostly* would-be successes. Cutting 44 % would-be successes already loses more successes (−23 %) than tokens (−11 %) |
+| Downgrade lowers cost per attempted task; per success depends on the cheap pool's step-3 success | per attempted 981 → 974 (−0.7 %); per success +1.4 %; only 20 tasks reached the cheap pool, which passed the step-3 format on 9 of 14 attempts | small effect in both directions; at this budget, downgrade barely triggers |
+| Escalate has the lowest cost per success *if* the cheap pool passes step 1 most of the time | the condition failed (cheap step-1 first-try pass 34/150 = 23 %); escalate had the **highest** cost per success (36,079) | the condition was false, and the result is the opposite. The retry context carrying the cheap reply and the hard cap made it worse |
+| Step-1 pass separates eventual outcomes only weakly (AUC < 0.7) | **0.504 (0.485 … 0.526)** | **weak**, as predicted, with the whole CI below 0.7 (and near 0.5: step 1 almost always passes) |
+
+## Does NOT show
+
+- One task type (3-step GSM8K arithmetic), GSM8K only, 150 tasks, one run per policy (plus one calibration baseline).
+- **Policy in the client, gateway not exercised.** Behind agentgateway a cancel does not free the engine slot (P3), so
+  the hard cut there would save client-side tokens but not GPU work.
+- Two small models (3B AWQ, 0.5B FP16) sharing one T4; the cheap pool is much weaker than the strong one at step 1.
+- The escalate result depends on the retry design (failed replies carried into the next attempt) and on the cap at the
+  same budget; a fresh-context escalation was not measured.
+- Dollar figures are CALCULATED with an attribution that double-counts overlapping pool time; not a bill.
+- No live migration: a decode in flight is never moved between pods (its KV stays on the pod), and nothing here claims it.

@@ -16,6 +16,7 @@ revision, every serving flag and the client config. Generated tables: [summary.m
 - [Task 5 — quantization](#task-5--quantization)
 - [NCCL — 2 × T4 collectives (PCIe, one box)](#nccl--2--t4-collectives-pcie-one-box)
 - [P8 on 2 × T4 — size-blind routing](p8_t4x2.md)
+- [Ridge point and engine ceiling](ridge.md) · [Two instances on one T4](two_instances.md) · [Cost per completed task](task_budget.md)
 - [Limits — what is emulated or missing](#limits--what-is-emulated-or-missing)
 - [Reproduce](#reproduce)
 
@@ -32,6 +33,9 @@ One Kaggle kernel version per stage (`make t4-run STAGE=<stage>`). Results are i
 | quant | FP16 vs AWQ (vLLM) vs GGUF Q8_0/Q4_K_M (llama.cpp CUDA): speed, PPL, lm-eval, cost | **20261014-224513** (speed, PPL), 20261014-230851 (lm-eval vLLM), 20261014-234235 (lm-eval GGUF) |
 | nccl | NCCL collectives between the kernel's 2 T4s over PCIe: topology, transport, nccl-tests sweep | smoke 20261016-152535 (wrong NCCL picked, rows split; see below), **20261016-153016** (sweep), **20261016-154427** (P2P follow-up) |
 | p8x2 | P8 size-blind routing on 2 × T4: one vLLM per GPU, long-prompt (L) vs short-prompt (S) replica, probes forced to each; offline router scores ([p8_t4x2.md](p8_t4x2.md)) | 20261022-211450 (idle + 5/5 main, phase-locked; superseded), **20261022-221119** (idle, main, longout, mns2; 12 + 12 each) |
+| ridge | Part A: offline engine ceiling of Qwen2.5-3B FP16 vs `--max-num-seqs` (`vllm bench throughput`), HTTP at 384 users, memory-limited case ([ridge.md](ridge.md)) | **20261031-082141** (offline 64–384 done; HTTP and memory-limited case skipped at the part budget) |
+| twoinst | Part B: two vLLM AWQ instances on one T4, time-sharing (MPS planned), over-allocation ([two_instances.md](two_instances.md)) | **20261031-085014** (MPS skipped at the part budget) |
+| taskbudget | Part C: vLLM cancel-on-disconnect; cost per completed 3-step GSM8K task under four token-budget policies ([task_budget.md](task_budget.md)) | **20261031-091201** |
 
 GPU time: **6.44 GPU-hours** of script session time over 25 Kaggle runs pushed by `run_kaggle.py` (6.91 h push→done
 upper bound; the three nccl runs are 0.355 h, the two p8x2 runs 0.506 + 0.525 h; on 2 × T4 machines that is session time, GPU-device time is twice it); per run in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Not in the ledger: two

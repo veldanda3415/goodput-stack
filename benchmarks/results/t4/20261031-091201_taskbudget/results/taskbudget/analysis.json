@@ -1,0 +1,659 @@
+{
+ "budget_tokens": 951,
+ "pool_rates": {
+  "strong": {
+   "busy_s": 597.6,
+   "generation_tokens": 141258.0,
+   "output_tok_s_while_busy": 236.37,
+   "window_s": 607.4
+  },
+  "cheap": {
+   "busy_s": 164.0,
+   "generation_tokens": 23489.0,
+   "output_tok_s_while_busy": 143.22,
+   "window_s": 607.4
+  }
+ },
+ "policy_table": [
+  {
+   "policy": "baseline",
+   "tasks": 150,
+   "successes": 94,
+   "success_rate": 0.6267,
+   "aborted": 0,
+   "abort_rate": 0.0,
+   "tokens_total": 147205,
+   "tokens_per_attempted": 981.4,
+   "tokens_per_success": 1566.0,
+   "mean_tokens_of_successful_tasks": 896.2,
+   "tokens_wasted_aborted": 0,
+   "tokens_by_pool": {
+    "strong": 147205,
+    "cheap": 0
+   },
+   "completion_tokens_by_pool": {
+    "strong": 47303,
+    "cheap": 0
+   },
+   "wall_p50_s": 6.26,
+   "wall_p95_s": 8.84,
+   "gpu_s_attributed_CALCULATED": {
+    "strong": 200.12,
+    "cheap": 0.0
+   },
+   "usd_per_success_CALCULATED": 0.000311,
+   "usd_per_attempted_CALCULATED": 0.000195
+  },
+  {
+   "policy": "hard_cut",
+   "tasks": 150,
+   "successes": 72,
+   "success_rate": 0.48,
+   "aborted": 52,
+   "abort_rate": 0.3467,
+   "tokens_total": 130889,
+   "tokens_per_attempted": 872.6,
+   "tokens_per_success": 1817.9,
+   "mean_tokens_of_successful_tasks": 795.1,
+   "tokens_wasted_aborted": 51798,
+   "tokens_by_pool": {
+    "strong": 130889,
+    "cheap": 0
+   },
+   "completion_tokens_by_pool": {
+    "strong": 39767,
+    "cheap": 0
+   },
+   "wall_p50_s": 5.65,
+   "wall_p95_s": 7.52,
+   "gpu_s_attributed_CALCULATED": {
+    "strong": 168.24,
+    "cheap": 0.0
+   },
+   "usd_per_success_CALCULATED": 0.000341,
+   "usd_per_attempted_CALCULATED": 0.000164
+  },
+  {
+   "policy": "downgrade",
+   "tasks": 150,
+   "successes": 92,
+   "success_rate": 0.6133,
+   "aborted": 0,
+   "abort_rate": 0.0,
+   "tokens_total": 146127,
+   "tokens_per_attempted": 974.2,
+   "tokens_per_success": 1588.3,
+   "mean_tokens_of_successful_tasks": 869.9,
+   "tokens_wasted_aborted": 0,
+   "tokens_by_pool": {
+    "strong": 130269,
+    "cheap": 15858
+   },
+   "completion_tokens_by_pool": {
+    "strong": 43681,
+    "cheap": 4067
+   },
+   "wall_p50_s": 6.45,
+   "wall_p95_s": 10.51,
+   "gpu_s_attributed_CALCULATED": {
+    "strong": 184.8,
+    "cheap": 28.4
+   },
+   "usd_per_success_CALCULATED": 0.000339,
+   "usd_per_attempted_CALCULATED": 0.000208
+  },
+  {
+   "policy": "escalate",
+   "tasks": 150,
+   "successes": 4,
+   "success_rate": 0.0267,
+   "aborted": 97,
+   "abort_rate": 0.6467,
+   "tokens_total": 144317,
+   "tokens_per_attempted": 962.1,
+   "tokens_per_success": 36079.2,
+   "mean_tokens_of_successful_tasks": 676.5,
+   "tokens_wasted_aborted": 103928,
+   "tokens_by_pool": {
+    "strong": 74877,
+    "cheap": 69440
+   },
+   "completion_tokens_by_pool": {
+    "strong": 10497,
+    "cheap": 19400
+   },
+   "wall_p50_s": 4.85,
+   "wall_p95_s": 6.38,
+   "gpu_s_attributed_CALCULATED": {
+    "strong": 44.41,
+    "cheap": 135.46
+   },
+   "usd_per_success_CALCULATED": 0.00657,
+   "usd_per_attempted_CALCULATED": 0.000175
+  }
+ ],
+ "repeat_check": {
+  "calibration_success": 95,
+  "policies_baseline_success": 94,
+  "same_outcome": 149,
+  "n": 150
+ },
+ "early_signal": {
+  "baseline": {
+   "n": 150,
+   "successes": 94,
+   "step1": {
+    "first_try_2x2": {
+     "pass_success": 93,
+     "pass_fail": 55,
+     "fail_success": 1,
+     "fail_fail": 1
+    },
+    "first_try_auc": [
+     0.5036094224924013,
+     0.485144801980198,
+     0.526006827413361
+    ],
+    "eventual_2x2": {
+     "pass_success": 94,
+     "pass_fail": 55,
+     "fail_success": 0,
+     "fail_fail": 1
+    },
+    "eventual_auc": [
+     0.5089285714285714,
+     0.5,
+     0.5306122448979592
+    ],
+    "tokens_so_far_auc": [
+     0.5701937689969605,
+     0.4721244692637156,
+     0.6708458912333224
+    ],
+    "among_first_try_pass": {
+     "n": 148,
+     "successes": 93,
+     "tokens_so_far_auc": [
+      0.5686217008797654,
+      0.47463010822885854,
+      0.6619194321918984
+     ]
+    }
+   },
+   "step2": {
+    "first_try_2x2": {
+     "pass_success": 93,
+     "pass_fail": 46,
+     "fail_success": 1,
+     "fail_fail": 10
+    },
+    "first_try_auc": [
+     0.583966565349544,
+     0.5357069233240522,
+     0.6379462594056191
+    ],
+    "eventual_2x2": {
+     "pass_success": 94,
+     "pass_fail": 48,
+     "fail_success": 0,
+     "fail_fail": 8
+    },
+    "eventual_auc": [
+     0.5714285714285714,
+     0.5277651515151516,
+     0.6206896551724138
+    ],
+    "tokens_so_far_auc": [
+     0.6537803951367781,
+     0.5648038568592537,
+     0.7468573950204386
+    ],
+    "among_first_try_pass": {
+     "n": 139,
+     "successes": 93,
+     "tokens_so_far_auc": [
+      0.5870733987844787,
+      0.4857382800535216,
+      0.6817762214051647
+     ]
+    }
+   }
+  },
+  "baseline_calibration": {
+   "n": 150,
+   "successes": 95,
+   "step1": {
+    "first_try_2x2": {
+     "pass_success": 94,
+     "pass_fail": 54,
+     "fail_success": 1,
+     "fail_fail": 1
+    },
+    "first_try_auc": [
+     0.5038277511961723,
+     0.48514851485148514,
+     0.5265762463343109
+    ],
+    "eventual_2x2": {
+     "pass_success": 95,
+     "pass_fail": 54,
+     "fail_success": 0,
+     "fail_fail": 1
+    },
+    "eventual_auc": [
+     0.509090909090909,
+     0.5,
+     0.530616169544741
+    ],
+    "tokens_so_far_auc": [
+     0.5708133971291866,
+     0.47281340160359636,
+     0.6720796323073744
+    ],
+    "among_first_try_pass": {
+     "n": 148,
+     "successes": 94,
+     "tokens_so_far_auc": [
+      0.5690504334121356,
+      0.4733919113822292,
+      0.6630623891843972
+     ]
+    }
+   },
+   "step2": {
+    "first_try_2x2": {
+     "pass_success": 94,
+     "pass_fail": 45,
+     "fail_success": 1,
+     "fail_fail": 10
+    },
+    "first_try_auc": [
+     0.5856459330143541,
+     0.5365832953745497,
+     0.6402805588292504
+    ],
+    "eventual_2x2": {
+     "pass_success": 95,
+     "pass_fail": 47,
+     "fail_success": 0,
+     "fail_fail": 8
+    },
+    "eventual_auc": [
+     0.5727272727272728,
+     0.5277777777777778,
+     0.6228070175438597
+    ],
+    "tokens_so_far_auc": [
+     0.6574162679425838,
+     0.5675275392961686,
+     0.7518350245716974
+    ],
+    "among_first_try_pass": {
+     "n": 139,
+     "successes": 94,
+     "tokens_so_far_auc": [
+      0.5898345153664303,
+      0.48730590328915074,
+      0.6846858854980177
+     ]
+    }
+   }
+  }
+ },
+ "example_pairs": [
+  {
+   "token_diff_after_step1": 0,
+   "success": {
+    "task_id": 44,
+    "policy": "baseline",
+    "success": true,
+    "aborted": false,
+    "gold": "20",
+    "final_value": 20.0,
+    "expression_value": 380.0,
+    "steps": [
+     {
+      "step": 1,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 270,
+      "tokens_cum": 270,
+      "replies": [
+       "{\"quantities\": [{\"name\": \"candles_per_pound\", \"value\": 10}, {\"name\": \"cost_per_pound_beeswax\", \"value\": 10}, {\"name\": \"cost_wicks_per_pound\", \"value\": 10}, {\"name\": \"price_per_candle\", \"value\": 2}, {\"name\": \"total_candles_made_sold\", \"value\": 20}]}"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 2,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 292,
+      "tokens_cum": 562,
+      "replies": [
+       "(total_candles_made_sold * candles_per_pound * price_per_candle) - (cost_per_pound_beeswax + cost_wicks_per_pound)"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 3,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 521,
+      "tokens_cum": 1083,
+      "replies": [
+       "First, let's compute the total number of candles Charlie can make from one pound of beeswax:\n- From the quantities provided, we know that for every pound of beeswax, Charlie can make 10 candles.\n\nNext, calculate the total revenue from selling 20 candles at $2.00 each:\n- Total revenue = 20 candles * "
+      ],
+      "check": [
+       "ok"
+      ]
+     }
+    ]
+   },
+   "failure": {
+    "task_id": 389,
+    "policy": "baseline",
+    "success": false,
+    "aborted": false,
+    "gold": "6",
+    "final_value": -18.0,
+    "expression_value": -18.0,
+    "steps": [
+     {
+      "step": 1,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 270,
+      "tokens_cum": 270,
+      "replies": [
+       "{\"quantities\": [{\"name\": \"rides\", \"value\": 9}, {\"name\": \"tickets_per_ride\", \"value\": 2}, {\"name\": \"ticket_price\", \"value\": 2}, {\"name\": \"bracelet_price\", \"value\": 30}, {\"name\": \"David_bracelet_cost\", \"value\": 30}, {\"name\": \"Dasha_ticket_cost\", \"value\": 18}]}"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 2,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 268,
+      "tokens_cum": 538,
+      "replies": [
+       "30-(30+18)"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 3,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 520,
+      "tokens_cum": 1058,
+      "replies": [
+       "First, let's calculate the total cost for David who buys a ride bracelet. The ride bracelet costs $30 and allows him to ride all 9 rides.\n\nNext, we calculate the total cost for Dasha who buys tickets. Since each ride costs 2 tickets and she needs 9 rides, she will need 18 tickets. Given that each ti"
+      ],
+      "check": [
+       "ok"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "token_diff_after_step1": 0,
+   "success": {
+    "task_id": 54,
+    "policy": "baseline",
+    "success": true,
+    "aborted": false,
+    "gold": "40",
+    "final_value": 40.0,
+    "expression_value": 40.0,
+    "steps": [
+     {
+      "step": 1,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 238,
+      "tokens_cum": 238,
+      "replies": [
+       "{\"quantities\": [{\"name\": \"adopted_kittens\", \"value\": 7}, {\"name\": \"patchy_kittens\", \"value\": 21}, {\"name\": \"trixie_kittens\", \"value\": 12}]}"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 2,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 236,
+      "tokens_cum": 474,
+      "replies": [
+       "7.0 + 21.0 + 12.0"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 3,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 319,
+      "tokens_cum": 793,
+      "replies": [
+       "First, let's add up all the kittens:\n- The Doubtfire sisters adopted 7 kittens.\n- Patchy had thrice the number of adopted kittens, which is \\(3 \\times 7 = 21\\) kittens.\n- Trixie had 12 kittens.\n\nNow, we sum these quantities:\n\\[ 7 + 21 + 12 = 40 \\]\n\nAnswer: 40"
+      ],
+      "check": [
+       "ok"
+      ]
+     }
+    ]
+   },
+   "failure": {
+    "task_id": 1146,
+    "policy": "baseline",
+    "success": false,
+    "aborted": false,
+    "gold": "16",
+    "final_value": 180.0,
+    "expression_value": 180.0,
+    "steps": [
+     {
+      "step": 1,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 238,
+      "tokens_cum": 238,
+      "replies": [
+       "{\"quantities\": [{\"name\": \"initial_money\", \"value\": 100}, {\"name\": \"rock_cost\", \"value\": 5}, {\"name\": \"rock_sell_price\", \"value\": 7}, {\"name\": \"investment\", \"value\": 100}, {\"name\": \"inventory_sold_percentage\", \"value\": 60}]}"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 2,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 250,
+      "tokens_cum": 488,
+      "replies": [
+       "((100 * 5) / 5 * 7 * 0.4 - 100)"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 3,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 579,
+      "tokens_cum": 1067,
+      "replies": [
+       "First, let's calculate the total number of rocks Adam can buy with his initial $100:\n- Total rocks = initial_money / rock_cost = 100 / 5 = 20 rocks\n\nNext, we'll find out how many rocks Adam will sell (60% of his inventory):\n- Rocks sold = investment * inventory_sold_percentage = 100 * 0.6 = 60 rocks"
+      ],
+      "check": [
+       "ok"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "token_diff_after_step1": 0,
+   "success": {
+    "task_id": 92,
+    "policy": "baseline",
+    "success": true,
+    "aborted": false,
+    "gold": "4",
+    "final_value": 4.0,
+    "expression_value": 17.0,
+    "steps": [
+     {
+      "step": 1,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 215,
+      "tokens_cum": 215,
+      "replies": [
+       "{\"quantities\": [{\"name\": \"amy_age\", \"value\": 17}, {\"name\": \"jackson_age\", \"value\": 12}, {\"name\": \"corey_age\", \"value\": 14}, {\"name\": \"james_age\", \"value\": 10}]}"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 2,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 217,
+      "tokens_cum": 432,
+      "replies": [
+       "(james_age + 1) * (1 + 1) - 5"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 3,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 460,
+      "tokens_cum": 892,
+      "replies": [
+       "First, let's summarize the information given in the problem:\n\n- James is 10 years old.\n- James is 1 year younger than Corey, so Corey is 11 years old.\n- Amy is 5 years older than Jackson.\n- Amy is 2 years younger than Corey.\n\nFrom this, we can determine Jackson's age. Since Corey is 11 years old and"
+      ],
+      "check": [
+       "ok"
+      ]
+     }
+    ]
+   },
+   "failure": {
+    "task_id": 495,
+    "policy": "baseline",
+    "success": false,
+    "aborted": false,
+    "gold": "200",
+    "final_value": null,
+    "expression_value": null,
+    "steps": [
+     {
+      "step": 1,
+      "passed": true,
+      "retries": 0,
+      "pools": [
+       "strong"
+      ],
+      "tokens": 215,
+      "tokens_cum": 215,
+      "replies": [
+       "{\"quantities\": [{\"name\": \"hours_per_day\", \"value\": 8}, {\"name\": \"walk_reminders_per_hour\", \"value\": 1}, {\"name\": \"minutes_per_walk_reminder\", \"value\": 5}, {\"name\": \"days_at_office\", \"value\": 5}]}"
+      ],
+      "check": [
+       "ok"
+      ]
+     },
+     {
+      "step": 2,
+      "passed": false,
+      "retries": 2,
+      "pools": [
+       "strong",
+       "strong",
+       "strong"
+      ],
+      "tokens": 1047,
+      "tokens_cum": 1262,
+      "replies": [
+       "(\"quantities.hours_per_day.value\" * \"quantities.walk_reminders_per_hour.value\" * \"quantities.minutes_per_walk_reminder.value\" * \"quantities.days_at_office.value\") / 24",
+       "(\"quantities.hours_per_day.value\" * \"quantities.walk_reminders_per_hour.value\" * \"quantities.minutes_per_walk_reminder.value\" * \"quantities.days_at_office.value\") / 24",
+       "(\"quantities.hours_per_day.value\" * \"quantities.walk_reminders_per_hour.value\" * \"quantities.minutes_per_walk_reminder.value\" * \"quantities.days_at_office.value\") / 24"
+      ],
+      "check": [
+       "expression '(\"quantities.hours_per_day.value\" * \"quantities.walk_reminders_per_hour.value\" *' rejected: literal 'quantities.hours_per_day.value' is not a number",
+       "expression '(\"quantities.hours_per_day.value\" * \"quantities.walk_reminders_per_hour.value\" *' rejected: literal 'quantities.hours_per_day.value' is not a number",
+       "expression '(\"quantities.hours_per_day.value\" * \"quantities.walk_reminders_per_hour.value\" *' rejected: literal 'quantities.hours_per_day.value' is not a number"
+      ]
+     }
+    ]
+   }
+  }
+ ],
+ "price_per_h": 0.526
+}
