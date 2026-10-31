@@ -1,0 +1,26 @@
+{
+  "type": "timeseries",
+  "title": "Tokens per completed task (by policy)",
+  "description": "All tokens spent by tasks (successful, failed and aborted) divided by successful tasks, 15 min window. Definition: benchmarks/task_budget/observability/metrics.md. File only; not deployed.",
+  "datasource": {"type": "prometheus", "uid": "${datasource}"},
+  "targets": [
+    {
+      "refId": "A",
+      "expr": "sum by (policy) (increase(task_tokens_total[15m])) / sum by (policy) (increase(tasks_finished_total{outcome=\"success\"}[15m]))",
+      "legendFormat": "{{policy}}"
+    },
+    {
+      "refId": "B",
+      "expr": "sum by (policy) (increase(tasks_finished_total{outcome=\"success\"}[15m])) / sum by (policy) (increase(tasks_finished_total[15m]))",
+      "legendFormat": "{{policy}} success rate",
+      "hide": true
+    }
+  ],
+  "fieldConfig": {
+    "defaults": {"unit": "short", "decimals": 0, "min": 0, "custom": {"lineWidth": 2, "fillOpacity": 0}},
+    "overrides": []
+  },
+  "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "mean"]},
+              "tooltip": {"mode": "multi"}},
+  "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+}
