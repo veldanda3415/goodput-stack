@@ -1,0 +1,18 @@
+{
+  "run_id": "20261031-082141_ridge",
+  "stage": "ridge",
+  "args": [],
+  "kernel": "raviveldanda/goodput-t4",
+  "git_sha": "e2f06c1",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-31T12:21:44+00:00",
+  "push_output": "Warning: Looks like you're using an outdated `kaggle` version (installed: 2.2.3), please consider upgrading to the latest version (2.2.5)\nKernel version 21 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4",
+  "output_cmd_output": "nchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns256.engine-metrics.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns256.gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns384.bench.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns384.cpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns384.engine-metrics.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns384.gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns64.bench.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns64.cpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns64.engine-metrics.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/offline-mns64.gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/ridge.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/results/ridge/stage.json\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-082141_ridge/_download/goodput-t4.log",
+  "finished_at_utc": "2026-10-31T12:48:15+00:00",
+  "status": "complete",
+  "wall_push_to_done_min": 26.5,
+  "script_session_s": 1410.4,
+  "gpu_hours_script": 0.392,
+  "gpu_hours_upper_bound": 0.442
+}
