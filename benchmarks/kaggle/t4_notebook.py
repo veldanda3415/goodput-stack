@@ -440,9 +440,9 @@ def chat(base_url: str, model: str, prompt: str, max_tokens: int, stream: bool, 
 DECODE_PROMPT = "Write a long, detailed essay about the history of computing, from mechanical calculators to GPUs."
 
 
-def throttle_counters() -> dict:
-    """Clock-event (throttle) reason counters in us from `nvidia-smi -q -d PERFORMANCE`, GPU 0."""
-    rc, out = sh(["nvidia-smi", "-i", "0", "-q", "-d", "PERFORMANCE"], timeout=60)
+def throttle_counters(gpu: int = 0) -> dict:
+    """Clock-event (throttle) reason counters in us from `nvidia-smi -q -d PERFORMANCE`, one GPU (default 0)."""
+    rc, out = sh(["nvidia-smi", "-i", str(gpu), "-q", "-d", "PERFORMANCE"], timeout=60)
     sec = out.split("Clocks Event Reasons Counters")[-1] if "Counters" in out else ""
     return {k.strip(): int(v) for k, v in re.findall(r"^\s*([A-Za-z ]+?)\s*:\s*(\d+) us", sec, re.M)}
 
@@ -1870,9 +1870,11 @@ RIDGE_LABEL = "Kaggle T4, real"
 
 
 def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts: int, in_len: int, out_len: int,
-                  util: float, warmups: int, timeout_s: float, prov: dict, extra_args: list[str] | None = None) -> dict:
-    """One `vllm bench throughput` run (benchmarks/kaggle/offline_throughput.py) with NVML, CPU and engine-metric sampling."""
-    from benchmarks.gpu_sampler import GpuSampler
+                  util: float, warmups: int, timeout_s: float, prov: dict, extra_args: list[str] | None = None,
+                  gpu: int = 0, gpu_interval_s: float = 1.0, env_extra: dict | None = None, row_extra: dict | None = None) -> dict:
+    """One `vllm bench throughput` run (benchmarks/kaggle/offline_throughput.py) with NVML, CPU and engine-metric sampling.
+    gpu: physical index (CUDA_VISIBLE_DEVICES, nvidia-smi -i); nvidia-smi -q snapshots before and after."""
+    from benchmarks.gpu_sampler import GpuSampler, smi_snapshot, summarize as gpu_summary
     bench_json, mfile = st.dir / f"{key}.bench.json", st.dir / f"{key}.engine-metrics.json"
     bench_args = ["--backend", "vllm", "--model", model, "--revision", rev, "--dtype", "half",
                   "--gpu-memory-utilization", str(util), "--no-enable-prefix-caching", "--max-num-seqs", str(mns),
@@ -1881,13 +1883,15 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
                   "--seed", "0", "--output-json", str(bench_json)] + list(extra_args or [])
     cmd = [sys.executable, "-m", "benchmarks.kaggle.offline_throughput", str(mfile), "--", *bench_args]
     log_path = st.logs / f"{key}.log"
-    t_th0 = throttle_counters()
+    env_extra = dict(env_extra or {})
+    t_th0 = throttle_counters(gpu)
+    smi_snapshot(st.logs / f"{key}.nvidia-smi-q-before.txt", gpu)
     with open(log_path, "w") as lf:
-        lf.write("$ CUDA_VISIBLE_DEVICES=0 " + shlex.join(cmd) + "\n")
+        lf.write("$ " + " ".join(f"{k}={v}" for k, v in env_extra.items()) + f" CUDA_VISIBLE_DEVICES={gpu} " + shlex.join(cmd) + "\n")
         lf.flush()
-        proc = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT, env=dict(os.environ, CUDA_VISIBLE_DEVICES="0"),
-                                start_new_session=True)
-        with GpuSampler(st.dir / f"{key}.gpu.csv", 1.0, 0), \
+        proc = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT,
+                                env=dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), **env_extra), start_new_session=True)
+        with GpuSampler(st.dir / f"{key}.gpu.csv", gpu_interval_s, gpu), \
                 CpuSampler(st.dir / f"{key}.cpu.csv", {"bench": lambda: [proc.pid]}):
             try:
                 rc = proc.wait(timeout_s)
@@ -1895,10 +1899,12 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
                 os.killpg(proc.pid, signal.SIGKILL)
                 proc.wait(30)
                 rc = "timeout"
-    t_th1 = throttle_counters()
+    t_th1 = throttle_counters(gpu)
+    smi_snapshot(st.logs / f"{key}.nvidia-smi-q-after.txt", gpu)
     text = log_path.read_text(errors="replace")
     row: dict = {"kind": "offline", "label": RIDGE_LABEL, "max_num_seqs": mns, "num_prompts": n_prompts, "num_warmups": warmups,
-                 "input_len": in_len, "output_len": out_len, "gpu_memory_utilization": util, "rc": rc,
+                 "input_len": in_len, "output_len": out_len, "gpu_memory_utilization": util, "rc": rc, "gpu_index": gpu,
+                 "env_extra": env_extra, **(row_extra or {}),
                  "bench_cmd": "vllm bench throughput " + shlex.join(bench_args),
                  "how_run": "benchmarks/kaggle/offline_throughput.py = vllm.benchmarks.throughput add_cli_args + main "
                             "(what `vllm bench throughput` calls) + 1 Hz engine-registry sampler",
@@ -1930,6 +1936,10 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
         row["eng_metric_samples_total"] = len(samples)
         row |= csv_window(st.dir / f"{key}.gpu.csv", t0, t1, GPU_COLS, prefix="gpu_")
         row |= csv_window(st.dir / f"{key}.cpu.csv", t0, t1, ["sys_pct", "sys_max_core_pct", "bench_pct", "load1"], prefix="cpu_")
+        try:   # nvidia-smi clocks / power / limits / throttle-reason fractions in the same window
+            row |= {k: v for k, v in gpu_summary(st.dir / f"{key}.gpu.csv", t0, t1, prefix="smi_").items() if k != "smi_samples"}
+        except Exception as exc:
+            row["smi_summary_error"] = repr(exc)[:200]
     return st.write(key, row, **prov)
 
 
@@ -2994,10 +3004,302 @@ STAGE_ARGS["followup"] = [
 ]
 
 
+
+# ---------------------------------------------------------------- bneck (Part G): where the throughput goes
+# One ordered plan per session (--plan), e.g. "tools,ref:start,micro:0,micro:1,prof:64,prof:384,ref:end". Items:
+#   tools            G0: nvidia-smi fields / limits / supported clocks, dcgmi / nsys / ncu availability, one -pl and one
+#                    -lgc attempt (each reset after)
+#   micro:G          G1: benchmarks/microbench/gpu_ceilings.py on physical GPU G
+#   ref:TAG[@G]      G4: the Build 14 reference point (offline, in 128 / out 256, max-num-seqs 384, 1,536 prompts)
+#   base:N           G2: the same workload at max-num-seqs N, no profiler
+#   prof:N           G2: the same with vLLM's torch profiler on a window of steady-state steps
+#   dec:N            G3.1 decode-only (in 16 / out 512) at max-num-seqs N
+#   pre              G3.2 prefill-only (in 2,048 / out 1)
+#   eager:N          G3.3 --enforce-eager
+#   mbt:N            G3.4 --max-num-batched-tokens N at max-num-seqs 384
+#   attn:B           G3.5 --attention-backend B at max-num-seqs 384
+#   awq              G3.6 Qwen2.5-3B-Instruct-AWQ at max-num-seqs 384
+#   clk              G3.7 SM clock locked near 600 / 900 / 1,200 MHz (only if nvidia-smi -lgc is permitted)
+
+BNECK_EST_H = {"tools": 0.03, "micro": 0.12, "ref": 0.12, "base": 0.12, "prof": 0.14, "dec": 0.10, "pre": 0.12,
+               "eager": 0.15, "mbt": 0.13, "attn": 0.13, "awq": 0.13, "clk": 0.40}
+PROFILE_WINDOWS = {64: (300, 400), 384: (300, 300)}   # max-num-seqs -> (delay_iterations, max_iterations)
+
+
+def supported_graphics_clocks(text: str) -> list[int]:
+    """Graphics clocks (MHz) listed by `nvidia-smi -q -d SUPPORTED_CLOCKS`, any memory clock, descending, unique."""
+    return sorted({int(x) for x in re.findall(r"^\s*Graphics\s*:\s*(\d+)\s*MHz", text, re.M)}, reverse=True)
+
+
+def tool_path(name: str) -> str | None:
+    rc, out = sh(f"command -v {name} || ls -1 /usr/local/cuda*/bin/{name} /opt/nvidia/*/bin/{name} /usr/local/bin/{name} 2>/dev/null | head -1",
+                 timeout=30)
+    return out.strip().splitlines()[0] if out.strip() else None
+
+
+TINY_CUDA_PY = "import torch; a = torch.randn(2048, 2048, device='cuda', dtype=torch.float16); [a @ a for _ in range(5)]; torch.cuda.synchronize(); print('ok')"
+
+
+def probe_tools(st: Stage, gpu: int = 0) -> dict:
+    """G0 availability checks. Read-only first; then one -pl and one -lgc attempt, each reset and re-read."""
+    from benchmarks.gpu_sampler import smi_fields
+    L = st.logs
+    g = str(gpu)
+    out: dict = {"gpu_index": gpu}
+    sh(["nvidia-smi", "--help-query-gpu"], timeout=60, out=L / "nvidia-smi-help-query-gpu.txt")
+    out["smi_fields"] = smi_fields()
+    rc, sup = sh(["nvidia-smi", "-i", g, "-q", "-d", "SUPPORTED_CLOCKS"], timeout=60, out=L / f"nvidia-smi-supported-clocks-gpu{g}.txt")
+    out["supported_graphics_clocks_mhz"] = supported_graphics_clocks(sup)
+    q = "power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit,clocks.max.sm,clocks.applications.graphics,persistence_mode,compute_mode,uuid,pci.bus_id"
+    rc, lim = sh(["nvidia-smi", "-i", g, f"--query-gpu={q}", "--format=csv"], timeout=60, out=L / f"nvidia-smi-limits-gpu{g}.txt")
+    out["limits_csv"] = lim.strip()[-600:]
+    sh(["nvidia-smi", "-q", "-i", g], timeout=60, out=L / f"nvidia-smi-q-gpu{g}.txt")
+    out["identity"] = sh("id; uname -r; grep -E '^Cap(Eff|Prm|Bnd)' /proc/self/status", timeout=30, out=L / "identity.txt")[1].strip()[-400:]
+    # profilers / DCGM
+    tools: dict = {}
+    for name in ("dcgmi", "nv-hostengine", "nsys", "ncu"):
+        tools[name] = {"path": tool_path(name)}
+    if tools["dcgmi"]["path"]:
+        tools["dcgmi"]["discovery"] = sh([tools["dcgmi"]["path"], "discovery", "-l"], timeout=60, out=L / "dcgmi-discovery.txt")
+        tools["dcgmi"]["dmon"] = sh([tools["dcgmi"]["path"], "dmon", "-e", "1002,1004", "-c", "3", "-d", "500"], timeout=60,
+                                    out=L / "dcgmi-dmon.txt")
+    if tools["nsys"]["path"]:
+        tools["nsys"]["version"] = sh([tools["nsys"]["path"], "--version"], timeout=60)
+        tools["nsys"]["profile"] = sh([tools["nsys"]["path"], "profile", "-f", "true", "-o", "/tmp/nsys-probe", sys.executable, "-c",
+                                       TINY_CUDA_PY], timeout=300, out=L / "nsys-probe.txt", env=dict(os.environ, CUDA_VISIBLE_DEVICES=g))
+    if tools["ncu"]["path"]:
+        tools["ncu"]["version"] = sh([tools["ncu"]["path"], "--version"], timeout=60)
+        tools["ncu"]["profile"] = sh([tools["ncu"]["path"], "--metrics", "sm__throughput.avg.pct_of_peak_sustained_elapsed", "-c", "1",
+                                      sys.executable, "-c", TINY_CUDA_PY], timeout=300, out=L / "ncu-probe.txt",
+                                     env=dict(os.environ, CUDA_VISIBLE_DEVICES=g))
+    for t in tools.values():
+        for k in ("discovery", "dmon", "version", "profile"):
+            if k in t:
+                rc, text = t[k]
+                t[k] = {"rc": rc, "tail": text.strip()[-500:]}
+    out["tools"] = tools
+    # power limit: set to power.min_limit (a real change), then restore power.default_limit
+    m = re.search(r"\n\s*([\d.]+) W,\s*([\d.]+) W,\s*([\d.]+) W,\s*([\d.]+) W,\s*([\d.]+) W", lim)
+    pl: dict = {}
+    if m:
+        cur, enf, dflt, mn, mx = m.groups()
+        pl |= {"before": {"limit": cur, "enforced": enf, "default": dflt, "min": mn, "max": mx}}
+        rc, text = sh(["nvidia-smi", "-i", g, "-pl", mn], timeout=60, out=L / "nvidia-smi-pl-attempt.txt")
+        pl |= {"attempt_cmd": f"nvidia-smi -i {g} -pl {mn}", "attempt_rc": rc, "attempt_output": text.strip()[-400:]}
+        rc2, text2 = sh(["nvidia-smi", "-i", g, "-pl", dflt], timeout=60, out=L / "nvidia-smi-pl-reset.txt")
+        pl |= {"reset_cmd": f"nvidia-smi -i {g} -pl {dflt}", "reset_rc": rc2, "reset_output": text2.strip()[-400:],
+               "after": sh(["nvidia-smi", "-i", g, "--query-gpu=power.limit,enforced.power.limit", "--format=csv,noheader"], timeout=60)[1].strip()}
+        pl["permitted"] = rc == 0
+    else:
+        pl["error"] = "could not parse power limits"
+    out["power_limit"] = pl
+    # clock lock: the highest supported graphics clock, then -rgc
+    lg: dict = {}
+    if out["supported_graphics_clocks_mhz"]:
+        f = out["supported_graphics_clocks_mhz"][0]
+        rc, text = sh(["nvidia-smi", "-i", g, "-lgc", f"{f},{f}"], timeout=60, out=L / "nvidia-smi-lgc-attempt.txt")
+        lg |= {"attempt_cmd": f"nvidia-smi -i {g} -lgc {f},{f}", "attempt_rc": rc, "attempt_output": text.strip()[-400:]}
+        rc2, text2 = sh(["nvidia-smi", "-i", g, "-rgc"], timeout=60, out=L / "nvidia-smi-rgc.txt")
+        lg |= {"reset_cmd": f"nvidia-smi -i {g} -rgc", "reset_rc": rc2, "reset_output": text2.strip()[-400:], "permitted": rc == 0}
+    else:
+        lg["error"] = "no supported clocks listed"
+    out["lock_clocks"] = lg
+    sh(["nvidia-smi", "-i", g, "-q", "-d", "PERFORMANCE,POWER,CLOCK,TEMPERATURE"], timeout=60, out=L / f"nvidia-smi-q-after-tools-gpu{g}.txt")
+    return out
+
+
+def micro_point(st: Stage, gpu: int, quick: bool, timeout_s: float) -> dict:
+    """G1 on one physical GPU: benchmarks/microbench/gpu_ceilings.py in its own process; summary row from its JSONL."""
+    d = st.dir / f"micro-gpu{gpu}"
+    cmd = [sys.executable, "-m", "benchmarks.microbench.gpu_ceilings", "--nvml-index", str(gpu), "--out", str(d)] + (["--quick"] if quick else [])
+    rc, text = sh(cmd, timeout=timeout_s, out=st.logs / f"micro-gpu{gpu}.log",
+                  env=dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), CUDA_DEVICE_ORDER="PCI_BUS_ID"))
+    rows = [json.loads(l) for l in (d / "microbench.jsonl").read_text().splitlines() if l.strip()] if (d / "microbench.jsonl").exists() else []
+    keep = ("gpu_sm_clock_mhz_mean", "gpu_clocks_sm_mean", "gpu_power_w_mean", "gpu_power_draw_mean", "gpu_power_draw_instant_mean",
+            "gpu_temp_c_max", "gpu_reason_sw_power_cap_frac", "gpu_reason_hw_slowdown_frac", "gpu_reason_sw_thermal_slowdown_frac",
+            "gpu_reason_hw_thermal_slowdown_frac", "gpu_reason_hw_power_brake_slowdown_frac", "gpu_samples")
+    summ = []
+    for r in rows:
+        base = {k: r.get(k) for k in ("kind", "op", "shape", "m", "gb_s_median", "tflops", "gb_s_calculated", "per_call_us_median",
+                                      "tflops_first_chunk", "tflops_max_chunk", "tflops_first_1s", "tflops_median_after_10s") if r.get(k) is not None}
+        summ.append(base | {k: r[k] for k in keep if k in r})
+    prov = {k: rows[0].get(k) for k in ("torch", "torch_cuda", "device_name", "torch_device_uuid", "smi_uuid", "smi_driver",
+                                        "sm_count", "allow_fp16_reduced_precision_reduction")} if rows else {}
+    return st.write(f"micro-gpu{gpu}", {"kind": "micro", "gpu_index": gpu, "rc": rc, "cmd": f"CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES={gpu} " + shlex.join(cmd),
+                                        "rows": summ, "log_tail": text.strip()[-800:] if rc else "", **prov})
+
+
+def default_backend(text: str) -> str | None:
+    m = re.search(r"Using (?:AttentionBackendEnum\.)?([A-Z_]+) attention backend", text)
+    return m.group(1) if m else None
+
+
+def profile_summary(st: Stage, key: str, trace_dir: Path) -> dict:
+    """Run trace_breakdown on the worker trace; keep the summary next to the row (the trace stays compressed)."""
+    from benchmarks.kaggle import trace_breakdown as tb
+    files = sorted(trace_dir.glob("**/*.pt.trace.json*"), key=lambda p: p.stat().st_size, reverse=True)
+    out: dict = {"trace_files": [{"name": str(p.relative_to(st.dir)), "bytes": p.stat().st_size} for p in files],
+                 "profiler_tables": [str(p.relative_to(st.dir)) for p in trace_dir.glob("profiler_out_*.txt")]}
+    if not files:
+        return out | {"breakdown_error": "no trace file"}
+    try:
+        res = tb.analyze(tb.load(files[0]))
+        res.pop("per_step", None)
+        (st.dir / f"{key}.breakdown.json").write_text(json.dumps(res, indent=1) + "\n")
+        out |= {"breakdown_file": f"{key}.breakdown.json", "share_pct_of_window": res.get("share_pct_of_window"),
+                "steps": res.get("steps"), "breakdown_error": res.get("error")}
+    except Exception as exc:
+        out["breakdown_error"] = f"{type(exc).__name__}: {exc}"[:300]
+    return out
+
+
+def stage_bneck(a) -> None:
+    """Part G: hardware ceilings without vLLM, where vLLM's step time goes (profiler), engine-side ablations, and the
+    reference point at the start / end of every session. One plan per session (--plan); budget-guarded."""
+    os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")   # CUDA_VISIBLE_DEVICES=N is then nvidia-smi's GPU N
+    st = Stage("bneck")
+    sysinfo = system_info(st.logs)
+    st.write("system", {"kind": "system", **sysinfo, "env": st.env, "plan": a.plan, "budget_h": a.budget_h})
+    plan = [x.strip() for x in a.plan.split(",") if x.strip()]
+    done = st.done()
+    try:
+        inst: dict = {}
+        if not a.no_install:
+            inst = install_pinned(st, a.vllm_version, a.installer)
+            st.write("install", {"kind": "install", **inst, "session_h": round(session_elapsed_h(), 3)})
+            rc, help_tp = sh(["vllm", "bench", "throughput", "--help=all"], timeout=300, out=st.logs / "vllm-bench-throughput-help.txt")
+        else:
+            help_tp = ""
+        rev = full_revision(a.model, a.revision)
+        prov = {"label": RIDGE_LABEL, "model": a.model, "model_revision": rev, "vllm_version": a.vllm_version if inst else None,
+                "vllm_version_reported": inst.get("vllm_version_reported"), "torch": inst.get("torch_after_install"),
+                "flag_source": "vllm bench throughput --help=all (logs/vllm-bench-throughput-help.txt)", "vcpus": sysinfo.get("vcpus_os")}
+        if inst:
+            save_config_json(a.model, st.logs / "model-config.json")
+        missing = require_flags(help_tp, ["--max-num-seqs", "--max-num-batched-tokens", "--profile", "--profiler-config",
+                                          "--enforce-eager", "--attention-backend", "--num-warmups", "--output-json"]) if help_tp else []
+        st.write("flags", {"kind": "flags", "missing": missing}, **prov)
+        locked = {"permitted": None}
+
+        def run(key: str, mns: int, n_prompts: int, in_len: int, out_len: int, warmups: int, extra: list[str] | None = None,
+                gpu: int = 0, model: str | None = None, mrev: str | None = None, env: dict | None = None, **row_extra) -> dict | None:
+            if key in done:
+                return None
+            return offline_point(st, key, model or a.model, mrev or rev, mns, n_prompts, in_len, out_len, a.gpu_mem, warmups,
+                                 max(600.0, budget_left_h(a.budget_h) * 3600), prov | ({"model": model, "model_revision": mrev} if model else {}),
+                                 extra_args=extra, gpu=gpu, gpu_interval_s=a.interval, env_extra=env, row_extra=row_extra)
+
+        ref_args = dict(n_prompts=4 * 384, in_len=128, out_len=256, warmups=32)
+        for i, item in enumerate(plan):
+            kind, _, arg = item.partition(":")
+            est = BNECK_EST_H.get(kind, 0.12)
+            reserve = sum(BNECK_EST_H["ref"] for x in plan[i + 1:] if x.startswith("ref:"))
+            left = budget_left_h(a.budget_h)
+            if kind != "ref" and left < est + reserve:
+                st.write(f"skip-{item}", {"kind": "skipped", "item": item, "reason": f"budget: {left:.3f} h left, need {est} + {reserve:.2f} (ref reserve)",
+                                          "session_h": round(session_elapsed_h(), 3)}, **prov)
+                continue
+            log(f"plan item {item} (budget left {left:.3f} h)")
+            try:
+                if kind == "tools":
+                    if "tools" not in done:
+                        r = probe_tools(st, 0)
+                        locked["permitted"] = (r.get("lock_clocks") or {}).get("permitted")
+                        st.write("tools", {"kind": "tools", **r}, **prov)
+                elif kind == "micro":
+                    if f"micro-gpu{arg}" not in done:
+                        micro_point(st, int(arg), a.micro_quick, max(300.0, left * 3600))
+                elif kind == "ref":
+                    tag, _, g = arg.partition("@")
+                    run(f"ref-{tag}", 384, **ref_args, gpu=int(g or 0), part="G4", ref_tag=tag)
+                elif kind == "base":
+                    run(f"base-mns{arg}", int(arg), 4 * int(arg), 128, 256, 32, part="G2")
+                elif kind == "prof":
+                    mns = int(arg)
+                    delay, iters = PROFILE_WINDOWS.get(mns, (300, 300))
+                    tdir = st.dir / f"trace-mns{mns}"
+                    pc = {"profiler": "torch", "torch_profiler_dir": str(tdir), "torch_profiler_with_stack": False,
+                          "torch_profiler_record_shapes": False, "torch_profiler_use_gzip": True, "detailed_trace_annotation": True,
+                          "ignore_frontend": True, "delay_iterations": delay, "max_iterations": iters}
+                    key = f"prof-mns{mns}"
+                    r = run(key, mns, 4 * mns, 128, 256, 32, ["--profile", "--profiler-config", json.dumps(pc)],
+                            env={"VLLM_CUSTOM_SCOPES_FOR_PROFILING": "1"}, part="G2", profiler_config=pc,
+                            profiler_note="tok/s of this run include profiler overhead and the trace export; use base-/ref- rows for speed")
+                    if r is not None:
+                        st.write(f"{key}-breakdown", {"kind": "profile", "max_num_seqs": mns, **profile_summary(st, key, tdir)}, **prov)
+                elif kind == "dec":
+                    mns = int(arg)
+                    run(f"dec-mns{mns}", mns, 2 * mns, 16, 512, 16, part="G3.1")
+                elif kind == "pre":
+                    run("pre-in2048", 384, a.pre_prompts, 2048, 1, 4, part="G3.2")
+                elif kind == "eager":
+                    mns = int(arg)
+                    run(f"eager-mns{mns}", mns, 4 * mns, 128, 256, 32, ["--enforce-eager"], part="G3.3")
+                elif kind == "mbt":
+                    run(f"mbt{arg}-mns384", 384, **ref_args, extra=["--max-num-batched-tokens", arg], part="G3.4")
+                elif kind == "attn":
+                    run(f"attn-{arg}-mns384", 384, **ref_args, extra=["--attention-backend", arg], part="G3.5")
+                elif kind == "awq":
+                    arev = full_revision(a.awq_model, a.awq_revision)
+                    run("awq-mns384", 384, **ref_args, model=a.awq_model, mrev=arev or a.awq_revision, part="G3.6")
+                elif kind == "clk":
+                    clock_sweep(st, a, run, ref_args, prov, done)
+                else:
+                    st.write(f"unknown-{item}", {"kind": "error", "reason": f"unknown plan item {item}"}, **prov)
+            except Exception as exc:
+                st.write(f"error-{item}", {"kind": "error", "item": item, "error": f"{type(exc).__name__}: {exc}"[:600],
+                                           "traceback": traceback.format_exc()[-2000:]}, **prov)
+    finally:
+        sh(["nvidia-smi", "-rgc"], timeout=60, out=st.logs / "nvidia-smi-rgc-finally.txt")   # no-op unless a lock was set
+        st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 3)})
+
+
+def clock_sweep(st: Stage, a, run, ref_args: dict, prov: dict, done: set) -> None:
+    """G3.7: lock the SM clock to the supported value nearest each target, run the reference workload, reset (-rgc)."""
+    rc, sup = sh(["nvidia-smi", "-i", "0", "-q", "-d", "SUPPORTED_CLOCKS"], timeout=60, out=st.logs / "clk-supported-clocks.txt")
+    clocks = supported_graphics_clocks(sup)
+    if not clocks:
+        st.write("clk", {"kind": "skipped", "reason": "no supported clocks listed"}, **prov)
+        return
+    first = None
+    for target in [int(x) for x in a.clk_targets.split(",")]:
+        f = min(clocks, key=lambda c: abs(c - target))
+        key = f"clk{f}-mns384"
+        if key in done:
+            continue
+        rc, text = sh(["nvidia-smi", "-i", "0", "-lgc", f"{f},{f}"], timeout=60, out=st.logs / f"clk-lgc-{f}.txt")
+        if rc != 0:
+            st.write("clk", {"kind": "skipped", "reason": "nvidia-smi -lgc not permitted", "cmd": f"nvidia-smi -i 0 -lgc {f},{f}",
+                             "rc": rc, "output": text.strip()[-400:]}, **prov)
+            return
+        try:
+            run(key, 384, **ref_args, part="G3.7", locked_clock_mhz=f, target_mhz=target, lgc_output=text.strip()[-300:])
+        finally:
+            rc2, t2 = sh(["nvidia-smi", "-i", "0", "-rgc"], timeout=60, out=st.logs / f"clk-rgc-after-{f}.txt")
+            st.write(f"clk-reset-{f}", {"kind": "reset", "cmd": "nvidia-smi -i 0 -rgc", "rc": rc2, "output": t2.strip()[-300:]}, **prov)
+
+
+STAGE_ARGS["bneck"] = [
+    lambda p: p.add_argument("--plan", required=True, help="comma-separated plan items, run in order (see the section comment)"),
+    lambda p: p.add_argument("--budget-h", type=float, default=1.5, help="session budget (install included); end refs are reserved"),
+    lambda p: p.add_argument("--vllm-version", default="0.31.0"),
+    lambda p: p.add_argument("--installer", choices=["pip", "uv"], default="uv"),
+    lambda p: p.add_argument("--no-install", action="store_true", help="skip the vLLM install (tools / micro with Kaggle's torch)"),
+    lambda p: p.add_argument("--model", default="Qwen/Qwen2.5-3B-Instruct"),
+    lambda p: p.add_argument("--revision", default="aa8e7253"),
+    lambda p: p.add_argument("--awq-model", default="Qwen/Qwen2.5-3B-Instruct-AWQ"),
+    lambda p: p.add_argument("--awq-revision", default="3559b226"),
+    lambda p: p.add_argument("--gpu-mem", type=float, default=0.95),
+    lambda p: p.add_argument("--interval", type=float, default=0.5, help="GPU sampler interval (s)"),
+    lambda p: p.add_argument("--micro-quick", action="store_true"),
+    lambda p: p.add_argument("--pre-prompts", type=int, default=192),
+    lambda p: p.add_argument("--clk-targets", default="600,900,1200"),
+]
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
           "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2,
           "ridge": stage_ridge, "twoinst": stage_twoinst,
-          "taskbudget": stage_taskbudget, "followup": stage_followup}
+          "taskbudget": stage_taskbudget, "followup": stage_followup, "bneck": stage_bneck}
 
 
 def main() -> None:
