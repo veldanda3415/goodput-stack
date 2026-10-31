@@ -1678,27 +1678,29 @@ class CpuSampler:
     a root process and all its children (e.g. `vllm serve` = API server + EngineCore). CSV: t_unix, sys_pct,
     sys_max_core_pct, <group>_pct ... Group roots are callables, so a server started later is picked up."""
 
-    def __init__(self, out: Path, groups: dict, interval_s: float = 1.0):
+    def __init__(self, out: Path, groups: dict, interval_s: float = 1.0, flat: tuple = ()):
         import threading
-        self.out, self.groups, self.interval_s = Path(out), groups, interval_s
+        self.out, self.groups, self.interval_s, self.flat = Path(out), groups, interval_s, set(flat)
         self._stop = threading.Event()
         self._procs: dict = {}
 
-    def _tree_pct(self, roots: list[int]) -> float:
+    def _tree_pct(self, roots: list[int], children: bool = True, group: str = "") -> float:
         import psutil
         total = 0.0
         for root in roots:
             try:
                 p = psutil.Process(root)
-                procs = [p] + p.children(recursive=True)
+                procs = [p] + (p.children(recursive=True) if children else [])
             except psutil.Error:
                 continue
             for q in procs:
-                cached = self._procs.setdefault(q.pid, q)
+                # one psutil handle per (group, pid): cpu_percent() measures since the handle's previous call, so
+                # two groups sharing a handle (client0 and client_total) would each see half an interval
+                cached = self._procs.setdefault((group, q.pid), q if not group else psutil.Process(q.pid))
                 try:
                     total += cached.cpu_percent(None)
                 except psutil.Error:
-                    self._procs.pop(q.pid, None)
+                    self._procs.pop((group, q.pid), None)
         return round(total, 1)
 
     def _loop(self) -> None:
@@ -1709,15 +1711,16 @@ class CpuSampler:
         names = list(self.groups)
         with open(self.out, "w", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["t_unix", "sys_pct", "sys_max_core_pct"] + [f"{n}_pct" for n in names])
+            w.writerow(["t_unix", "sys_pct", "sys_max_core_pct"] + [f"{n}_pct" for n in names] + ["load1"])
             while not self._stop.wait(self.interval_s):
                 per = psutil.cpu_percent(None, percpu=True)
                 row = [round(time.time(), 3), round(sum(per) / len(per), 1), max(per)]
                 for n in names:
                     try:
-                        row.append(self._tree_pct(list(self.groups[n]())))
+                        row.append(self._tree_pct(list(self.groups[n]()), n not in self.flat, n))
                     except Exception:
                         row.append("")
+                row.append(round(os.getloadavg()[0], 2))
                 w.writerow(row)
                 f.flush()
 
@@ -1867,7 +1870,7 @@ RIDGE_LABEL = "Kaggle T4, real"
 
 
 def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts: int, in_len: int, out_len: int,
-                  util: float, warmups: int, timeout_s: float, prov: dict) -> dict:
+                  util: float, warmups: int, timeout_s: float, prov: dict, extra_args: list[str] | None = None) -> dict:
     """One `vllm bench throughput` run (benchmarks/kaggle/offline_throughput.py) with NVML, CPU and engine-metric sampling."""
     from benchmarks.gpu_sampler import GpuSampler
     bench_json, mfile = st.dir / f"{key}.bench.json", st.dir / f"{key}.engine-metrics.json"
@@ -1875,7 +1878,7 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
                   "--gpu-memory-utilization", str(util), "--no-enable-prefix-caching", "--max-num-seqs", str(mns),
                   "--dataset-name", "random", "--random-input-len", str(in_len), "--random-output-len", str(out_len),
                   "--random-range-ratio", "0.0", "--num-prompts", str(n_prompts), "--num-warmups", str(warmups),
-                  "--seed", "0", "--output-json", str(bench_json)]
+                  "--seed", "0", "--output-json", str(bench_json)] + list(extra_args or [])
     cmd = [sys.executable, "-m", "benchmarks.kaggle.offline_throughput", str(mfile), "--", *bench_args]
     log_path = st.logs / f"{key}.log"
     t_th0 = throttle_counters()
@@ -1926,7 +1929,7 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
         row["eng_preemptions_total_incl_warmup"] = (em.get("final") or {}).get("vllm:num_preemptions")
         row["eng_metric_samples_total"] = len(samples)
         row |= csv_window(st.dir / f"{key}.gpu.csv", t0, t1, GPU_COLS, prefix="gpu_")
-        row |= csv_window(st.dir / f"{key}.cpu.csv", t0, t1, ["sys_pct", "sys_max_core_pct", "bench_pct"], prefix="cpu_")
+        row |= csv_window(st.dir / f"{key}.cpu.csv", t0, t1, ["sys_pct", "sys_max_core_pct", "bench_pct", "load1"], prefix="cpu_")
     return st.write(key, row, **prov)
 
 
@@ -2588,10 +2591,208 @@ STAGE_ARGS["taskbudget"] = [
 ]
 
 
+# ---------------------------------------------------------------- followup (F1-F4): HTTP vs offline, sweep replay, memory-limited case, MPS, fresh escalate
+
+def http_load(st: Stage, key: str, srv: VllmServer, cfgs: list[dict], prov: dict, **extra) -> dict:
+    """Closed-loop harness load on one server from len(cfgs) spawned client processes (one cfg each). CPU per client
+    process, the whole server tree, its API-server process alone and its children (EngineCore) alone; NVML; /metrics.
+    Windows: run (first measured send -> last finish, from the request records) and full (running >= 0.9 x users)."""
+    import multiprocessing as mp
+    import psutil
+    from benchmarks.gpu_sampler import GpuSampler
+    from benchmarks.harness import stats
+    d = st.dir / key
+    d.mkdir(parents=True, exist_ok=True)
+    users = sum(c["concurrency"] for c in cfgs)
+    procs: list = []
+
+    def engine_pids() -> list[int]:
+        try:
+            return [c.pid for c in psutil.Process(srv.proc.pid).children()]
+        except psutil.Error:
+            return []
+    groups = {f"client{i}": (lambda i=i: [procs[i].pid] if len(procs) > i and procs[i].pid else []) for i in range(len(cfgs))}
+    groups |= {"client_total": lambda: [p.pid for p in procs if p.pid], "server": lambda: [srv.proc.pid],
+               "server_api": lambda: [srv.proc.pid], "server_engine": engine_pids}
+    t_th0 = throttle_counters()
+    with GpuSampler(d / "gpu.csv", 1.0, 0), MetricsScraper(d / "metrics.jsonl", {"srv": srv.base_url}) as scr, \
+            CpuSampler(d / "cpu.csv", groups, flat=("server_api",)):
+        ctx = mp.get_context("spawn")
+        t0 = time.time()
+        procs.extend(ctx.Process(target=mp_client, args=(srv.base_url, c, str(d / f"client{i}.json"))) for i, c in enumerate(cfgs))
+        for p in procs:
+            p.start()
+        for p in procs:
+            p.join(1800)
+        t1 = time.time()
+        time.sleep(1.5)
+    t_th1 = throttle_counters()
+    parts = [json.loads((d / f"client{i}.json").read_text()) for i in range(len(cfgs)) if (d / f"client{i}.json").exists()]
+    recs = [r | {"client_proc": i} for i, p in enumerate(parts) for r in p["records"]]
+    with open(d / "requests.jsonl", "w") as f:
+        for r in recs:
+            f.write(json.dumps(r) + "\n")
+    ok = [r for r in recs if r.get("ok")]
+    row: dict = {"kind": "http", "label": RIDGE_LABEL, "users": users, "client_processes": len(cfgs),
+                 "users_per_process": [c["concurrency"] for c in cfgs], "client_cfgs": cfgs,
+                 "requests": len(recs), "requests_ok": len(ok), "errors": len(recs) - len(ok),
+                 "error_examples": [r.get("error") for r in recs if not r.get("ok")][:3],
+                 "client_tool": "benchmarks/harness client.run_load in spawned processes (closed loop, /v1/completions streamed)",
+                 "harness_steady_output_tok_s_per_proc": [(p.get("steady") or {}).get("steady_output_tok_s") for p in parts],
+                 "harness_steady_output_tok_s_sum": round(sum((p.get("steady") or {}).get("steady_output_tok_s") or 0 for p in parts), 2),
+                 "harness_steady_s": [(p.get("steady") or {}).get("steady_s") for p in parts],
+                 "wall_s": round(t1 - t0, 1), "throttle_us_delta": {k: t_th1[k] - t_th0.get(k, 0) for k in t_th1},
+                 "vcpus_os": os.cpu_count(), **extra}
+    row |= stats.dist("ttft_ms", [r["ttft_ms"] for r in ok]) | stats.dist("itl_ms", [x for r in ok for x in r["itl_ms"]])
+    row |= stats.dist("tpot_ms", [r["tpot_ms"] for r in ok if r.get("tpot_ms") is not None])
+    row["usage_prompt_tokens"] = sorted({(r.get("usage") or {}).get("prompt_tokens") for r in ok})[:5]
+    row["usage_completion_tokens_minmax"] = [min(((r.get("usage") or {}).get("completion_tokens") or 0) for r in ok),
+                                             max(((r.get("usage") or {}).get("completion_tokens") or 0) for r in ok)] if ok else None
+    cpu_cols = ["sys_pct", "sys_max_core_pct", "client_total_pct", "server_pct", "server_api_pct", "server_engine_pct", "load1"] \
+        + [f"client{i}_pct" for i in range(len(cfgs))]
+    measured = [r for r in recs if r.get("id", -1) >= 0 and r.get("t_send_unix")]
+    if measured:
+        r0 = min(r["t_send_unix"] for r in measured)
+        r1 = max(r["t_send_unix"] + (r.get("e2e_ms") or 0) / 1e3 for r in measured)
+        row["run_window_unix"] = [round(r0, 3), round(r1, 3)]
+        row["run_window_s"] = round(r1 - r0, 1)
+        row |= {f"run_{k}": v for k, v in metrics_window(scr.rows, r0, r1).items()}
+        row |= csv_window(d / "gpu.csv", r0, r1, GPU_COLS, prefix="run_gpu_")
+        row |= csv_window(d / "cpu.csv", r0, r1, cpu_cols, prefix="run_cpu_")
+    win = full_window(scr.rows, 0.9 * users)
+    row["full_window_rule"] = f"/metrics samples with num_requests_running >= {0.9 * users:.1f} (0.9 x users)"
+    if win:
+        row["full_window_unix"] = [round(win[0], 3), round(win[1], 3)]
+        row["full_window_s"] = round(win[1] - win[0], 1)
+        row |= metrics_window(scr.rows, *win)
+        row |= csv_window(d / "gpu.csv", *win, GPU_COLS, prefix="gpu_")
+        row |= csv_window(d / "cpu.csv", *win, cpu_cols, prefix="cpu_")
+    return st.write(key, row, **prov)
+
+
+def mark(st: Stage, key: str, **extra) -> None:
+    st.write(key, {"kind": "mark", "session_h": round(session_elapsed_h(), 4), **extra})
+
+
+def stage_followup(a) -> None:
+    """Build 14 follow-up. F1: HTTP at 384 users with the offline settings, then the old 64-user sweep point replayed
+    with max-num-batched-tokens 2,048 and 8,192. F2: offline input 3,840 / output 256 at max-num-seqs 64, 32, 48.
+    One session, GPU 0 only; each part has its own GPU-hour budget measured from its own start."""
+    st = Stage("followup")
+    sysinfo = system_info(st.logs)
+    st.write("system", {"kind": "system", **sysinfo, "env": st.env})
+    parts = a.parts.split(",")
+    try:
+        inst = install_pinned(st, a.vllm_version, a.installer)
+        st.write("install", {"kind": "install", **inst, "session_h": round(session_elapsed_h(), 3)})
+        help_serve = serve_help(st.logs, a.vllm_version)
+        rc, help_tp = sh(["vllm", "bench", "throughput", "--help=all"], timeout=300, out=st.logs / "vllm-bench-throughput-help.txt")
+        missing = require_flags(help_serve, ["--dtype", "--gpu-memory-utilization", "--no-enable-prefix-caching", "--revision",
+                                             "--max-num-seqs", "--max-num-batched-tokens", "--max-model-len"]) \
+            + require_flags(help_tp, ["--max-num-batched-tokens", "--max-num-seqs", "--num-warmups", "--random-input-len",
+                                      "--random-output-len", "--random-range-ratio", "--output-json"])
+        rev = full_revision(a.model, a.revision)
+        prov = {"label": RIDGE_LABEL, "model": a.model, "model_revision": rev, "vllm_version": a.vllm_version,
+                "vllm_version_reported": inst.get("vllm_version_reported"), "torch": inst["torch_after_install"],
+                "flag_source": "vllm serve --help=all, vllm bench throughput --help=all (logs/)", "vcpus": sysinfo.get("vcpus_os")}
+        st.write("flags", {"kind": "flags", "missing": missing}, **prov)
+        if missing or not rev:
+            st.write("abort", {"kind": "abort", "reason": f"flags missing {missing}" if missing else "revision not found"}, **prov)
+            return
+        done = st.done()
+
+        def serve(tag: str, flags: list[str]) -> VllmServer | None:
+            srv = VllmServer(a.model, flags, st.logs / f"server-{tag}.log", gpu="0")
+            res = srv.start()
+            startup_row(st, f"startup-{tag}", srv, res, help_serve, prov, serving_flags=flags)
+            if not res["started"]:
+                srv.stop()
+                return None
+            warm(srv, a.model, 128)   # 32 concurrent short requests, discarded
+            return srv
+
+        # ---- F1
+        if "f1" in parts:
+            f1_t0 = 0.0 if parts[0] == "f1" else session_elapsed_h()   # first part: the install counts against F1
+            mark(st, "f1-begin")
+            # F1a: offline settings through vllm serve, 384 streams from n client processes
+            f1a = ["--dtype", "half", "--gpu-memory-utilization", "0.95", "--no-enable-prefix-caching", "--max-num-seqs", "384",
+                   "--max-num-batched-tokens", "8192", "--revision", rev]
+            srv = serve("f1a", f1a)
+            if srv:
+                with srv:
+                    for n in [int(x) for x in a.f1a_procs.split(",")]:
+                        key = f"f1a-u384-p{n}"
+                        if key in done:
+                            continue
+                        left = a.f1_budget_h - (session_elapsed_h() - f1_t0)
+                        if n != int(a.f1a_procs.split(",")[0]) and left < a.f1a_extra_min_h:
+                            st.write(key, {"kind": "skipped", "reason": f"F1 budget: {left:.3f} h left < {a.f1a_extra_min_h}"}, **prov)
+                            continue
+                        per = 384 // n
+                        cfgs = [client_cfg(a.model, per, per * a.f1a_rpu, prompt_tokens=128, max_tokens=256, warmup=0)
+                                | {"max_tokens_jitter": 0, "start_jitter_s": 1.0} for _ in range(n)]
+                        http_load(st, key, srv, cfgs, prov | {"serving_flags": f1a}, part="F1a")
+                    (st.logs / "metrics-end-f1a.txt").write_text(metrics_text(srv.base_url))
+            # F1b / F1c: the old sweep point (run 20261014-220946_sweep, closed-mnsdefault-c64), max-num-batched-tokens 2,048 / 8,192
+            for tag, mbt in (("f1b", 2048), ("f1c", 8192)):
+                key = f"{tag}-u64-mbt{mbt}"
+                if key in done:
+                    continue
+                left = a.f1_budget_h - (session_elapsed_h() - f1_t0)
+                if left < 0.045:
+                    st.write(key, {"kind": "skipped", "reason": f"F1 budget: {left:.3f} h left"}, **prov)
+                    continue
+                flags = ["--dtype", "half", "--gpu-memory-utilization", "0.9", "--max-model-len", "4096", "--no-enable-prefix-caching",
+                         "--max-num-batched-tokens", str(mbt), "--revision", rev]
+                srv = serve(tag, flags)
+                if srv:
+                    with srv:
+                        http_load(st, key, srv, [client_cfg(a.model, 64, 256)], prov | {"serving_flags": flags},
+                                  part=tag.upper(), replay_of="20261014-220946_sweep closed-mnsdefault-c64 (615.46 harness steady tok/s)")
+                        (st.logs / f"metrics-end-{tag}.txt").write_text(metrics_text(srv.base_url))
+            mark(st, "f1-end", f1_gpu_h=round(session_elapsed_h() - f1_t0, 4))
+        # ---- F2
+        if "f2" in parts:
+            f2_t0 = session_elapsed_h()
+            mark(st, "f2-begin")
+            for mns in [int(x) for x in a.f2_mns.split(",")]:
+                key = f"f2-in{a.f2_input_len}-mns{mns}"
+                if key in done:
+                    continue
+                left = a.f2_budget_h - (session_elapsed_h() - f2_t0)
+                if left < 0.03:
+                    st.write(key, {"kind": "skipped", "reason": f"F2 budget: {left:.3f} h left"}, **prov)
+                    continue
+                offline_point(st, key, a.model, rev, mns, mns * a.f2_prompts_factor, a.f2_input_len, 256, 0.95, a.f2_warmups,
+                              max(600.0, left * 3600 + 300), prov | {"part": "F2"}, extra_args=["--max-num-batched-tokens", "8192"])
+            mark(st, "f2-end", f2_gpu_h=round(session_elapsed_h() - f2_t0, 4))
+    finally:
+        st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 3)})
+
+
+STAGE_ARGS["followup"] = [
+    lambda p: p.add_argument("--vllm-version", default="0.31.0"),
+    lambda p: p.add_argument("--installer", choices=["pip", "uv"], default="uv"),
+    lambda p: p.add_argument("--model", default="Qwen/Qwen2.5-3B-Instruct"),
+    lambda p: p.add_argument("--revision", default="aa8e7253"),
+    lambda p: p.add_argument("--parts", default="f1,f2"),
+    lambda p: p.add_argument("--f1-budget-h", type=float, default=0.25, help="F1 part budget, install included when F1 runs first"),
+    lambda p: p.add_argument("--f1a-procs", default="4,1", help="client process counts at 384 users; the first always runs"),
+    lambda p: p.add_argument("--f1a-rpu", type=int, default=2, help="requests per user at 384 users"),
+    lambda p: p.add_argument("--f1a-extra-min-h", type=float, default=0.15, help="F1 budget left needed for each later F1a run"),
+    lambda p: p.add_argument("--f2-budget-h", type=float, default=0.15),
+    lambda p: p.add_argument("--f2-mns", default="64,32,48", help="run order"),
+    lambda p: p.add_argument("--f2-input-len", type=int, default=3840),
+    lambda p: p.add_argument("--f2-prompts-factor", type=int, default=1, help="num-prompts = factor x max-num-seqs"),
+    lambda p: p.add_argument("--f2-warmups", type=int, default=2),
+]
+
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
           "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2,
           "ridge": stage_ridge, "twoinst": stage_twoinst,
-          "taskbudget": stage_taskbudget}
+          "taskbudget": stage_taskbudget, "followup": stage_followup}
 
 
 def main() -> None:
