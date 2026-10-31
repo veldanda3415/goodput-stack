@@ -210,3 +210,169 @@ signals (AUC 0.58 and 0.65, upper CI bounds 0.64 and 0.75). The checks catch for
 ### Predictions (written before the F4 run, verbatim from the assignment)
 
 escalate_fresh success close to baseline (within ~10 points); tokens per successful task at or above baseline, because the cheap pool passes step 1 first try in only ~34/150 tasks so most steps escalate anyway; escalate_carry reproduces Build 14's very low success.
+
+### Change (code)
+
+[driver.py](../../task_budget/driver.py) now has two escalate policies:
+
+- `escalate_fresh` (alias `escalate`): when a step's checker fails on the cheap pool, the strong pool gets a **fresh**
+  prompt for that step. That prompt is the system prompt plus the step prompt: the problem and the accepted outputs of
+  earlier steps (quantities, expression). It never contains the cheap pool's failed reply.
+- `escalate_carry`: Build 14's behaviour. The failed reply and the checker's reason are appended, as in a plain retry.
+
+Both use `Policy.context_attempts()`. Every attempt record now has `carried_attempts`, the number of earlier failed
+attempts that were in its prompt. Unit tests in [test_task_budget.py](../../task_budget/tests/test_task_budget.py):
+
+- `test_escalate_fresh_never_shows_the_failed_reply`: the cheap fake server replies with a marker string. The test
+  checks that no prompt the strong fake server receives contains it or "failed the check", and that the strong step-1
+  prompt equals the fresh step-1 prompt.
+- `test_escalate_carry_keeps_the_failed_reply`: the positive control.
+- `test_escalate_alias_is_fresh` and `test_context_attempts`.
+
+64 tests pass.
+
+### Decisions made
+
+- **What "fresh" means for a strong retry.** The strong pool never sees the cheap pool's failed reply. If the strong
+  pool itself fails and retries, its own failed attempt is carried, exactly as in the baseline's retries. Without that
+  carry, a temperature-0 retry would repeat the same reply.
+- **Step 3 is unchanged:** it starts on the cheap pool. It escalates only on a format failure, because a wrong number
+  is not retried (Build 14 decision). This turned out to decide the result (below).
+- **Same 150 tasks, budget 951** (Build 14's p75; no new calibration pass), same pools and flags: strong 3B AWQ @ 0.50,
+  cheap 0.5B @ 0.35, both started one after the other on GPU 0. 8 tasks in flight. Each batch of 8 runs the three
+  policies in a random order (`driver.batch_plan`, seed 14). Baseline ran first in 8 of 19 batches, escalate_carry in 6,
+  escalate_fresh in 5.
+- **Session:** F4 ran after F3 in the same session (20261031-173838_followup). The 0.056 h install counts against F4.
+  The MPS daemon had been quit before F4: `quit` returned rc 0 and no MPS process was left. The F4 servers ran without
+  the `CUDA_MPS_*` variables.
+- **Cancellation metric:** before the task runs, the stage scraped the full strong-pool /metrics before and 5 s after
+  each of two requests. The first was a completed request (`max_tokens` 32) as a control. The second was a streamed
+  request (`max_tokens` 2,000, ignore_eos) that the client closed after 3 s. The stage then compared every series.
+
+### Run (20261031-173838_followup, Kaggle T4, real; policy in client; gateway not exercised)
+
+- Git `0fe5a61`, Tesla T4 (GPU 0), driver 580.178.04, CUDA 13.0, vLLM 0.31.0, torch 2.13.0+cu130.
+  - strong `Qwen/Qwen2.5-3B-Instruct-AWQ` @ `3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd`: weights 1.95 GiB, KV 130,384
+    tokens.
+  - cheap `Qwen/Qwen2.5-0.5B-Instruct` @ `7ae557604adf67be50417f59c2c2f167def9a775`: weights 0.93 GiB, KV 293,040
+    tokens.
+  - Serve flags `--dtype half --no-enable-prefix-caching --gpu-memory-utilization {0.50 | 0.35} --revision <sha>`.
+- 450 task runs (3 × 150, complete) in 402 s. F4 used **0.229 GPU-h** (0.174 h from `f4-begin` to `f4-end` plus the
+  0.056 h install).
+- Analysis: `python -m benchmarks.task_budget.analyze benchmarks/results/t4/20261031-173838_followup --stage-dir
+  followup --phase f4` →
+  [analysis-f4.json](20261031-173838_followup/results/followup/analysis-f4.json).
+- Raw task records: [tasks.jsonl](20261031-173838_followup/results/followup/tasks.jsonl).
+
+| policy | **success** | aborted | **tokens per SUCCESSFUL task** | tokens per attempted task | wasted: tokens of aborted tasks | wasted: tokens of failed attempts | steps escalated (cheap → strong) | task wall p50 / p95 s |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| baseline (strong only) | **95 / 150 (0.633)** | 0 | **1,547** | 980 | 0 | 18,550 | — | 6.39 / **9.00** |
+| escalate_fresh | **10 / 150 (0.067)** | 99 | **13,736** | 916 | 98,604 | 61,727 | 133 / 438 steps (**30 %**) | 4.39 / **5.96** |
+| escalate_carry | **4 / 150 (0.027)** | 96 | **36,062** | 962 | 102,913 | 98,856 | 126 / 300 steps (**42 %**) | 4.97 / **6.51** |
+
+Tokens = prompt + completion of every call. Build 14's numbers for comparison (other session): baseline 94/150 and
+1,566 per success; escalate (= carry) 4/150 and 36,079.
+
+**What happened.**
+
+1. **The fresh prompt fixed the escalated step.**
+
+   | | escalate_fresh | escalate_carry |
+   |---|---:|---:|
+   | strong attempts right after a cheap failure | 133 | 126 |
+   | passed their checker | **124 (93 %)** | **45 (36 %)** |
+   | earlier failed attempts in their prompt (`carried_attempts`) | 0 on all 133 | 1 on all 126 |
+   | tasks that reached step 3 | **140** | **67** |
+   | cut at the budget in step 1 | 0 | 49 |
+
+   Example: task 2.
+   - The cheap pool's step-1 reply named a quantity `"House cost"` (and broke the JSON).
+   - escalate_fresh: the strong pool answered `"initial_price"` and passed.
+   - escalate_carry: the strong pool copied `"House cost"` twice and was cut at the budget.
+
+2. **Then step 3 decided the outcome, and step 3 belongs to the cheap model.**
+   - Every step starts on the cheap pool. The 140 tasks that reached step 3 under escalate_fresh had already spent
+     **651 tokens (median)** of the 951. The strong baseline's successful step 3 alone takes 405 tokens (median).
+   - The cheap 0.5B model's step-3 attempt ended in one of four ways:
+     - **87 cut at the budget mid-reply** (37 of them before the first output token, because the step-3 prompt,
+       median 220 tokens, already crossed 951).
+     - **39 answered in format with a wrong number.** A wrong number is not retried or escalated, so the task fails.
+     - **10 answered correctly.**
+     - 4 failed the format, escalated, and still failed.
+   - The aborted escalate_fresh tasks include 60 that the baseline solved.
+
+3. **escalate_carry reproduced Build 14:** 4 / 150 successes, 36,062 tokens per success (Build 14: 4, 36,079). The
+   cheap pool passed step 1 on the first try in 34 / 150 tasks, the same count as Build 14.
+
+**escalate_fresh vs baseline in one sentence:** fresh context made the escalated strong attempts pass (93 % vs 36 %).
+But with every step, including the final answer, starting on the 0.5B model and a 951-token cap, escalate_fresh still
+succeeded on only 10 / 150 tasks vs the baseline's 95 / 150, at 8.9× the tokens per success (13,736 vs 1,547).
+
+### Early-signal AUCs, rerun baseline vs Build 14
+
+Strong-pool baseline of this session (n = 150, 95 successes); 95 % CI from 2,000 bootstrap resamples (seed 0).
+
+| signal | this run: AUC (95 % CI) | Build 14 policy pass: AUC (95 % CI) | Build 14 point inside this run's CI? |
+|---|---|---|---|
+| step 1 first-try pass (2×2: 94 / 54 / 1 / 1) | **0.504 (0.485 … 0.527)** | 0.504 (0.485 … 0.526) | yes |
+| step 1 passed after retries | 0.509 (0.500 … 0.531) | 0.509 (0.500 … 0.531) | yes |
+| tokens after step 1 | 0.590 (0.491 … 0.692) | 0.570 (0.472 … 0.671) | yes |
+| step 2 first-try pass (94 / 45 / 1 / 10) | **0.586 (0.537 … 0.641)** | 0.584 (0.536 … 0.638) | yes |
+| step 2 passed after retries | 0.573 (0.529 … 0.623) | 0.571 (0.528 … 0.621) | yes |
+| tokens after step 2 | 0.675 (0.585 … 0.766) | 0.654 (0.565 … 0.747) | yes |
+| tokens after step 2, step 2 first-try pass only (n = 139) | 0.612 (0.509 … 0.705) | 0.587 (0.486 … 0.682) | yes |
+
+**They match.** Every Build 14 point estimate lies inside this run's interval, and the reverse also holds. The step-1
+check still separates successes from failures at chance level (0.504). Of the 150 baseline tasks, 95 succeeded here
+vs 94 in Build 14's policy pass.
+
+### Which vLLM 0.31.0 metric counts client-cancelled requests?
+
+**None of the `vllm:` series.** Full /metrics diffs on the strong pool (`logs/f4-metrics-{control,cancel}-{before,after}.txt`,
+row `f4-cancel-metric`):
+
+| series | completed request (control) | cancelled stream (218 SSE lines received, closed after 3 s) |
+|---|---|---|
+| `vllm:request_success_total{finished_reason="length"}` | 1 → 2 | unchanged |
+| `vllm:request_success_total{finished_reason="abort"}` | 0 → 0 | **0 → 0** |
+| `vllm:e2e_request_latency_seconds_count` and the other per-request histograms (queue, prefill, decode, inference time, prompt / generation tokens, max_tokens, n, preemptions) | +1 | **unchanged** |
+| `vllm:time_to_first_token_seconds_count` | 24 → 25 | 25 → 26 |
+| `vllm:prompt_tokens_total`, `vllm:generation_tokens_total` | +48, +32 | +48, +217 |
+| `http_requests_total{handler="/v1/chat/completions",method="POST",status="2xx"}` | 24 → 25 | **25 → 26** |
+
+- No series changed on the cancel that did not also change on the completed request
+  (`changed_on_cancel_not_on_control` is empty).
+- A cancelled stream **does** show up in the HTTP-layer counter `http_requests_total` (status 2xx, because the stream
+  had started), but **not** in `vllm:request_success_total` or any per-request `vllm:` histogram.
+- So a count is only derivable, not read directly. CALCULATED:
+  - cancelled = `http_requests_total{handler="/v1/chat/completions"}` − Σ `vllm:request_success_total` (all
+    `finished_reason`), with nothing in flight.
+  - Equivalently: `vllm:time_to_first_token_seconds_count` − `vllm:e2e_request_latency_seconds_count`, for streams cut
+    after their first token.
+- Check against the whole F4 run (`logs/f4-metrics-end-*.txt` vs the driver's records):
+
+  | pool | http_requests_total − Σ request_success_total | driver records |
+  |---|---:|---|
+  | strong | 836 − 772 = **64** | 63 cancelled calls + 1 cancel probe = **64** |
+  | cheap | 748 − 616 = **132** | **132** cancelled calls |
+
+  Exact on both pools.
+
+### Predicted vs measured (F4)
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| escalate_fresh success close to baseline (within ~10 points) | **0.067 vs 0.633** (−57 points) | **wrong**. The fresh prompt fixed the escalated steps (strong pass 93 %), but step 3 runs on the cheap pool first: with ~651 tokens already spent, 87 of 140 step-3 attempts were cut at the 951 cap and 39 gave a wrong number that is never escalated |
+| tokens per successful task at or above baseline | **13,736 vs 1,547** | as predicted (far above) |
+| … because the cheap pool passes step 1 first try in only ~34/150 tasks so most steps escalate | cheap step-1 first-try pass **34 / 150**; 30 % of all steps escalated (133 / 438). Cost per success was driven by the low success rate, not by the escalation share | the 34/150 holds; "most steps escalate" does not (30 %) |
+| escalate_carry reproduces Build 14's very low success | **4 / 150**, 36,062 tokens per success (Build 14: 4 / 150, 36,079) | as predicted |
+| (assignment) rerun AUCs vs Build 14 | all seven signals inside each other's 95 % intervals | match |
+
+### Does NOT show (F4)
+
+- **Policy in client; gateway not exercised.**
+- Step 3 is never escalated on a wrong answer (format-only check), and the cap is 951. A variant that starts step 3 on
+  the strong pool, or that resets the budget per step, was not run. The F4 result says nothing about those designs.
+- One run per policy, one session, 150 tasks, two small models on one T4.
+- The cancellation metric answer covers one cancelled stream plus the run-level cross-check, on vLLM 0.31.0 called
+  directly. Other versions and a gateway in the path were not checked.

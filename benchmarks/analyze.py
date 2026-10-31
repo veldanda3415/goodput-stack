@@ -959,6 +959,52 @@ def ridge_part_rows() -> list[tuple[str, str, str, dict]]:
             rows.append((f"vLLM frees a streamed request after client disconnect, {r['pool']} pool, direct (Kaggle T4, real)",
                          f"{len(freed)}/{len(ok)} freed; after {', '.join(f'{v:.2f}' for v in freed)} s (0.25 s sampling)",
                          (r.get(r['pool']) or {}).get("model", ""), r))
+    rows += followup_rows()
+    return rows
+
+
+def followup_rows() -> list[tuple[str, str, str, dict]]:
+    """Headline rows of the Build 14 follow-up (stage followup): F1 HTTP / replay, F2 memory-limited, F3 MPS, F4 escalate."""
+    rows: list[tuple[str, str, str, dict]] = []
+    fu = load("followup")
+    for key, name in (("f1a-u384-p4", "HTTP output tok/s at 384 users, 4 client processes, offline settings (util 0.95, max-num-seqs 384, max-num-batched-tokens 8192)"),
+                      ("f1b-u64-mbt2048", "replay of the old 64-user sweep point (256 in / 128±25 % out, max-num-batched-tokens 2048), harness steady output tok/s"),
+                      ("f1c-u64-mbt8192", "old 64-user sweep point with max-num-batched-tokens 8192, harness steady output tok/s")):
+        r = fu.get(key)
+        if r and r.get("kind") == "http":
+            rows.append((f"{name} (Kaggle T4, real)",
+                         f"{r['harness_steady_output_tok_s_sum']:,.1f} tok/s harness, {r.get('run_srv_generation_tokens_per_s', 0):,.1f} server "
+                         f"(util.gpu {r.get('run_gpu_util_gpu_pct_mean')} %, SM {r.get('run_gpu_sm_clock_mhz_mean', 0):,.0f} MHz, client CPU "
+                         f"{r.get('run_cpu_client_total_pct_mean')} % of one core, KV mean/max {r.get('run_srv_kv_usage_mean', 0):.3f}/{r.get('run_srv_kv_usage_max', 0):.3f})",
+                         r["model"], r))
+    for r in fu.values():
+        if r.get("kind") == "offline" and r["key"].startswith("f2-") and r.get("output_tok_s") is not None:
+            rows.append((f"offline output tok/s, FP16, {r['input_len']} in / {r['output_len']} out, --max-num-seqs {r['max_num_seqs']} (Kaggle T4, real)",
+                         f"{r['output_tok_s']:,.2f} tok/s (KV usage max {r.get('eng_kv_usage_max', 0):.4f}, running max {r.get('eng_running_max')}, "
+                         f"preemptions {r.get('eng_preemptions_delta')})", r["model"], r))
+    if (r := fu.get("f3-mps-start")) is not None:
+        ok = r.get("start_rc") == 0 and r.get("daemon_running")
+        rows.append(("MPS control daemon on Kaggle T4 (Kaggle T4, real)", "starts" if ok else
+                     f"does not start: rc {r.get('start_rc')}, {(r.get('start_output') or '').strip()[:140]}", r.get("model", ""), r))
+    if (r := fu.get("f3-mps-both-busy")) and r.get("kind") == "condition" and r.get("combined_output_tok_s_server_counters") is not None:
+        itl = "; ".join(f"{n} ITL p50 {r[f'inst_{n}']['itl_ms_p50']:.1f} ms" for n in ("i1", "i2") if r.get(f"inst_{n}", {}).get("itl_ms_p50"))
+        rows.append(("combined output tok/s, two AWQ instances @ 0.45 under MPS, 16 users each (Kaggle T4, real)",
+                     f"{r['combined_output_tok_s_server_counters']:,.1f} tok/s ({itl})", r["model"], r))
+    an_f = sorted(T4.glob("*_followup/results/followup/analysis-f4.json"))
+    if an_f and (pol := fu.get("f4")):
+        an = json.loads(an_f[-1].read_text())
+        strong = (pol.get("strong") or {}).get("model", "")
+        for t in an.get("policy_table", []):
+            rows.append((f"tokens per successful GSM8K task, policy {t['policy']}, budget {pol['budget_tokens']:,}, F4 rerun (Kaggle T4, real; policy in client; gateway not exercised)",
+                         f"{t['tokens_per_success']:,.0f} tokens (success {t['successes']}/{t['tasks']}, aborted {t['aborted']}, "
+                         f"{t['share_steps_escalated']:.0%} of steps escalated)" if t.get("tokens_per_success") else
+                         f"no successes ({t['tasks']} tasks, aborted {t['aborted']})", strong, pol))
+    if (r := fu.get("f4-cancel-metric")) is not None:
+        names = r.get("names_changed_on_cancel_not_on_control") or []
+        rows.append(("vLLM 0.31.0 /metrics series that count one client-cancelled stream (Kaggle T4, real)",
+                     ", ".join(names) if names else "none counts it directly (no series changed on the cancel that did not also change on a completed "
+                     "request); derivable: http_requests_total{handler=chat} − Σ vllm:request_success_total",
+                     (r.get("strong") or {}).get("model", ""), r))
     return rows
 
 
