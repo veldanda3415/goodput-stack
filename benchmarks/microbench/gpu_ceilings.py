@@ -12,9 +12,10 @@ Timing: CUDA events around a chunk of back-to-back launches; per-launch time = c
   bandwidth   copy  b -> a          bytes = 2 x size   (1 GiB fp32 tensors, 20 timed repeats, median)
               triad a = b + 2.0 c   bytes = 3 x size
   gemm        torch.matmul(A, B, out=C), 8192 x 8192 x 8192 fp16, for --sustain-s seconds; FLOP = 2 M N K
-  shapes      torch.nn.functional.linear(x[M, K], W[N, K]) fp16, the call vLLM's unquantized linear layers make;
+  shapes      torch.matmul(x[M, K], W[N, K].t(), out=y) fp16: the GEMM that torch.nn.functional.linear(x, W) (vLLM's
+              unquantized linear layers) dispatches to;
               FLOP = 2 M N K; bytes = 2 (M K + N K + M N), the minimum traffic (CALCULATED: each operand read or
-              written once); >= --shape-min-s per point
+              written once); >= --shape-min-s per point (2 s: several 4 Hz clock samples per point)
 Qwen2.5-3B-Instruct shapes (config.json @ aa8e7253: hidden 2048, 16 heads, 2 KV heads, head_dim 128, intermediate 11008,
 vocab 151936): qkv 2048 -> 2048 + 2 x 256, o 2048 -> 2048, gate_up 2048 -> 2 x 11008, down 11008 -> 2048,
 lm_head 2048 -> 151936.
@@ -200,8 +201,8 @@ def main() -> None:
     ap.add_argument("--bw-gib", type=float, default=1.0)
     ap.add_argument("--m-list", default=",".join(map(str, M_LIST)))
     ap.add_argument("--shapes", default=",".join(QWEN3B_SHAPES))
-    ap.add_argument("--shape-min-s", type=float, default=1.0)
-    ap.add_argument("--interval", type=float, default=0.5, help="sampler interval (s)")
+    ap.add_argument("--shape-min-s", type=float, default=2.0)
+    ap.add_argument("--interval", type=float, default=0.25, help="sampler interval (s)")
     ap.add_argument("--quick", action="store_true", help="smoke: 10 s GEMM, 5 bw repeats, M 64,384 only, 0.3 s per shape")
     a = ap.parse_args()
     if a.quick:

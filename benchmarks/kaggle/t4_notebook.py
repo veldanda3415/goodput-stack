@@ -3013,7 +3013,7 @@ STAGE_ARGS["followup"] = [
 #   ref:TAG[@G]      G4: the Build 14 reference point (offline, in 128 / out 256, max-num-seqs 384, 1,536 prompts)
 #   base:N           G2: the same workload at max-num-seqs N, no profiler
 #   prof:N           G2: the same with vLLM's torch profiler on a window of steady-state steps
-#   dec:N            G3.1 decode-only (in 16 / out 512) at max-num-seqs N
+#   dec:N[/OUT]      G3.1 decode-only (in 16 / out 512, or OUT) at max-num-seqs N
 #   pre              G3.2 prefill-only (in 2,048 / out 1)
 #   eager:N          G3.3 --enforce-eager
 #   mbt:N            G3.4 --max-num-batched-tokens N at max-num-seqs 384
@@ -3022,7 +3022,7 @@ STAGE_ARGS["followup"] = [
 #   clk              G3.7 SM clock locked near 600 / 900 / 1,200 MHz (only if nvidia-smi -lgc is permitted)
 
 BNECK_EST_H = {"tools": 0.03, "micro": 0.12, "ref": 0.12, "base": 0.12, "prof": 0.14, "dec": 0.10, "pre": 0.12,
-               "eager": 0.15, "mbt": 0.13, "attn": 0.13, "awq": 0.13, "clk": 0.40}
+               "eager": 0.15, "mbt": 0.13, "attn": 0.13, "awq": 0.13, "clk": 0.02}   # clk: stops at once if -lgc is refused
 PROFILE_WINDOWS = {64: (300, 400), 384: (300, 300)}   # max-num-seqs -> (delay_iterations, max_iterations)
 
 
@@ -3227,9 +3227,10 @@ def stage_bneck(a) -> None:
                             profiler_note="tok/s of this run include profiler overhead and the trace export; use base-/ref- rows for speed")
                     if r is not None:
                         st.write(f"{key}-breakdown", {"kind": "profile", "max_num_seqs": mns, **profile_summary(st, key, tdir)}, **prov)
-                elif kind == "dec":
-                    mns = int(arg)
-                    run(f"dec-mns{mns}", mns, 2 * mns, 16, 512, 16, part="G3.1")
+                elif kind == "dec":   # dec:N (output 512) or dec:N/OUT
+                    n, _, o = arg.partition("/")
+                    mns, out_len = int(n), int(o or 512)
+                    run(f"dec-mns{mns}" + (f"-out{out_len}" if o else ""), mns, 2 * mns, 16, out_len, 16, part="G3.1")
                 elif kind == "pre":
                     run("pre-in2048", 384, a.pre_prompts, 2048, 1, 4, part="G3.2")
                 elif kind == "eager":

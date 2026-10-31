@@ -1,0 +1,4 @@
+$ nvidia-smi -i 0 -lgc 1590,1590
+# rc=4
+The current user does not have permission to change clocks for GPU 00000000:00:04.0.
+Terminating early due to previous errors.
