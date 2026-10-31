@@ -37,7 +37,7 @@ One Kaggle kernel version per stage (`make t4-run STAGE=<stage>`). Results are i
 | twoinst | Part B: two vLLM AWQ instances on one T4, time-sharing (MPS planned), over-allocation ([two_instances.md](two_instances.md)) | **20261031-085014** (MPS skipped at the part budget) |
 | taskbudget | Part C: vLLM cancel-on-disconnect; cost per completed 3-step GSM8K task under four token-budget policies ([task_budget.md](task_budget.md)) | **20261031-091201** |
 
-GPU time: **6.44 GPU-hours** of script session time over 25 Kaggle runs pushed by `run_kaggle.py` (6.91 h push→done
+GPU time: **7.52 GPU-hours** of script session time over 28 Kaggle runs pushed by `run_kaggle.py` (8.11 h push→done
 upper bound; the three nccl runs are 0.355 h, the two p8x2 runs 0.506 + 0.525 h; on 2 × T4 machines that is session time, GPU-device time is twice it); per run in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Not in the ledger: two
 versions started from the Kaggle editor on 2026-10-15 (a re-run of the GGUF lm-eval stage, ~24 min, and the
 one-minute smoke that proved the secret works from the editor). Kaggle's output download sometimes saves a 502
