@@ -216,10 +216,80 @@ def test_escalate_moves_failed_step_to_strong(server):
         strong.shutdown()
 
 
+CHEAP_FAIL = "CHEAP-FAILED-REPLY-7f3a"
+
+
+def _escalate_prompts(server, policy_name):
+    """Two fake servers (cheap = `server`, strong = a second one); the cheap pool fails step 1 with a marker reply,
+    the strong pool answers correctly. Returns the task result and every prompt each pool received."""
+    strong = fake_openai.serve(0)
+    seen = {"s": [], "c": []}
+    try:
+        good, bad = scripted(GOOD), scripted({1: [CHEAP_FAIL], 2: ["eggs * price"], 3: ["Answer: 18"]})
+
+        def fn(prompt, max_tokens):
+            model = fake_openai.STATE.get("_model")
+            seen[model].append(prompt)
+            return good(prompt, max_tokens) if model == "s" else bad(prompt, max_tokens)
+        fake_openai.STATE["reply_fn"] = fn
+        orig = fake_openai.H.do_POST
+
+        def do_post(self):
+            import io
+            raw = self.rfile.read(int(self.headers["Content-Length"]))
+            fake_openai.STATE["_model"] = json.loads(raw).get("model")
+            self.rfile = io.BytesIO(raw)
+            return orig(self)
+        fake_openai.H.do_POST = do_post
+        try:
+            r = _run(f"http://127.0.0.1:{strong.server_address[1]}", driver.Policy(policy_name, budget=100_000), cheap_url=server)
+        finally:
+            fake_openai.H.do_POST = orig
+    finally:
+        strong.shutdown()
+    return r, seen
+
+
+def test_escalate_fresh_never_shows_the_failed_reply(server):
+    r, seen = _escalate_prompts(server, "escalate_fresh")
+    assert r["success"] and r["steps"][0]["pools"] == ["cheap", "strong"]
+    assert any(CHEAP_FAIL in p for p in seen["c"]) is False and seen["s"]   # the marker is a reply, not a prompt
+    assert not any(CHEAP_FAIL in p or "failed the check" in p for p in seen["s"])
+    assert r["steps"][0]["attempts"][1]["carried_attempts"] == 0
+    # the strong prompt for step 1 is exactly the fresh step-1 prompt
+    assert seen["s"][0] == driver.SYSTEM + " " + driver.step_prompt(1, TASK, {})
+    # later steps still get the accepted outputs (quantities, expression)
+    assert any('"eggs"' in p and "eggs * price" in p for p in seen["s"] + seen["c"])
+
+
+def test_escalate_alias_is_fresh(server):
+    r, seen = _escalate_prompts(server, "escalate")
+    assert r["success"] and not any(CHEAP_FAIL in p for p in seen["s"])
+
+
+def test_escalate_carry_keeps_the_failed_reply(server):
+    r, seen = _escalate_prompts(server, "escalate_carry")
+    assert r["steps"][0]["pools"] == ["cheap", "strong"]
+    assert any(CHEAP_FAIL in p and "failed the check" in p for p in seen["s"])
+    assert r["steps"][0]["attempts"][1]["carried_attempts"] == 1
+
+
+def test_context_attempts():
+    cheap_bad = {"pool": "cheap", "check_ok": False, "text": "x", "check_reason": "r"}
+    strong_bad = {"pool": "strong", "check_ok": False, "text": "y", "check_reason": "r"}
+    fresh, carry = driver.Policy("escalate_fresh", 951), driver.Policy("escalate_carry", 951)
+    assert fresh.context_attempts([cheap_bad, strong_bad], "strong") == [strong_bad]
+    assert carry.context_attempts([cheap_bad, strong_bad], "strong") == [cheap_bad, strong_bad]
+    assert fresh.context_attempts([cheap_bad], "cheap") == [cheap_bad]
+    assert driver.Policy("baseline").context_attempts([strong_bad], "strong") == [strong_bad]
+    assert fresh.cuts and carry.cuts and fresh.pool_for([cheap_bad], 0) == "strong" == carry.pool_for([cheap_bad], 0)
+
+
 def test_batch_plan_orders_vary():
-    plan = driver.batch_plan(150, 8, list(driver.POLICIES), seed=10)
-    assert len(plan) == 19 and all(sorted(o) == sorted(driver.POLICIES) for _, o in plan)
-    assert len({o[0] for _, o in plan}) == 4   # every policy runs first in some batch
+    for pols, seed in ((["baseline", "hard_cut", "downgrade", "escalate"], 10), (list(driver.F4_POLICIES), 14)):
+        plan = driver.batch_plan(150, 8, pols, seed=seed)
+        assert len(plan) == 19 and all(sorted(o) == sorted(pols) for _, o in plan)
+        assert len({o[0] for _, o in plan}) == len(pols)   # every policy runs first in some batch
 
 
 def test_p75_and_taskset():

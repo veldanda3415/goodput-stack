@@ -27,6 +27,11 @@
    "tokens_per_success": 1566.0,
    "mean_tokens_of_successful_tasks": 896.2,
    "tokens_wasted_aborted": 0,
+   "tokens_failed_attempts": 18798,
+   "steps_reached": 441,
+   "steps_escalated": 0,
+   "share_steps_escalated": 0.0,
+   "cheap_step1_first_try_pass": 0,
    "tokens_by_pool": {
     "strong": 147205,
     "cheap": 0
@@ -56,6 +61,11 @@
    "tokens_per_success": 1817.9,
    "mean_tokens_of_successful_tasks": 795.1,
    "tokens_wasted_aborted": 51798,
+   "tokens_failed_attempts": 28992,
+   "steps_reached": 437,
+   "steps_escalated": 0,
+   "share_steps_escalated": 0.0,
+   "cheap_step1_first_try_pass": 0,
    "tokens_by_pool": {
     "strong": 130889,
     "cheap": 0
@@ -85,6 +95,11 @@
    "tokens_per_success": 1588.3,
    "mean_tokens_of_successful_tasks": 869.9,
    "tokens_wasted_aborted": 0,
+   "tokens_failed_attempts": 19657,
+   "steps_reached": 439,
+   "steps_escalated": 0,
+   "share_steps_escalated": 0.0,
+   "cheap_step1_first_try_pass": 0,
    "tokens_by_pool": {
     "strong": 130269,
     "cheap": 15858
@@ -114,6 +129,11 @@
    "tokens_per_success": 36079.2,
    "mean_tokens_of_successful_tasks": 676.5,
    "tokens_wasted_aborted": 103928,
+   "tokens_failed_attempts": 99471,
+   "steps_reached": 300,
+   "steps_escalated": 126,
+   "share_steps_escalated": 0.42,
+   "cheap_step1_first_try_pass": 34,
    "tokens_by_pool": {
     "strong": 74877,
     "cheap": 69440
@@ -655,5 +675,6 @@
    }
   }
  ],
- "price_per_h": 0.526
+ "price_per_h": 0.526,
+ "phase": "policies"
 }

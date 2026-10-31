@@ -24,7 +24,7 @@ import random
 import statistics
 from pathlib import Path
 
-POLICIES = ("baseline", "hard_cut", "downgrade", "escalate")
+POLICIES = ("baseline", "hard_cut", "downgrade", "escalate", "escalate_fresh", "escalate_carry")
 
 
 def read_jsonl(p: Path) -> list[dict]:
@@ -103,6 +103,11 @@ def pool_rates(metrics: list[dict], t0: float, t1: float) -> dict:
     return out
 
 
+def escalated(step: dict) -> bool:
+    """A cheap-pool attempt of this step was followed by a strong-pool attempt (downgrade's strong -> cheap is not)."""
+    return any(a == "cheap" and b == "strong" for a, b in zip(step["pools"], step["pools"][1:]))
+
+
 def policy_table(rows: list[dict], rates: dict, price_h: float) -> list[dict]:
     table = []
     for pol in POLICIES:
@@ -118,6 +123,8 @@ def policy_table(rows: list[dict], rates: dict, price_h: float) -> list[dict]:
                  for p in ("strong", "cheap")}
         dollars = (sum(v for v in gpu_s.values() if v) * price_h / 3600) if all(v is not None or comp[p] == 0
                                                                              for p, v in gpu_s.items()) else None
+        steps = [st for r in rs for st in r["steps"]]
+        atts = [a for st in steps for a in st["attempts"]]
         table.append({
             "policy": pol, "tasks": len(rs), "successes": len(succ), "success_rate": round(len(succ) / len(rs), 4),
             "aborted": sum(r["aborted"] for r in rs), "abort_rate": round(sum(r["aborted"] for r in rs) / len(rs), 4),
@@ -125,6 +132,11 @@ def policy_table(rows: list[dict], rates: dict, price_h: float) -> list[dict]:
             "tokens_per_success": round(total / len(succ), 1) if succ else None,
             "mean_tokens_of_successful_tasks": round(statistics.fmean([r["tokens"] for r in succ]), 1) if succ else None,
             "tokens_wasted_aborted": sum(r["tokens"] for r in rs if r["aborted"]),
+            "tokens_failed_attempts": sum(a["prompt_tokens"] + a["completion_tokens"] for a in atts if not a["check_ok"]),
+            "steps_reached": len(steps), "steps_escalated": sum(escalated(st) for st in steps),
+            "share_steps_escalated": round(sum(escalated(st) for st in steps) / len(steps), 4) if steps else None,
+            "cheap_step1_first_try_pass": sum(1 for r in rs if r["steps"] and r["steps"][0]["attempts"][0]["pool"] == "cheap"
+                                              and r["steps"][0]["attempts"][0]["check_ok"]),
             "tokens_by_pool": allt, "completion_tokens_by_pool": comp,
             "wall_p50_s": round(pct([r["wall_s"] for r in rs], 50), 2), "wall_p95_s": round(pct([r["wall_s"] for r in rs], 95), 2),
             "gpu_s_attributed_CALCULATED": {p: round(v, 2) if v else v for p, v in gpu_s.items()},
@@ -218,28 +230,31 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("run_dir", type=Path)
     ap.add_argument("--price-per-h", type=float, default=0.526)
+    ap.add_argument("--stage-dir", default="taskbudget", help="results/<stage-dir>/ (followup for the F4 run)")
+    ap.add_argument("--phase", default="policies", help="tasks.jsonl phase that enters the policy table (f4 for the F4 run)")
     a = ap.parse_args()
-    d = a.run_dir / "results" / "taskbudget"
+    d = a.run_dir / "results" / a.stage_dir
     tasks = read_jsonl(d / "tasks.jsonl")
-    meta = {r["key"]: r for r in read_jsonl(d / "taskbudget.jsonl")}
+    meta = {r["key"]: r for r in read_jsonl(d / f"{a.stage_dir}.jsonl")}
     metrics = read_jsonl(d / "metrics.jsonl")
-    pol_rows = [r for r in tasks if r.get("phase") == "policies"]
+    pol_rows = [r for r in tasks if r.get("phase") == a.phase]
     cal_rows = [r for r in tasks if r.get("phase") == "calibration"]
-    pw = meta.get("policies", {}).get("window_unix") or [min(r["t_start_unix"] for r in pol_rows), max(r["t_start_unix"] + r["wall_s"] for r in pol_rows)]
+    pw = meta.get(a.phase, {}).get("window_unix") or [min(r["t_start_unix"] for r in pol_rows), max(r["t_start_unix"] + r["wall_s"] for r in pol_rows)]
     rates = pool_rates(metrics, *pw)
-    budget = meta.get("calibration", {}).get("budget_tokens")
+    budget = meta.get("calibration", {}).get("budget_tokens") or meta.get(a.phase, {}).get("budget_tokens")
     table = policy_table(pol_rows, rates, a.price_per_h)
     base = [r for r in pol_rows if r["policy"] == "baseline"]
     cal_by = {r["task_id"]: r["success"] for r in cal_rows}
     repeat = {"calibration_success": sum(cal_by.values()), "policies_baseline_success": sum(r["success"] for r in base),
               "same_outcome": sum(1 for r in base if cal_by.get(r["task_id"]) == r["success"]), "n": len(base)}
-    early = {"baseline": early_signal(base), "baseline_calibration": early_signal(cal_rows)}
+    early = {"baseline": early_signal(base), **({"baseline_calibration": early_signal(cal_rows)} if cal_rows else {})}
     pairs = example_pairs(base)
     out = {"budget_tokens": budget, "pool_rates": rates, "policy_table": table, "repeat_check": repeat,
            "early_signal": early, "example_pairs": pairs, "price_per_h": a.price_per_h}
-    (d / "analysis.json").write_text(json.dumps(out, indent=1, default=str) + "\n")
+    out["phase"] = a.phase
+    (d / ("analysis.json" if a.phase == "policies" else f"analysis-{a.phase}.json")).write_text(json.dumps(out, indent=1, default=str) + "\n")
     if table:
-        chart(table, d / "cost_per_success.png", budget or 0)
+        chart(table, d / ("cost_per_success.png" if a.phase == "policies" else f"cost_per_success-{a.phase}.png"), budget or 0)
     print(json.dumps({k: v for k, v in out.items() if k != "example_pairs"}, indent=1, default=str)[:12000])
 
 

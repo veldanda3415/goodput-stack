@@ -17,8 +17,14 @@ Policies (budget B = tokens per task, prompt + completion):
     baseline   strong pool, no budget
     hard_cut   strong pool; abort the task when its tokens reach B, cancelling the in-flight stream
     downgrade  strong pool; once remaining budget < 30 % of B, every later call goes to the cheap pool (no abort)
-    escalate   every step starts on the cheap pool; a step moves to the strong pool only after its checker failed
-               on the cheap pool; abort at B like hard_cut (the same budget as policies 2-3)
+    escalate_fresh (alias: escalate)
+               every step starts on the cheap pool; a step moves to the strong pool only after its checker failed
+               on the cheap pool; abort at B like hard_cut (the same budget as policies 2-3). The strong pool gets a
+               FRESH prompt for that step: the problem plus the accepted outputs of earlier steps, never the cheap
+               pool's failed reply (its own failed strong attempts are carried, as in every other retry)
+    escalate_carry
+               the Build 14 escalate: the same, but the strong pool's prompt carries the cheap pool's failed reply
+               and the checker's reason (the plain retry context)
 Cancelling a stream frees the server slot only where that was measured (task_budget.md, Task 7).
 """
 
@@ -35,7 +41,9 @@ from pathlib import Path
 from benchmarks.task_budget import checkers
 
 TASKS = Path(__file__).with_name("gsm8k_test_150.jsonl")
-POLICIES = ("baseline", "hard_cut", "downgrade", "escalate")
+POLICIES = ("baseline", "hard_cut", "downgrade", "escalate_fresh", "escalate_carry")
+ESCALATE = ("escalate", "escalate_fresh", "escalate_carry")
+F4_POLICIES = ("baseline", "escalate_fresh", "escalate_carry")   # the follow-up run (task_budget.md, F4)
 SYSTEM = "You are a careful assistant that solves grade-school math word problems step by step, following the requested format exactly."
 MAX_TOKENS = {1: 256, 2: 128, 3: 384}
 
@@ -156,10 +164,21 @@ class Policy:
 
     @property
     def cuts(self) -> bool:
-        return self.name in ("hard_cut", "escalate")
+        return self.name == "hard_cut" or self.name in ESCALATE
+
+    @property
+    def fresh(self) -> bool:
+        return self.name in ("escalate", "escalate_fresh")
+
+    def context_attempts(self, step_attempts: list[dict], pool: str) -> list[dict]:
+        """The earlier failed attempts of this step that go into the next prompt. Fresh escalation drops the cheap
+        pool's failed replies from a strong-pool prompt; everything else carries them all."""
+        if self.fresh and pool == "strong":
+            return [a for a in step_attempts if a["pool"] != "cheap"]
+        return step_attempts
 
     def pool_for(self, step_attempts: list[dict], spent: int) -> str:
-        if self.name == "escalate":
+        if self.name in ESCALATE:
             return "strong" if any(a["pool"] == "cheap" and not a["check_ok"] for a in step_attempts) else "cheap"
         if self.name == "downgrade" and self.budget is not None and (self.budget - spent) < self.downgrade_at * self.budget:
             return "cheap"
@@ -179,14 +198,15 @@ async def run_task(client, task: dict, policy: Policy, pools: dict[str, Pool]) -
                 break
             pool = policy.pool_for(attempts, spent)
             limit = policy.budget - spent if policy.cuts and policy.budget is not None else None
-            res = await stream_call(client, pools[pool], messages_for(step, task, ctx, attempts), MAX_TOKENS[step], limit)
+            carried = policy.context_attempts(attempts, pool)
+            res = await stream_call(client, pools[pool], messages_for(step, task, ctx, carried), MAX_TOKENS[step], limit)
             spent += res.tokens
             chk = check_step(step, res.text, ctx) if not res.cancelled and not res.error else checkers.Check(False, res.error or "cancelled at budget")
             attempts.append({"pool": pool, "prompt_tokens": res.prompt_tokens, "completion_tokens": res.completion_tokens,
                              "usage_seen": res.usage_seen, "content_chunks": res.content_chunks, "cancelled": res.cancelled,
                              "finish_reason": res.finish_reason, "status": res.status, "error": res.error,
                              "ttft_s": res.ttft_s, "e2e_s": res.e2e_s, "check_ok": chk.ok, "check_reason": chk.reason,
-                             "text": res.text})
+                             "carried_attempts": len(carried), "text": res.text})
             if res.cancelled:
                 aborted = True
                 break

@@ -2696,10 +2696,11 @@ def stage_followup(a) -> None:
                 "vllm_version_reported": inst.get("vllm_version_reported"), "torch": inst["torch_after_install"],
                 "flag_source": "vllm serve --help=all, vllm bench throughput --help=all (logs/)", "vcpus": sysinfo.get("vcpus_os")}
         st.write("flags", {"kind": "flags", "missing": missing}, **prov)
-        if missing or not rev:
+        if (missing or not rev) and {"f1", "f2"} & set(parts):
             st.write("abort", {"kind": "abort", "reason": f"flags missing {missing}" if missing else "revision not found"}, **prov)
             return
         done = st.done()
+        install_h = session_elapsed_h()
 
         def serve(tag: str, flags: list[str]) -> VllmServer | None:
             srv = VllmServer(a.model, flags, st.logs / f"server-{tag}.log", gpu="0")
@@ -2767,8 +2768,204 @@ def stage_followup(a) -> None:
                 offline_point(st, key, a.model, rev, mns, mns * a.f2_prompts_factor, a.f2_input_len, 256, 0.95, a.f2_warmups,
                               max(600.0, left * 3600 + 300), prov | {"part": "F2"}, extra_args=["--max-num-batched-tokens", "8192"])
             mark(st, "f2-end", f2_gpu_h=round(session_elapsed_h() - f2_t0, 4))
+        if "f3" in parts:
+            followup_f3(st, a, inst, help_serve, sysinfo, done)
+        if "f4" in parts:
+            followup_f4(st, a, inst, help_serve, sysinfo, done, install_h if parts[0] != "f1" else 0.0)
     finally:
+        if os.environ.get("CUDA_MPS_PIPE_DIRECTORY"):
+            st.write("mps-stop-finally", {"kind": "mps", **mps_stop(st.logs)})
         st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 3)})
+
+
+def awq_prov(a, inst: dict, sysinfo: dict, rev: str | None, label: str) -> dict:
+    return {"label": label, "vllm_version": a.vllm_version, "vllm_version_reported": inst.get("vllm_version_reported"),
+            "torch": inst["torch_after_install"], "vcpus": sysinfo.get("vcpus_os"),
+            "flag_source": f"vllm serve --help=all (logs/vllm-serve-help-{a.vllm_version}.txt)", "model": a.awq_model, "model_revision": rev}
+
+
+def followup_f3(st: Stage, a, inst: dict, help_serve: str, sysinfo: dict, done: set) -> None:
+    """F3: the MPS control daemon on GPU 0, then two Qwen2.5-3B-AWQ instances at 0.45 under it (one after the other),
+    16 + 16 users (Build 14's "both busy" condition), then quit MPS. Every command's output is kept; failure is a result."""
+    t0 = session_elapsed_h()
+    mark(st, "f3-begin")
+    rev = full_revision(a.awq_model, a.awq_revision)
+    prov = awq_prov(a, inst, sysinfo, rev, "Kaggle T4, real; two vLLM processes on one GPU under MPS")
+    prov["workload"] = {"prompt_tokens": 128, "output_tokens": 256, "ignore_eos": True, "temperature": 0, "requests_per_user": 3}
+    flags = ["--dtype", "half", "--no-enable-prefix-caching", "--revision", rev or a.awq_revision, "--gpu-memory-utilization", "0.45"]
+    srvs: list[VllmServer] = []
+    try:
+        sh(["nvidia-smi", "-q", "-i", "0"], timeout=60, out=st.logs / "f3-nvidia-smi-q-before.txt")
+        ms = mps_start(st.logs)
+        ms["start_cmd"] = ("CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe CUDA_MPS_LOG_DIRECTORY=/tmp/goodput-mps/log "
+                           "CUDA_VISIBLE_DEVICES=0 nvidia-cuda-mps-control -d")
+        ms["control_log"] = sh(f"cat {mps_env()['CUDA_MPS_LOG_DIRECTORY']}/control.log 2>&1", timeout=10)[1][-1500:]
+        st.write("f3-mps-start", {"kind": "mps", **ms}, **prov)
+        if not (ms["start_rc"] == 0 and ms["daemon_running"]):
+            st.write("f3-mps-both-busy", {"kind": "skipped", "reason": "MPS control daemon did not start"}, **prov)
+            return
+        os.environ.update(mps_env())   # servers and their children connect through the daemon's pipe
+        for i, port in ((1, 8000), (2, 8001)):
+            if 0.15 - (session_elapsed_h() - t0) < 0.04:
+                st.write(f"f3-startup-i{i}", {"kind": "skipped", "reason": "F3 budget"}, **prov)
+                return
+            s = VllmServer(a.awq_model, flags, st.logs / f"server-f3-mps-i{i}.log", port=port, gpu="0")
+            srvs.append(s)
+            res = s.start(timeout_s=480)
+            startup_row(st, f"f3-startup-i{i}", s, res, help_serve, prov, util=0.45, serving_flags=flags,
+                        compute_apps=compute_apps(st.logs / f"f3-compute-apps-i{i}.txt"),
+                        mps=mps_check(st.logs, f"after-i{i}"))
+            if not res["started"]:
+                return
+        rc, smi = sh(["nvidia-smi"], timeout=60, out=st.logs / "f3-nvidia-smi-both-up.txt")
+        procs = [l for l in smi.splitlines() if re.search(r"\s(C|G|M\+C|C\+G|M)\s", l) and re.search(r"\d+\s+MiB", l)]
+        st.write("f3-mps-clients", {"kind": "mps", "nvidia_smi_process_lines": procs,
+                                    "mps_client_lines": [l for l in procs if "M+C" in l], **mps_check(st.logs, "both-up")}, **prov)
+        if 0.15 - (session_elapsed_h() - t0) < 0.02:
+            st.write("f3-mps-both-busy", {"kind": "skipped", "reason": "F3 budget"}, **prov)
+            return
+        for s in srvs:
+            warm(s, a.awq_model, 128)
+        load_condition(st, "f3-mps-both-busy", {"i1": 16, "i2": 16}, {"i1": srvs[0], "i2": srvs[1]}, a.awq_model, 128, 256, 3,
+                       prov | {"serving_flags": flags, "condition": "MPS: 16 users on each instance"})
+        st.write("f3-mps-check-end", {"kind": "mps", **mps_check(st.logs, "end")}, **prov)
+    finally:
+        for s in srvs:
+            s.stop()
+        if os.environ.get("CUDA_MPS_PIPE_DIRECTORY"):
+            st.write("f3-mps-stop", {"kind": "mps", **mps_stop(st.logs)}, **prov)
+            for k in mps_env():
+                os.environ.pop(k, None)
+        mark(st, "f3-end", f3_gpu_h=round(session_elapsed_h() - t0, 4))
+
+
+def prom_lines(text: str) -> dict:
+    """Prometheus exposition -> {'name{labels}': value} (comments skipped)."""
+    out = {}
+    for l in text.splitlines():
+        if l and not l.startswith("#"):
+            k, _, v = l.rpartition(" ")
+            try:
+                out[k] = float(v)
+            except ValueError:
+                pass
+    return out
+
+
+def cancel_metric_diff(base_url: str, model: str, logs: Path, hold_s: float = 3.0, settle_s: float = 5.0) -> dict:
+    """Which /metrics series move for one client-cancelled stream: a completed control request, then a cancelled one
+    (streamed, ignore_eos, max_tokens 2000, client closes after hold_s), each with a full /metrics scrape before and
+    `settle_s` after. Raw scrapes kept in logs/f4-metrics-*.txt."""
+    import httpx
+
+    def scrape(tag: str) -> dict:
+        t = metrics_text(base_url)
+        (logs / f"f4-metrics-{tag}.txt").write_text(t)
+        return prom_lines(t)
+
+    def diff(b: dict, c: dict) -> dict:
+        return {k: [b.get(k), c[k]] for k in c if b.get(k) != c[k]}
+    out: dict = {}
+    body = {"model": model, "messages": [{"role": "user", "content": DECODE_PROMPT}], "temperature": 0.0, "ignore_eos": True,
+            "stream": True}
+    b0 = scrape("control-before")
+    with httpx.Client(timeout=120) as c:
+        with c.stream("POST", base_url + "/v1/chat/completions", json=body | {"max_tokens": 32}) as r:
+            n = sum(1 for l in r.iter_lines() if l.startswith("data: "))
+        out["control"] = {"max_tokens": 32, "status": r.status_code, "data_lines": n}
+        time.sleep(settle_s)
+        a0 = scrape("control-after")
+        b1 = scrape("cancel-before")
+        t_send = time.time()
+        n = 0
+        with c.stream("POST", base_url + "/v1/chat/completions", json=body | {"max_tokens": 2000}) as r:
+            for l in r.iter_lines():
+                n += l.startswith("data: ")
+                if time.time() - t_send >= hold_s:
+                    break
+        out["cancel"] = {"max_tokens": 2000, "status": r.status_code, "data_lines_before_close": n, "hold_s": hold_s}
+        time.sleep(settle_s)
+        a1 = scrape("cancel-after")
+    dc, dx = diff(b0, a0), diff(b1, a1)
+    out["control_changed"] = dc
+    out["cancel_changed"] = dx
+    names = lambda d: {k.split("{")[0] for k in d}
+    out["changed_on_cancel_not_on_control"] = sorted(set(dx) - set(dc))
+    out["names_changed_on_cancel_not_on_control"] = sorted(names(dx) - names(dc))
+    out["abort_series_after_cancel"] = {k: v for k, v in a1.items() if re.search(r"abort|cancel", k, re.I)}
+    out["abort_series_changed"] = {k: v for k, v in dx.items() if re.search(r"abort|cancel", k, re.I)}
+    return out
+
+
+def followup_f4(st: Stage, a, inst: dict, help_serve: str, sysinfo: dict, done: set, install_h: float) -> None:
+    """F4: strong (3B AWQ @0.50) and cheap (0.5B @0.35) pools; one cancelled stream + /metrics diff; then the 150 tasks
+    under baseline, escalate_fresh, escalate_carry (budget 951), a random policy order per batch of 8."""
+    import asyncio as aio
+    from benchmarks.gpu_sampler import GpuSampler
+    from benchmarks.task_budget import driver
+    t0 = session_elapsed_h()
+    mark(st, "f4-begin", install_h_counted=round(install_h, 4))
+    srev = full_revision(a.awq_model, a.awq_revision)
+    crev = full_revision(a.cheap_model, a.cheap_revision)
+    label = "Kaggle T4, real; policy in client; gateway not exercised"
+    prov = {"label": label, "vllm_version": a.vllm_version, "vllm_version_reported": inst.get("vllm_version_reported"),
+            "torch": inst["torch_after_install"], "strong": {"model": a.awq_model, "revision": srev, "util": 0.50},
+            "cheap": {"model": a.cheap_model, "revision": crev, "util": 0.35}, "vcpus": sysinfo.get("vcpus_os"),
+            "flag_source": f"vllm serve --help=all (logs/vllm-serve-help-{a.vllm_version}.txt)"}
+    if not srev or not crev:
+        st.write("f4-abort", {"kind": "abort", "reason": f"revisions {srev} {crev}"}, **prov)
+        return
+    sflags = ["--dtype", "half", "--no-enable-prefix-caching", "--gpu-memory-utilization", "0.50", "--revision", srev]
+    cflags = ["--dtype", "half", "--no-enable-prefix-caching", "--gpu-memory-utilization", "0.35", "--revision", crev]
+    strong = VllmServer(a.awq_model, sflags, st.logs / "server-f4-strong.log", port=8000, gpu="0")
+    cheap = VllmServer(a.cheap_model, cflags, st.logs / "server-f4-cheap.log", port=8001, gpu="0")
+    srvs: list[VllmServer] = []
+    try:
+        for name, s, fl in (("strong", strong, sflags), ("cheap", cheap, cflags)):   # one after the other
+            srvs.append(s)
+            res = s.start()
+            startup_row(st, f"f4-startup-{name}", s, res, help_serve, prov, serving_flags=fl,
+                        compute_apps=compute_apps(st.logs / f"f4-compute-apps-{name}.txt"))
+            if not res["started"]:
+                return
+        pools = {"strong": driver.Pool("strong", strong.base_url, a.awq_model),
+                 "cheap": driver.Pool("cheap", cheap.base_url, a.cheap_model)}
+        warm_tasks = driver.load_tasks()[:8]
+
+        async def warmup() -> None:
+            import httpx
+            async with httpx.AsyncClient() as c:
+                for pool in ("strong", "cheap"):
+                    one = {"strong": pools[pool], "cheap": pools[pool]}
+                    await aio.gather(*(driver.run_task(c, t, driver.Policy("baseline", max_retries=0), one) for t in warm_tasks))
+        aio.run(warmup())
+        if "f4-cancel-metric" not in done:
+            st.write("f4-cancel-metric", {"kind": "cancel_metric", "pool": "strong",
+                                          **cancel_metric_diff(strong.base_url, a.awq_model, st.logs)}, **prov)
+        tasks = driver.load_tasks()
+        out = st.dir / "tasks.jsonl"
+        budget_end = t0 + a.f4_budget_h - install_h
+        deadline = float(os.environ.get("GOODPUT_SESSION_T0", T_STAGE0)) + min(budget_end, a.session_cap_h) * 3600
+        pols = [driver.Policy("baseline")] + [driver.Policy(n, a.f4_budget_tokens) for n in ("escalate_fresh", "escalate_carry")]
+        with GpuSampler(st.dir / "gpu.csv", 1.0, 0), MetricsScraper(st.dir / "metrics.jsonl",
+                                                                    {"strong": strong.base_url, "cheap": cheap.base_url}), \
+                CpuSampler(st.dir / "cpu.csv", {"stage": lambda: [os.getpid()], "strong": lambda: [strong.proc.pid],
+                                                "cheap": lambda: [cheap.proc.pid]}):
+            w0 = time.time()
+            rows = aio.run(driver.run_batches(tasks, pols, pools, out, 8, a.f4_seed, "f4", deadline))
+            st.write("f4", {"kind": "policies_run", "task_runs": len(rows), "budget_tokens": a.f4_budget_tokens,
+                            "policies": [p.name for p in pols], "complete": len(rows) == len(pols) * len(tasks),
+                            "window_unix": [round(w0, 3), round(time.time(), 3)], "concurrency_tasks": 8,
+                            "order": f"per batch of 8 tasks, a random policy order (driver.batch_plan, seed {a.f4_seed}); "
+                                     "the tasks of one (batch, policy) run concurrently",
+                            "plan": driver.batch_plan(len(tasks), 8, [p.name for p in pols], a.f4_seed),
+                            "deadline_unix": round(deadline, 1), "session_h": round(session_elapsed_h(), 3)}, **prov)
+        for name, s in (("strong", strong), ("cheap", cheap)):
+            (st.logs / f"f4-metrics-end-{name}.txt").write_text(metrics_text(s.base_url))
+    finally:
+        for s in srvs:
+            s.stop()
+        mark(st, "f4-end", f4_gpu_h_excl_install=round(session_elapsed_h() - t0, 4))
 
 
 STAGE_ARGS["followup"] = [
@@ -2786,6 +2983,14 @@ STAGE_ARGS["followup"] = [
     lambda p: p.add_argument("--f2-input-len", type=int, default=3840),
     lambda p: p.add_argument("--f2-prompts-factor", type=int, default=1, help="num-prompts = factor x max-num-seqs"),
     lambda p: p.add_argument("--f2-warmups", type=int, default=2),
+    lambda p: p.add_argument("--awq-model", default="Qwen/Qwen2.5-3B-Instruct-AWQ"),
+    lambda p: p.add_argument("--awq-revision", default="3559b226"),
+    lambda p: p.add_argument("--cheap-model", default="Qwen/Qwen2.5-0.5B-Instruct"),
+    lambda p: p.add_argument("--cheap-revision", default="7ae55760"),
+    lambda p: p.add_argument("--f4-budget-h", type=float, default=0.35, help="F4 part budget; the install counts against it when F4 is not after F1"),
+    lambda p: p.add_argument("--f4-budget-tokens", type=int, default=951, help="Build 14's budget (p75 tokens per successful baseline task)"),
+    lambda p: p.add_argument("--f4-seed", type=int, default=14),
+    lambda p: p.add_argument("--session-cap-h", type=float, default=0.5, help="no new F4 batch after this session time"),
 ]
 
 
