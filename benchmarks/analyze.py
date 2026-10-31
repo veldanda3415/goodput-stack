@@ -897,6 +897,7 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
                 rows.append((f"P8 stock EPP profile on real gauges, {P8_COND[rt['condition']]} (computed offline from real engine metrics)",
                              f"higher score: L {sp['L']} / S {sp['S']} / tie {sp['tie']} of {rt['n']} probes; median margin "
                              f"{rt['stock_margin_median']:.4f}; token-load profile L {tp['L']} / S {tp['S']} / tie {tp['tie']}", r["model"], r))
+    rows += ridge_part_rows()
     out = ["# RESULTS", "", "One row per headline number. Every number is from a recorded run; the link is the raw JSONL row "
            "(`key` column) with full provenance (git sha, GPU/driver/CUDA, engine version, model revision, flags, client config). "
            "Context, caveats and what is emulated: [benchmarks/results/t4/README.md](benchmarks/results/t4/README.md). "
@@ -910,6 +911,55 @@ def headlines(price: tuple[float, str] | None) -> list[str]:
         hw = f"{'2 × ' if r.get('stage') in ('nccl', 'p8x2') else ''}{r.get('gpu')} (Kaggle), driver {r.get('driver')}"
         out.append(f"| {name} | {val} | {caveat(r)} | `{model}` | {hw} | {eng} | `{r['key']}` | [{Path(r['_src']).parts[3]}]({r['_src']}) |")
     return out + [""]
+
+
+def ridge_part_rows() -> list[tuple[str, str, str, dict]]:
+    """Headline rows of the T4 ridge work: ridge (Part A), twoinst (Part B), taskbudget (Part C)."""
+    rows: list[tuple[str, str, str, dict]] = []
+    off = sorted((r for r in load("ridge").values() if r.get("kind") == "offline" and r["key"].startswith("offline-")
+                  and r.get("output_tok_s")), key=lambda r: r["max_num_seqs"])
+    for r in off:
+        rows.append((f"offline output tok/s, FP16, 128 in / 256 out, --max-num-seqs {r['max_num_seqs']} (vllm bench throughput, Kaggle T4, real)",
+                     f"{r['output_tok_s']:,.1f} tok/s (total {r['total_tok_s']:,.1f}; SM {r.get('gpu_sm_clock_mhz_mean', 0):,.0f} MHz, "
+                     f"{r.get('gpu_power_w_mean', 0):.1f} W, preemptions {r.get('eng_preemptions_delta')})", r["model"], r))
+    for r in load("ridge").values():
+        if r.get("kind") == "http" and r.get("srv_generation_tokens_per_s"):
+            rows.append((f"HTTP output tok/s at {r['users']} users, {r['client_processes']} client process(es) (Kaggle T4, real)",
+                         f"{r['srv_generation_tokens_per_s']:,.1f} tok/s", r["model"], r))
+    ti = load("twoinst")
+    for key, name in (("baseline", "one AWQ instance @ 0.90, 32 users"), ("ts-one-busy", "two AWQ instances @ 0.45, 16 users on one, other idle"),
+                      ("ts-both-busy", "two AWQ instances @ 0.45 time-sharing one T4, 16 users each"),
+                      ("mps-both-busy", "two AWQ instances @ 0.45 under MPS, 16 users each")):
+        r = ti.get(key)
+        if r and r.get("kind") == "condition" and r.get("combined_output_tok_s_server_counters") is not None:
+            itl = "; ".join(f"{n} ITL p50 {r[f'inst_{n}']['itl_ms_p50']:.1f} ms" for n in ("i1", "i2") if r.get(f"inst_{n}", {}).get("itl_ms_p50"))
+            rows.append((f"combined output tok/s, {name} (Kaggle T4, real)", f"{r['combined_output_tok_s_server_counters']:,.1f} tok/s ({itl})",
+                         r["model"], r))
+    if (r := ti.get("overalloc")) and r.get("started") is False:
+        err = next((l.split("ValueError: ", 1)[1] for l in r.get("error_lines") or [] if "ValueError: " in l), "see log")
+        rows.append(("second instance at 0.90 while the first holds 0.45 (Kaggle T4, real)", f"start-up failure: {err[:160]}", r["model"], r))
+    tb = load("taskbudget")
+    an_f = sorted(T4.glob("*_taskbudget/results/taskbudget/analysis.json"))
+    if an_f and (pol := tb.get("policies")):
+        an = json.loads(an_f[-1].read_text())
+        strong = (pol.get("strong") or {}).get("model", "")
+        for t in an.get("policy_table", []):
+            rows.append((f"tokens per successful GSM8K task, policy {t['policy']}, budget {an['budget_tokens']:,} (Kaggle T4, real; policy in client; gateway not exercised)",
+                         f"{t['tokens_per_success']:,.0f} tokens (success {t['successes']}/{t['tasks']}, aborted {t['aborted']}, "
+                         f"{t['tokens_per_attempted']:,.0f} per attempted task)" if t.get("tokens_per_success") else "no successes",
+                         strong, pol))
+        es = (an.get("early_signal") or {}).get("baseline", {}).get("step1", {}).get("first_try_auc")
+        if es and es[0] is not None:
+            rows.append(("AUC: step-1 checker pass (first try) → final success, strong-pool baseline (Kaggle T4, real)",
+                         f"{es[0]:.3f} (95 % bootstrap CI {es[1]:.3f} … {es[2]:.3f})", strong, pol))
+    for r in tb.values():
+        if r.get("kind") == "cancel" and r.get("trial") == 0:
+            ok = [x for x in tb.values() if x.get("kind") == "cancel" and x.get("pool") == r["pool"]]
+            freed = [x.get("freed_after_s") for x in ok if x.get("freed")]
+            rows.append((f"vLLM frees a streamed request after client disconnect, {r['pool']} pool, direct (Kaggle T4, real)",
+                         f"{len(freed)}/{len(ok)} freed; after {', '.join(f'{v:.2f}' for v in freed)} s (0.25 s sampling)",
+                         (r.get(r['pool']) or {}).get("model", ""), r))
+    return rows
 
 
 def results_md(price: tuple[float, str] | None) -> str:
