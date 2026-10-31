@@ -49,7 +49,35 @@ Numbers marked CALCULATED are arithmetic on measured numbers or on the model con
 
 ## G0 — instrumentation and tool availability
 
-Not run yet.
+Smoke run **20261031-192426_bneck** (Kaggle T4, real; 51 s of session = 0.014 GPU-h; git `b29d107`; Tesla T4 GPU 0
+`GPU-102fc0c7-3bc4-bf6a-d730-8db13e0984bd`, driver 580.178.04, CUDA 13.0 (driver); Kaggle's own torch 2.11.0+cu128, no
+vLLM). Command: `make t4-run STAGE=bneck ARGS='--args "--plan tools,micro:0 --no-install --micro-quick --budget-h 0.2"'`.
+Raw files: `results/bneck/bneck.jsonl` row `tools`, `results/bneck/logs/`.
+
+**Sampler fields.** `nvidia-smi --help-query-gpu` on this driver lists every wanted field
+([logs/nvidia-smi-help-query-gpu.txt](20261031-192426_bneck/results/bneck/logs/nvidia-smi-help-query-gpu.txt)).
+Reason fields are listed as `clocks_event_reasons.X` with `clocks_throttle_reasons.X` as the alias; the sampler uses
+the throttle name. There are 10 of them: `supported`, `active` (hex bitmasks), `gpu_idle`, `applications_clocks_setting`,
+`sw_power_cap`, `hw_slowdown`, `hw_thermal_slowdown`, `hw_power_brake_slowdown`, `sw_thermal_slowdown`, `sync_boost`.
+`power.draw.average` reads `[N/A]` on this card; `power.draw` and `power.draw.instant` return values. Unit tests:
+[benchmarks/tests/test_gpu_sampler.py](../../tests/test_gpu_sampler.py).
+
+**Limits read-only** (`nvidia-smi -i 0 --query-gpu=power.limit,...`): power.limit 70.00 W, enforced 70.00 W, default
+70.00 W, min 60.00 W, max 70.00 W; clocks.max.sm 1,590 MHz; clocks.applications.graphics 585 MHz; persistence mode
+Disabled; compute mode Default. `nvidia-smi -q -d SUPPORTED_CLOCKS` lists graphics clocks 300–1,590 MHz in 15 MHz steps.
+The container runs as uid 0 (root).
+
+| tool / command | permitted? | exact result |
+|---|---|---|
+| `dcgmi` (DCGM SM-active / tensor-active) | **no: not installed** | not on PATH, not in /usr/local/cuda*/bin or /opt/nvidia/*/bin; `nv-hostengine` also absent |
+| `nsys` | **no: not installed** | not found in the same places |
+| `ncu` | **installed, not usable** | `/usr/local/cuda/bin/ncu` "Version 2025.1.1.0"; profiling a 2048² FP16 matmul: `==ERROR== ERR_NVGPUCTRPERM - The user does not have permission to access NVIDIA GPU Performance Counters on the target device 0.` (rc 1) |
+| `nvidia-smi -i 0 -pl 60.00` | **no** | `Failed to set power management limit for GPU 00000000:00:04.0: Insufficient Permissions` (rc 4); the reset to 70.00 failed the same way; the limit read back 70.00 W |
+| `nvidia-smi -i 0 -lgc 1590,1590` | **no** | `The current user does not have permission to change clocks for GPU 00000000:00:04.0.` (rc 4); `-rgc` the same |
+
+GPU state was not changed: both writes were refused. The `-rgc` that the stage runs on exit is a no-op here.
+Consequences: G3.7 (clock locking) cannot run. DCGM SM-active and Nsight counters are not available. The profile in G2
+uses the torch profiler (CUPTI activity tracing, which needs no counter permission).
 
 ## G1 — hardware ceilings without vLLM
 
