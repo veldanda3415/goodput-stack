@@ -5,6 +5,7 @@
     python -m benchmarks.kaggle.t4_notebook --stage nccl [--smoke]      # needs Kaggle "GPU T4 x2"
     python -m benchmarks.kaggle.t4_notebook --stage p8x2                # P8 on 2 x T4 (scripts/probe_p8_t4x2.py)
     python -m benchmarks.kaggle.t4_notebook --stage ridge               # Part A: offline ceiling vs max-num-seqs, HTTP at 384
+    python -m benchmarks.kaggle.t4_notebook --stage twoinst             # Part B: two vLLM instances on one T4, time-sharing vs MPS
 
 Every stage writes /kaggle/working/results/<stage>/ (override: GOODPUT_RESULTS):
     <stage>.jsonl   result rows; each carries provenance (time, git sha, GPU/driver/CUDA, vLLM version,
@@ -2119,9 +2120,302 @@ STAGE_ARGS["ridge"] = [
 ]
 
 
+# ---------------------------------------------------------------- twoinst (Part B): two vLLM instances on one T4, time-sharing vs MPS
+
+def compute_apps(path: Path) -> list[dict]:
+    """nvidia-smi --query-compute-apps (pid, name, used memory) - which processes hold GPU memory right now."""
+    rc, out = sh(["nvidia-smi", "--query-compute-apps=gpu_bus_id,pid,process_name,used_memory", "--format=csv,noheader"],
+                 timeout=60, out=path)
+    rows = []
+    for line in out.strip().splitlines():
+        parts = [x.strip() for x in line.split(",")]
+        if len(parts) == 4:
+            rows.append({"bus_id": parts[0], "pid": parts[1], "process": parts[2], "used_memory": parts[3]})
+    return rows
+
+
+def startup_row(st: Stage, key: str, srv: VllmServer, res: dict, help_text: str, prov: dict, **extra) -> dict:
+    text = srv.log_text()
+    row = {"kind": "startup", **res, "serve_cmd": f"CUDA_VISIBLE_DEVICES={srv.gpu} " + shlex.join(srv.cmd),
+           **{k: v for k, v in parse_startup(text).items() if k != "startup_lines"}, **chunked_prefill_info(text, help_text), **extra}
+    if res.get("started"):
+        row["cache_config_info"] = cache_config_info(metrics_text(srv.base_url))
+    else:
+        row["error_lines"] = error_lines(text, 40)
+    return st.write(key, row, **prov)
+
+
+def warm(srv: VllmServer, model: str, in_len: int) -> None:
+    """Discarded warm-up wave: 32 concurrent short requests, temperature 0 (a cold server stalls its first sampled wave)."""
+    import asyncio
+    from benchmarks.harness import client
+    asyncio.run(client.run_load(srv.base_url, client_cfg(model, 32, 32, prompt_tokens=in_len, max_tokens=16, warmup=1)))
+
+
+def load_condition(st: Stage, key: str, targets: dict, servers: dict, model: str, in_len: int, out_len: int,
+                   rpu: int, prov: dict) -> dict:
+    """Closed-loop harness load on one or more servers at once, one client process per loaded server.
+    targets: name -> users; servers: name -> VllmServer (all of them are scraped, loaded or idle)."""
+    import multiprocessing as mp
+    from benchmarks.gpu_sampler import GpuSampler
+    from benchmarks.harness import stats
+    d = st.dir / key
+    d.mkdir(parents=True, exist_ok=True)
+    cfgs = {n: client_cfg(model, u, u * rpu, prompt_tokens=in_len, max_tokens=out_len, warmup=0)
+            | {"max_tokens_jitter": 0, "start_jitter_s": 1.0} for n, u in targets.items()}
+    procs: dict = {}
+    groups = {"client": lambda: [p.pid for p in procs.values() if p.pid]}
+    groups |= {f"srv_{n}": (lambda s=s: [s.proc.pid]) for n, s in servers.items()}
+    apps: list = []
+    t_th0 = throttle_counters()
+    with GpuSampler(d / "gpu.csv", 1.0, 0), MetricsScraper(d / "metrics.jsonl", {n: s.base_url for n, s in servers.items()}) as scr, \
+            CpuSampler(d / "cpu.csv", groups):
+        ctx = mp.get_context("spawn")
+        t0 = time.time()
+        for n in targets:
+            procs[n] = ctx.Process(target=mp_client, args=(servers[n].base_url, cfgs[n], str(d / f"client-{n}.json")))
+            procs[n].start()
+        time.sleep(20)
+        apps = compute_apps(d / "compute-apps.txt")
+        for p in procs.values():
+            p.join(1800)
+        t1 = time.time()
+        time.sleep(1.5)
+    t_th1 = throttle_counters()
+    row: dict = {"kind": "condition", "targets": targets, "servers": {n: s.base_url for n, s in servers.items()},
+                 "client_tool": "benchmarks/harness client.run_load, one spawned process per loaded server, closed loop, "
+                                "/v1/completions streamed, temperature 0, ignore_eos",
+                 "compute_apps_mid_run": apps, "wall_s": round(t1 - t0, 1),
+                 "throttle_us_delta": {k: t_th1[k] - t_th0.get(k, 0) for k in t_th1}}
+    wins = {}
+    for n, users in targets.items():
+        f = d / f"client-{n}.json"
+        part = json.loads(f.read_text()) if f.exists() else {"records": [], "steady": {}}
+        ok = [r for r in part["records"] if r.get("ok")]
+        per = {"users": users, "requests": len(part["records"]), "requests_ok": len(ok),
+               "harness_steady_output_tok_s": (part.get("steady") or {}).get("steady_output_tok_s"),
+               "harness_steady_s": (part.get("steady") or {}).get("steady_s"),
+               "usage_completion_tokens": sorted({(r.get("usage") or {}).get("completion_tokens") for r in ok})[:5]}
+        per |= stats.dist("ttft_ms", [r["ttft_ms"] for r in ok]) | stats.dist("itl_ms", [x for r in ok for x in r["itl_ms"]])
+        per |= stats.dist("tpot_ms", [r["tpot_ms"] for r in ok if r.get("tpot_ms") is not None])
+        w = full_window(scr.rows, 0.9 * users, server=n)
+        wins[n] = w
+        if w:
+            per |= {"full_window_unix": [round(w[0], 3), round(w[1], 3)], "full_window_s": round(w[1] - w[0], 1)}
+            per |= metrics_window(scr.rows, *w, server=n)
+        row[f"inst_{n}"] = per
+        with open(d / f"requests-{n}.jsonl", "w") as fh:
+            for r in part["records"]:
+                fh.write(json.dumps(r) + "\n")
+    # joint window: every loaded server has its batch full (intersection of the per-server windows)
+    ws = [w for w in wins.values() if w]
+    if len(ws) == len(targets) and ws:
+        j0, j1 = max(w[0] for w in ws), min(w[1] for w in ws)
+        if j1 > j0:
+            row["joint_window_s"] = round(j1 - j0, 1)
+            for n in servers:
+                row[f"joint_{n}"] = metrics_window(scr.rows, j0, j1, server=n)
+            row["combined_output_tok_s_server_counters"] = round(sum(row[f"joint_{n}"].get("srv_generation_tokens_per_s", 0)
+                                                                     for n in targets), 2)
+            row |= csv_window(d / "gpu.csv", j0, j1, GPU_COLS, prefix="gpu_")
+            row |= csv_window(d / "cpu.csv", j0, j1, ["sys_pct", "client_pct"] + [f"srv_{n}_pct" for n in servers], prefix="cpu_")
+    row["combined_harness_steady_output_tok_s"] = round(sum(row[f"inst_{n}"].get("harness_steady_output_tok_s") or 0 for n in targets), 2)
+    return st.write(key, row, **prov)
+
+
+def mps_env() -> dict:
+    return {"CUDA_MPS_PIPE_DIRECTORY": "/tmp/goodput-mps/pipe", "CUDA_MPS_LOG_DIRECTORY": "/tmp/goodput-mps/log"}
+
+
+def mps_start(logs: Path) -> dict:
+    """Start the MPS control daemon for GPU 0. Every command's raw output is kept; failure is a result."""
+    env = mps_env()
+    for v in env.values():
+        Path(v).mkdir(parents=True, exist_ok=True)
+    full = dict(os.environ, **env, CUDA_VISIBLE_DEVICES="0")
+    out: dict = {"mps_env": env}
+    out["which"] = sh("command -v nvidia-cuda-mps-control nvidia-cuda-mps-server; ls -la $(dirname $(command -v nvidia-smi))/nvidia-cuda-mps* 2>&1",
+                      timeout=30, out=logs / "mps-which.txt")[1].strip()[-600:]
+    out["compute_mode"] = sh(["nvidia-smi", "-i", "0", "--query-gpu=compute_mode", "--format=csv,noheader"], timeout=30)[1].strip()
+    rc, text = sh(["nvidia-cuda-mps-control", "-d"], timeout=60, out=logs / "mps-control-start.txt", env=full)
+    out |= {"start_rc": rc, "start_output": text.strip()[-600:]}
+    time.sleep(2)
+    rc2, text2 = sh("echo get_server_list | nvidia-cuda-mps-control", timeout=30, out=logs / "mps-server-list-before.txt", env=full)
+    out |= {"server_list_rc": rc2, "server_list": text2.strip()[-300:]}
+    out["daemon_running"] = rc == 0 and sh("pgrep -fa nvidia-cuda-mps-control", timeout=10)[0] == 0
+    return out
+
+
+def mps_check(logs: Path, tag: str) -> dict:
+    full = dict(os.environ, **mps_env())
+    rc, servers = sh("echo get_server_list | nvidia-cuda-mps-control", timeout=30, out=logs / f"mps-server-list-{tag}.txt", env=full)
+    rc2, ps = sh("pgrep -fa nvidia-cuda-mps", timeout=10)
+    rc3, ctl = sh(f"tail -n 40 {mps_env()['CUDA_MPS_LOG_DIRECTORY']}/control.log", timeout=10, out=logs / f"mps-control-log-{tag}.txt")
+    return {"server_list": servers.strip()[-300:], "mps_processes": ps.strip()[-600:], "control_log_tail": ctl.strip()[-1200:],
+            "mps_server_running": "nvidia-cuda-mps-server" in ps}
+
+
+def mps_stop(logs: Path) -> dict:
+    full = dict(os.environ, **mps_env())
+    rc, text = sh("echo quit | nvidia-cuda-mps-control", timeout=60, out=logs / "mps-control-quit.txt", env=full)
+    time.sleep(3)
+    return {"quit_rc": rc, "quit_output": text.strip()[-300:], "left": sh("pgrep -fa nvidia-cuda-mps", timeout=10)[1].strip()[-300:]}
+
+
+def stage_twoinst(a) -> None:
+    """Part B: one AWQ instance at 0.90 (32 users) vs two at 0.45 on the same GPU (one busy / both busy), then both under
+    MPS; the over-allocation start-up error; and the cheap model's weight size for Part C. GPU 0 only, budget-guarded."""
+    st = Stage("twoinst")
+    sysinfo = system_info(st.logs)
+    st.write("system", {"kind": "system", **sysinfo, "env": st.env})
+    srvs: list[VllmServer] = []
+    in_mps = False
+    try:
+        inst = install_pinned(st, a.vllm_version, a.installer)
+        st.write("install", {"kind": "install", **inst, "session_h": round(session_elapsed_h(), 3)})
+        help_text = serve_help(st.logs, a.vllm_version)
+        rev = full_revision(a.model, a.revision)
+        missing = require_flags(help_text, ["--dtype", "--gpu-memory-utilization", "--no-enable-prefix-caching", "--revision",
+                                            "--port", "--served-model-name"])
+        label = "Kaggle T4, real; two vLLM processes on one GPU"
+        prov = {"label": label, "model": a.model, "model_revision": rev, "vllm_version": a.vllm_version,
+                "vllm_version_reported": inst.get("vllm_version_reported"), "torch": inst["torch_after_install"],
+                "flag_source": f"vllm serve --help=all (logs/vllm-serve-help-{a.vllm_version}.txt)", "vcpus": sysinfo.get("vcpus_os"),
+                "workload": {"prompt_tokens": a.input_len, "output_tokens": a.output_len, "ignore_eos": True, "temperature": 0,
+                             "requests_per_user": a.rpu}}
+        if missing or not rev:
+            st.write("abort", {"kind": "abort", "reason": f"flags missing {missing}" if missing else "revision not found"}, **prov)
+            return
+        base = ["--dtype", "half", "--no-enable-prefix-caching", "--revision", rev]
+        done = st.done()
+
+        def flags(util: float) -> list[str]:
+            return base + ["--gpu-memory-utilization", str(util)]
+
+        # 1. baseline: one instance at 0.90, 32 users
+        if "baseline" not in done and budget_left_h(a.budget_h) > 0.08:
+            s = VllmServer(a.model, flags(0.90), st.logs / "server-baseline.log", port=8000, gpu="0")
+            srvs = [s]
+            res = s.start()
+            startup_row(st, "startup-baseline", s, res, help_text, prov, util=0.90,
+                        compute_apps=compute_apps(st.logs / "compute-apps-baseline.txt"))
+            if res["started"]:
+                warm(s, a.model, a.input_len)
+                load_condition(st, "baseline", {"i1": a.users_single}, {"i1": s}, a.model, a.input_len, a.output_len, a.rpu,
+                               prov | {"condition": "one instance 0.90, 32 users", "serving_flags": flags(0.90)})
+            s.stop()
+            srvs = []
+        # 2. two instances at 0.45, started one after the other; over-allocation check in between
+        def start_pair(tag: str) -> list[VllmServer] | None:
+            s1 = VllmServer(a.model, flags(a.share_util), st.logs / f"server-{tag}-i1.log", port=8000, gpu="0")
+            r1 = s1.start()
+            startup_row(st, f"startup-{tag}-i1", s1, r1, help_text, prov, util=a.share_util,
+                        compute_apps=compute_apps(st.logs / f"compute-apps-{tag}-i1.txt"))
+            if not r1["started"]:
+                s1.stop()
+                return None
+            if tag == "ts" and "overalloc" not in done:
+                bad = VllmServer(a.model, flags(0.90), st.logs / "server-overalloc-i2.log", port=8001, gpu="0")
+                rb = bad.start(timeout_s=420)
+                startup_row(st, "overalloc", bad, rb, help_text, prov, util=0.90,
+                            note="instance 2 asks for 0.90 while instance 1 holds its 0.45 share",
+                            compute_apps=compute_apps(st.logs / "compute-apps-overalloc.txt"))
+                bad.stop()
+            s2 = VllmServer(a.model, flags(a.share_util), st.logs / f"server-{tag}-i2.log", port=8001, gpu="0")
+            r2 = s2.start()
+            startup_row(st, f"startup-{tag}-i2", s2, r2, help_text, prov, util=a.share_util,
+                        compute_apps=compute_apps(st.logs / f"compute-apps-{tag}-i2.txt"))
+            if not r2["started"]:
+                s1.stop()
+                s2.stop()
+                return None
+            return [s1, s2]
+
+        if budget_left_h(a.budget_h) > 0.10 and not {"ts-one-busy", "ts-both-busy"} <= done:
+            pair = start_pair("ts")
+            if pair:
+                srvs = pair
+                for s in pair:
+                    warm(s, a.model, a.input_len)
+                sv = {"i1": pair[0], "i2": pair[1]}
+                pf = prov | {"serving_flags": flags(a.share_util)}
+                if "ts-one-busy" not in done:
+                    load_condition(st, "ts-one-busy", {"i1": a.users_shared}, sv, a.model, a.input_len, a.output_len, a.rpu,
+                                   pf | {"condition": "time-sharing: 16 users on instance 1, instance 2 idle"})
+                if "ts-both-busy" not in done:
+                    load_condition(st, "ts-both-busy", {"i1": a.users_shared, "i2": a.users_shared}, sv, a.model, a.input_len,
+                                   a.output_len, a.rpu, pf | {"condition": "time-sharing: 16 users on each instance"})
+                for s in pair:
+                    s.stop()
+                srvs = []
+        # 3. MPS
+        if "mps-both-busy" not in done:
+            if budget_left_h(a.budget_h) < 0.07:
+                st.write("mps-both-busy", {"kind": "skipped", "reason": f"budget: session {session_elapsed_h():.3f} h"}, **prov)
+            else:
+                ms = mps_start(st.logs)
+                st.write("mps-start", {"kind": "mps", **ms}, **prov)
+                if ms["start_rc"] == 0 and ms["daemon_running"]:
+                    in_mps = True
+                    os.environ.update(mps_env())   # servers and their children connect through the daemon's pipe
+                    pair = start_pair("mps")
+                    st.write("mps-check", {"kind": "mps", **mps_check(st.logs, "after-start")}, **prov)
+                    if pair:
+                        srvs = pair
+                        for s in pair:
+                            warm(s, a.model, a.input_len)
+                        load_condition(st, "mps-both-busy", {"i1": a.users_shared, "i2": a.users_shared},
+                                       {"i1": pair[0], "i2": pair[1]}, a.model, a.input_len, a.output_len, a.rpu,
+                                       prov | {"serving_flags": flags(a.share_util), "condition": "MPS: 16 users on each instance"})
+                        st.write("mps-check-end", {"kind": "mps", **mps_check(st.logs, "end")}, **prov)
+                        for s in pair:
+                            s.stop()
+                        srvs = []
+                else:
+                    st.write("mps-both-busy", {"kind": "skipped", "reason": "MPS control daemon did not start", **ms}, **prov)
+        if in_mps:
+            st.write("mps-stop", {"kind": "mps", **mps_stop(st.logs)}, **prov)
+            for k in mps_env():
+                os.environ.pop(k, None)
+            in_mps = False
+        # 4. cheap model for Part C: weight size + KV from its own startup log (alone on the GPU)
+        if a.cheap_model and "startup-cheap" not in done and budget_left_h(a.budget_h) > 0.03:
+            crev = model_revision(a.cheap_model)
+            save_config_json(a.cheap_model, st.logs / "cheap-config.json")
+            cf = ["--dtype", "half", "--no-enable-prefix-caching", "--gpu-memory-utilization", str(a.cheap_util)] + (["--revision", crev] if crev else [])
+            s = VllmServer(a.cheap_model, cf, st.logs / "server-cheap.log", port=8002, gpu="0")
+            res = s.start()
+            startup_row(st, "startup-cheap", s, res, help_text, prov | {"model": a.cheap_model, "model_revision": crev},
+                        util=a.cheap_util, purpose="Part C cheap pool: measured weight size and KV pool")
+            s.stop()
+    finally:
+        for s in srvs:
+            s.stop()
+        if in_mps:
+            st.write("mps-stop", {"kind": "mps", **mps_stop(st.logs)})
+        st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 3)})
+
+
+STAGE_ARGS["twoinst"] = [
+    lambda p: p.add_argument("--vllm-version", default="0.31.0"),
+    lambda p: p.add_argument("--installer", choices=["pip", "uv"], default="uv"),
+    lambda p: p.add_argument("--model", default="Qwen/Qwen2.5-3B-Instruct-AWQ"),
+    lambda p: p.add_argument("--revision", default="3559b226"),
+    lambda p: p.add_argument("--share-util", type=float, default=0.45),
+    lambda p: p.add_argument("--input-len", type=int, default=128),
+    lambda p: p.add_argument("--output-len", type=int, default=256),
+    lambda p: p.add_argument("--users-single", type=int, default=32),
+    lambda p: p.add_argument("--users-shared", type=int, default=16),
+    lambda p: p.add_argument("--rpu", type=int, default=3, help="requests per user (closed loop)"),
+    lambda p: p.add_argument("--cheap-model", default="Qwen/Qwen2.5-0.5B-Instruct"),
+    lambda p: p.add_argument("--cheap-util", type=float, default=0.30),
+    lambda p: p.add_argument("--budget-h", type=float, default=0.30),
+]
+
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
           "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2,
-          "ridge": stage_ridge}
+          "ridge": stage_ridge, "twoinst": stage_twoinst}
 
 
 def main() -> None:
