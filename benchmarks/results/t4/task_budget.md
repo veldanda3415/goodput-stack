@@ -57,3 +57,15 @@ Pools: strong = Qwen2.5-3B-Instruct-AWQ, cheap = Qwen/Qwen2.5-0.5B-Instruct FP16
 - **Downgrade does not abort.** It only switches pools once less than 30 % of the budget remains.
 - **Token budget counts prompt + completion tokens** of all calls; the step prompts repeat the problem, so prompt tokens
   are a large share.
+
+## Pools and memory fractions (computed before Task 10 from measured weight sizes)
+
+| pool | model @ revision | weights (measured) | KV bytes/token (config.json) | `--gpu-memory-utilization` | KV pool CALCULATED |
+|---|---|---:|---:|---:|---:|
+| strong | `Qwen/Qwen2.5-3B-Instruct-AWQ` @ `3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd` | 1.95 GiB (run 20261031-085014_twoinst) | 36,864 | **0.50** | (14.56 × 0.50 − 1.95 − 0.85) GiB ÷ 36,864 B ≈ 130,500 tokens |
+| cheap | `Qwen/Qwen2.5-0.5B-Instruct` @ `7ae557604adf67be50417f59c2c2f167def9a775` | 0.93 GiB (same run) | 12,288 (2 × 24 layers × 2 KV heads × 64 × 2 B) | **0.35** | (14.56 × 0.35 − 0.93 − 0.81) GiB ÷ 12,288 B ≈ 293,300 tokens |
+
+14.56 GiB is the total vLLM reports on this T4 (Part B over-allocation error). 0.85 / 0.81 GiB are the non-KV, non-weight
+memory measured in Part B at 0.45 (3B AWQ) and 0.30 (0.5B). The strong instance starts first; the cheap one asks
+for 0.35 × 14.56 = 5.10 GiB of the ≈ 7.1 GiB left, so vLLM's start-up check passes. Both pools need only a few
+thousand KV tokens at 8 tasks in flight, so the split leaves headroom.

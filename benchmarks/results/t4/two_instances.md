@@ -48,7 +48,7 @@ exact revision (run 20261014-224513_quant, `logs/server-awq-int4.log`: `Model lo
 
 ## Results (run 20261031-085014_twoinst, Kaggle T4, real)
 
-One session, script session 1,018 s = **0.283 GPU-h** (uv install took 319 s this time). git `9d5d442`, Tesla T4 (GPU 0
+One session, script session 1,018 s = **0.283 GPU-h** (uv install took 319 s this time). git `7290550`, Tesla T4 (GPU 0
 only), driver 580.178.04, CUDA 13.0, vLLM 0.31.0 (torch 2.13.0+cu130), `Qwen/Qwen2.5-3B-Instruct-AWQ` @ `3559b226…`,
 flags `--dtype half --no-enable-prefix-caching --revision 3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd
 --gpu-memory-utilization {0.90 | 0.45}`, everything else default (resolved max_model_len 32,768). Client: harness,
