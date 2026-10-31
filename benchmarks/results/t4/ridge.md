@@ -185,3 +185,78 @@ full and busy. It is not a direct CPU measurement.
 ### Predictions (written before the F2 run, verbatim from the assignment)
 
 KV pool at 0.95 ≈ 192,000–206,000 tokens (Build 14); with input 3,840 / output 256 each sequence needs up to 4,096 tokens → KV full at ≈ 47–50 sequences (CALCULATED); at max-num-seqs 64, preemptions appear and output tok/s falls well below the short-context 941.5 at 64; at 32 no preemptions.
+
+### Decisions made
+
+- **Same Kaggle session as F1** (run 20261031-171557_followup). This saves one vLLM install. F2's 0.15 h budget is
+  measured from F2's own start. The install counts against F1.
+- **Point order 64, 32, 48.** 64 is the point the prediction is about (preemptions), so it ran first. A later point
+  needed ≥ 0.03 h of the F2 budget left.
+- **num-prompts = max-num-seqs** (one full batch, 64 prompts at 64), and `--num-warmups 2`. This was chosen for
+  budget: each 3,840-token prompt is long to prefill. Build 14's short-context points used 4 × max-num-seqs prompts.
+- Flags are as in Build 14 (`vllm bench throughput … --dtype half --gpu-memory-utilization 0.95
+  --no-enable-prefix-caching --random-range-ratio 0.0 --seed 0`), plus `--max-num-batched-tokens 8192`. That flag is
+  listed in `vllm bench throughput --help=all`, and the offline log confirms 8,192. Preemptions = the delta of the
+  engine counter `vllm:num_preemptions` over the timed window (in-process registry, 1 Hz). Sampling is temperature
+  1.0, hard-coded in the tool.
+
+### Run (20261031-171557_followup, Kaggle T4, real)
+
+- Git `0593862`, Tesla T4 (GPU 0), driver 580.178.04, CUDA 13.0, vLLM 0.31.0, torch 2.13.0+cu130.
+  `Qwen/Qwen2.5-3B-Instruct` @ `aa8e72537993ba99e69dfaafa59ed015b17504d1`. F2 used **0.134 GPU-h** (marks `f2-begin`
+  → `f2-end`).
+- Command:
+
+  ```
+  vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 \
+    --dtype half --gpu-memory-utilization 0.95 --no-enable-prefix-caching --max-num-seqs 64 --dataset-name random \
+    --random-input-len 3840 --random-output-len 256 --random-range-ratio 0.0 --num-prompts 64 --num-warmups 2 --seed 0 \
+    --max-num-batched-tokens 8192 --output-json ...
+  ```
+
+- Raw data: row `f2-in3840-mns64` in
+  [followup.jsonl](20261031-171557_followup/results/followup/followup.jsonl), the log
+  [logs/f2-in3840-mns64.log](20261031-171557_followup/results/followup/logs/f2-in3840-mns64.log), and the
+  `f2-in3840-mns64.{bench.json, engine-metrics.json, gpu.csv, cpu.csv}` files.
+
+| max-num-seqs | prompts | **output tok/s** | total tok/s | KV pool (log) | running max / mean | waiting mean | KV usage mean / **max** | **preemptions** | SM clock mean (p50) MHz | power mean W | util.gpu mean % | elapsed s |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **64** | 64 | **47.09** | 753.41 | 205,712 | **53** / 34.4 | 23.7 | 0.652 / **0.9999** | **3** | 1,281 (1,335) | 65.9 | 99.4 | 347.9 |
+| 32 | — | not run (F2 budget: 0.016 h left) | | | | | | | | | | |
+| 48 | — | not run (same) | | | | | | | | | | |
+
+What happened at 64 (engine log `loggers.py` lines, 10–17 s averages, and the 1 Hz registry):
+
+- **Prefill was slow and it starved decode.**
+  - The engine admitted ~4 new 3,840-token prompts every 17 s, at **~870–1,100 prompt tok/s**.
+  - The requests already running made only 1–6 output tok/s together during that phase.
+  - CALCULATED: one 8,192-token chunked-prefill step ≈ 8,192 ÷ ~900 tok/s ≈ 9 s. Every running sequence got one token
+    per such step.
+- **The KV pool filled at 53 sequences.** KV usage rose to 99.5 % with 53 running and 11 waiting at 21:35:13. Then
+  decode ran alone at ~220–230 output tok/s with 50–52 running.
+- **3 preemptions,** at +219 s, +235 s and +253 s of the timed window. At those points 52 / 51 / 50 were running,
+  12–14 waiting, KV 98 %.
+- The leftover prompts were prefilled after that (~930 prompt tok/s again), and the last 11–13 sequences decoded at
+  ~150–170 tok/s.
+- Over the whole run: 245,760 prompt + 16,384 output tokens in 348 s.
+- The SM clock averaged 1.28 GHz, higher than the short-context runs (~1.0 GHz), at the same 66 W.
+
+### Predicted vs measured (F2)
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| KV pool at 0.95 ≈ 192,000–206,000 tokens | **205,712** (log, max-num-seqs 64) | inside the range |
+| KV full at ≈ 47–50 sequences (CALCULATED: pool ÷ 4,096) | KV reached 99.5–99.99 % with **53** running (205,712 ÷ 4,096 = 50.2 CALCULATED) | close. Running sequences in decode hold less than 4,096 tokens (prompt + tokens so far), so 53 fitted |
+| at max-num-seqs 64, preemptions appear | **3** preemptions | as predicted |
+| output tok/s well below the short-context 941.5 at 64 | **47.09** (5 % of 941.5); total 753.4 vs 1,412.2 | as predicted. The prompt is 15× longer per output token (3,840 / 256), and prefill ran at only ~900 tok/s |
+| at 32: no preemptions | not run (F2 budget) | untested |
+
+### Does NOT show (F2)
+
+- Only the 64 point ran. Where preemption starts between 32 and 64 is **not measured**: the 32 and 48 points did not
+  run. So whether 48 already preempts is unknown.
+- One full batch of 64 prompts (num-prompts = max-num-seqs), not a steady state with a queue behind it. Output tok/s
+  includes the long prefill-only ramp.
+- Why prefill at 3,840 tokens runs at ~900 tok/s on this card is not separated (attention backend, chunk size, clock).
+  The only measured facts are the rates above.
+- One run, one session, temperature 1.0 (offline tool).
