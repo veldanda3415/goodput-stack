@@ -279,8 +279,8 @@ No preemptions at 32; first preemptions around 48–53; output far below the sho
 ### Run (20261031-202130_leftover, Kaggle T4, real)
 
 - Same session as L1 (git `34ce189`, GPU 0, driver 580.178.04, vLLM 0.31.0, torch 2.13.0+cu130). L2 used
-  **0.524 GPU-h** (marks `l2-begin` → `l2-end`), slightly over its 0.5 h budget because the 48 point took 966 s, not the
-  estimated ~970 s with start included.
+  **0.524 GPU-h** (marks `l2-begin` → `l2-end`), 0.024 h over its 0.5 h budget: the guard's estimate (prompts ×
+  3,840 ÷ 900 prompt tok/s + 150 s) admitted the 48 point, and prefill ran at ~760 tok/s, not 900.
 - Command per point (row `bench_cmd`): `vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision
   aa8e7253… --dtype half --gpu-memory-utilization 0.95 --no-enable-prefix-caching --max-num-seqs N --dataset-name random
   --random-input-len 3840 --random-output-len 256 --random-range-ratio 0.0 --num-prompts 4N --num-warmups 2 --seed 0
