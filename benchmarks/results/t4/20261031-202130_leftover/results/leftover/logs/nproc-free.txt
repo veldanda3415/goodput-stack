@@ -1,0 +1,9 @@
+$ bash -lc 'nproc; free -m; cat /proc/meminfo | head -3'
+# rc=0
+4
+               total        used        free      shared  buff/cache   available
+Mem:           32098        1131       26784           1        4639       30967
+Swap:              0           0           0
+MemTotal:       32869296 kB
+MemFree:        27427080 kB
+MemAvailable:   31710284 kB

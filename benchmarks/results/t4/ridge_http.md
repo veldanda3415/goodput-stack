@@ -142,3 +142,40 @@ Change < 10 %.
   `--dtype half --gpu-memory-utilization 0.9 --max-model-len 4096 --no-enable-prefix-caching --max-num-batched-tokens N`.
 - Stage `leftover --parts l1,...` in [t4_notebook.py](../../kaggle/t4_notebook.py) (`leftover_l1`). L1 budget 0.15 h,
   the install counted against the first part.
+
+### Run (20261031-202130_leftover, Kaggle T4, real)
+
+- Git `34ce189`, Tesla T4 GPU 0, driver 580.178.04, CUDA 13.0, vLLM 0.31.0 (torch 2.13.0+cu130, uv install 113.8 s),
+  `Qwen/Qwen2.5-3B-Instruct` @ `aa8e72537993ba99e69dfaafa59ed015b17504d1`. L1 used **0.123 GPU-h** (marks `l1-begin` →
+  `l1-end`); the whole session (L1 + L2) used 0.692 GPU-h.
+- Serve command: `vllm serve Qwen/Qwen2.5-3B-Instruct --dtype half --gpu-memory-utilization 0.9 --max-model-len 4096
+  --no-enable-prefix-caching --max-num-batched-tokens {2048 | 8192} --revision aa8e7253…` (rows `startup-l1-f1b`,
+  `startup-l1-f1c`). Client: one harness process, 64 users, 256 requests, prompt 256, `max_tokens` 128 ± 25 %
+  (usage 96–160), start jitter 1 s, ignore_eos, temperature 0.
+- Raw: rows `l1-f1b-u64-mbt2048` and `l1-f1c-u64-mbt8192` in
+  [leftover.jsonl](20261031-202130_leftover/results/leftover/leftover.jsonl), per-run directories with
+  `requests.jsonl`, `gpu.csv` (2 Hz nvidia-smi columns), `cpu.csv` and `metrics.jsonl`.
+
+| point | max-num-batched-tokens | harness steady output tok/s | server output tok/s (run window) | TTFT p50 / p95 ms | ITL p50 / p95 ms | util.gpu % | SM clock MHz | power W | sw_power_cap | client CPU % of a core | server CPU % of a core | KV pool / KV usage max |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| F1b | 2,048 | **642.0** | 637.4 | 450 / 3,289 | 62.9 / 198.4 | 100.0 | 1,041 | 67.5 | 100 % | 8.6 | 21.1 | 175,008 / 0.129 |
+| F1c | 8,192 | **602.4** | 602.4 | 478 / 4,585 | 65.3 / 208.0 | 100.0 | 980 | 66.3 | 100 % | 8.1 | 19.7 | 173,632 / 0.130 |
+
+(util, clock, power, CPU: means over the full-batch window, `running ≥ 57.6`.)
+
+- **Change from 2,048 to 8,192: −6.2 % output tok/s.** The SM clock was −5.8 % lower in the F1c run (980 vs 1,041
+  MHz). Per MHz (CALCULATED) the two are 0.617 vs 0.615 output tok/s per MHz: −0.4 %.
+- TTFT p95 rose from 3.3 s to 4.6 s with the bigger chunk. ITL p50 / p95 moved +4 % / +5 %, about the clock difference.
+- The client process used 8–9 % of one core in both runs; the server tree used 20–21 %.
+- Build 15's F1b replay (610.1 tok/s, another session) and this F1b (642.0) differ by +5 %, at a clock of 1,041 MHz here.
+
+### Predicted vs measured (L1)
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| change < 10 % | −6.2 % (602.4 vs 642.0 tok/s); −0.4 % per MHz of SM clock | **as predicted** |
+
+### Does NOT show (L1)
+
+- One run per setting, in a fixed order (2,048 first). The F1c run ran on a warmer card (81 vs 76 °C max) at a lower
+  clock. The order was not swapped, so an order effect cannot be separated from the setting.
