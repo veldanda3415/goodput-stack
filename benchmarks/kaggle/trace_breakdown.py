@@ -7,7 +7,7 @@ What the trace must contain (vLLM 0.31.0, `--profiler-config '{"profiler": "torc
   - CPU `user_annotation` "execute_<T>_context_<c>(sq..)_generation_<g>(sq..)" around every engine step's
     execute_model (vllm/v1/worker/gpu_worker.py annotate_profile; T = scheduled tokens, c / g = context / generation
     requests); "gpu_model_runner: forward / postprocess / sample / ..." scopes (vllm/v1/worker/gpu_model_runner.py)
-  - `cuda_runtime` launch events and `kernel` / `gpu_memcpy` / `gpu_memset` device events joined by args.correlation
+  - `cuda_runtime` / `cuda_driver` (Triton's cuLaunchKernel) launch events and `kernel` / `gpu_memcpy` / `gpu_memset` device events joined by args.correlation
     (a CUDA-graph replay is one cudaGraphLaunch whose correlation id all its kernels carry)
 
 Method:
@@ -15,7 +15,8 @@ Method:
     started last before the launch, and to the CPU scope (forward / postprocess / sample / ...) containing the launch.
   - Category per device event, first match wins: memcpy (gpu_memcpy / gpu_memset); dequant (awq / marlin dequantize);
     gemm (kernel name, GEMM_RE); attention (ATTN_RE); sampling (any non-GEMM kernel launched inside the `sample` or
-    `postprocess` scope: logits processing, sampler); elementwise / norm / activation / other (the rest, sub-split by name).
+    `postprocess` scope, or named like a sampler kernel, SAMPLE_RE; vLLM 0.31.0 wrote no runner scopes in the
+    traces of run 20261031-192649_bneck, so the name rule is the one that applies); elementwise / norm / activation / other (the rest, sub-split by name).
   - Window = from the first device event of the first complete step to the first device event of the last step (the
     last step is dropped: it may be cut by the profiler stop). Shares are of window time; busy = union of device
     intervals; idle = window - busy (gaps between kernels, inside and between steps). Category sums can exceed busy
@@ -44,6 +45,8 @@ ATTN_RE = re.compile(r"attention|attn|flash|paged|reshape_and_cache|unified_|red
 NORM_RE = re.compile(r"rms|norm|rsqrt", re.I)
 ACT_RE = re.compile(r"silu|act_and_mul|gelu|swiglu", re.I)
 ROPE_RE = re.compile(r"rotary|rope", re.I)
+SAMPLE_RE = re.compile(r"sampl|gumbel|argmax|topk|top_k|logprob|penalt|multinomial", re.I)
+PREP_RE = re.compile(r"prepare|gather_block|slot_mapping|combine_sampled|num_sampled", re.I)
 STEP_RE = re.compile(r"^execute_(?:(\d+)_)?context_(\d+)\((?:sq)?(\d+)[^)]*\)_generation_(\d+)\((?:sq)?(\d+)")
 SCOPES = ("forward", "postprocess", "sample", "preprocess", "bookkeep", "draft", "eplb", "ModelRunnerOutput")
 
@@ -91,6 +94,10 @@ def category(ev: dict, scope: str | None) -> tuple[str, str]:
         return "attention", "kv_write" if "reshape_and_cache" in name else "attention"
     if scope in ("sample", "postprocess"):
         return "sampling", scope
+    if SAMPLE_RE.search(name):
+        return "sampling", "by_name"
+    if PREP_RE.search(name):
+        return "elementwise", "input_prep"
     if NORM_RE.search(name):
         return "elementwise", "norm"
     if ACT_RE.search(name):
@@ -134,7 +141,7 @@ def analyze(trace: dict, model: dict = QWEN3B) -> dict:
     scope_starts = [s[0] for s in scopes]
     launch = {}
     for e in evs:
-        if e.get("cat") == "cuda_runtime" and "correlation" in (e.get("args") or {}):
+        if e.get("cat") in ("cuda_runtime", "cuda_driver") and "correlation" in (e.get("args") or {}):
             launch[e["args"]["correlation"]] = e["ts"]
     dev = [e for e in evs if e.get("cat") in ("kernel", "gpu_memcpy", "gpu_memset")]
     unjoined = 0
@@ -179,12 +186,17 @@ def analyze(trace: dict, model: dict = QWEN3B) -> dict:
     for r in inw:
         by_step[r["step"]].append(r)
     lin, lmh = linear_params(model), lm_head_params(model)
+    starts = [r["ts"] for r in inw]
+    max_dur = max((r["dur"] for r in inw), default=0)
     per_step = []
     for si in complete:
         info = parse_step(steps[si]["name"])
         rs = by_step.get(si, [])
         s0, s1 = first_dev[si], first_dev[si + 1]
-        iv = [(r["ts"], min(r["ts"] + r["dur"], s1)) for r in rs]
+        # busy = every device interval (whichever step launched it) clipped to this step's window
+        lo = bisect.bisect_left(starts, s0 - max_dur)
+        iv = [(max(r["ts"], s0), min(r["ts"] + r["dur"], s1)) for r in inw[lo:bisect.bisect_left(starts, s1)]
+              if r["ts"] + r["dur"] > s0]
         gemm_k = [r for r in sorted(rs, key=lambda r: r["launch_ts"]) if r["cat"] == "gemm"]
         gemm_t = sum(r["dur"] for r in gemm_k)
         flops = 2 * lin * info["tokens"] + 2 * lmh * (info["ctx_reqs"] + info["gen_reqs"])

@@ -1,0 +1,370 @@
+{
+ "window_us": 26601003.2,
+ "steps_in_window": 399,
+ "device_events": 181988,
+ "device_events_in_window": 181533,
+ "unjoined_device_events": 0,
+ "busy_us": 26457627.0,
+ "category_us": {
+  "elementwise": 610393.8,
+  "memcpy": 21522.2,
+  "sampling": 107058.5,
+  "gemm": 15558213.7,
+  "attention": 10161198.4
+ },
+ "subcategory_us": {
+  "gemm/linear": 15558213.7,
+  "attention/attention": 10101239.2,
+  "elementwise/activation": 287866.0,
+  "elementwise/norm": 225959.0,
+  "sampling/by_name": 107058.5,
+  "elementwise/other": 90948.3,
+  "attention/kv_write": 59959.2,
+  "memcpy/gpu_memset": 18470.7,
+  "elementwise/input_prep": 5620.6,
+  "memcpy/gpu_memcpy": 3051.5
+ },
+ "share_pct_of_window": {
+  "elementwise": 2.29,
+  "memcpy": 0.08,
+  "sampling": 0.4,
+  "gemm": 58.49,
+  "attention": 38.2,
+  "idle": 0.54
+ },
+ "overlap_us": 759.6,
+ "gap_us": {
+  "n": 180865,
+  "sum": 143375.1,
+  "p50": 0.42,
+  "p90": 1.73,
+  "p99": 2.91,
+  "max": 409.59
+ },
+ "top_kernels": [
+  {
+   "name": "turing_fp16_s1688gemm_fp16_128x64_sliced1x2_ldg8_f2f_tn",
+   "category": "gemm/linear",
+   "us": 11948734.9,
+   "count": 28911,
+   "pct_of_device_time": 45.16
+  },
+  {
+   "name": "kernel_unified_attention",
+   "category": "attention/attention",
+   "us": 9436739.5,
+   "count": 14364,
+   "pct_of_device_time": 35.67
+  },
+  {
+   "name": "turing_fp16_s1688gemm_fp16_256x128_ldg8_f2f_tn",
+   "category": "gemm/linear",
+   "us": 954927.6,
+   "count": 108,
+   "pct_of_device_time": 3.61
+  },
+  {
+   "name": "turing_fp16_s1688gemm_fp16_64x64_sliced1x4_ldg8_relu_f2f_tn",
+   "category": "gemm/linear",
+   "us": 948387.0,
+   "count": 14256,
+   "pct_of_device_time": 3.58
+  },
+  {
+   "name": "turing_fp16_s1688gemm_fp16_64x64_sliced1x4_ldg8_f2f_tn",
+   "category": "gemm/linear",
+   "us": 818852.5,
+   "count": 14256,
+   "pct_of_device_time": 3.09
+  },
+  {
+   "name": "reduce_segments",
+   "category": "attention/attention",
+   "us": 664499.8,
+   "count": 14256,
+   "pct_of_device_time": 2.51
+  },
+  {
+   "name": "turing_fp16_s1688gemm_fp16_128x256_ldg8_f2f_tn",
+   "category": "gemm/linear",
+   "us": 450342.1,
+   "count": 36,
+   "pct_of_device_time": 1.7
+  },
+  {
+   "name": "triton_poi_fused_mul_silu_slice_1",
+   "category": "elementwise/activation",
+   "us": 287866.0,
+   "count": 14364,
+   "pct_of_device_time": 1.09
+  },
+  {
+   "name": "turing_fp16_s1688gemm_fp16_128x128_ldg8_f2f_tn",
+   "category": "gemm/linear",
+   "us": 280777.7,
+   "count": 144,
+   "pct_of_device_time": 1.06
+  },
+  {
+   "name": "turing_fp16_s1688gemm_fp16_256x128_ldg8_relu_f2f_tn",
+   "category": "gemm/linear",
+   "us": 126269.4,
+   "count": 72,
+   "pct_of_device_time": 0.48
+  },
+  {
+   "name": "triton_red_fused_fused_add_rms_norm_2",
+   "category": "elementwise/norm",
+   "us": 125954.5,
+   "count": 14364,
+   "pct_of_device_time": 0.48
+  },
+  {
+   "name": "_gumbel_sample_kernel",
+   "category": "sampling/by_name",
+   "us": 98110.9,
+   "count": 399,
+   "pct_of_device_time": 0.37
+  },
+  {
+   "name": "triton_red_fused_fused_add_rms_norm_0",
+   "category": "elementwise/norm",
+   "us": 97108.6,
+   "count": 14364,
+   "pct_of_device_time": 0.37
+  },
+  {
+   "name": "triton_poi_fused_3",
+   "category": "elementwise/other",
+   "us": 74933.4,
+   "count": 13965,
+   "pct_of_device_time": 0.28
+  },
+  {
+   "name": "reshape_and_cache_kernel_flash",
+   "category": "attention/kv_write",
+   "us": 59959.2,
+   "count": 14364,
+   "pct_of_device_time": 0.23
+  },
+  {
+   "name": "turing_fp16_s1688gemm_fp16_256x64_sliced1x2_ldg8_f2f_tn",
+   "category": "gemm/linear",
+   "us": 26499.3,
+   "count": 36,
+   "pct_of_device_time": 0.1
+  },
+  {
+   "name": "Memset (Unknown)",
+   "category": "memcpy/gpu_memset",
+   "us": 9884.1,
+   "count": 7740,
+   "pct_of_device_time": 0.04
+  },
+  {
+   "name": "Memset (Device)",
+   "category": "memcpy/gpu_memset",
+   "us": 8586.5,
+   "count": 6552,
+   "pct_of_device_time": 0.03
+  },
+  {
+   "name": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, 4, 4> >(at::native::ReduceOp<float, at::nat",
+   "category": "sampling/by_name",
+   "us": 4189.3,
+   "count": 399,
+   "pct_of_device_time": 0.02
+  },
+  {
+   "name": "turing_fp16_s1688gemm_fp16_128x128_ldg8_relu_f2f_tn",
+   "category": "gemm/linear",
+   "us": 3423.3,
+   "count": 36,
+   "pct_of_device_time": 0.01
+  },
+  {
+   "name": "triton_red_fused__to_copy_embedding_rms_norm_0",
+   "category": "elementwise/norm",
+   "us": 2895.8,
+   "count": 399,
+   "pct_of_device_time": 0.01
+  },
+  {
+   "name": "_gather_block_tables_kernel",
+   "category": "elementwise/input_prep",
+   "us": 2550.6,
+   "count": 399,
+   "pct_of_device_time": 0.01
+  },
+  {
+   "name": "_get_num_sampled_and_rejected_kernel",
+   "category": "sampling/by_name",
+   "us": 2395.1,
+   "count": 399,
+   "pct_of_device_time": 0.01
+  },
+  {
+   "name": "_combine_sampled_and_draft_tokens_kernel",
+   "category": "sampling/by_name",
+   "us": 2363.2,
+   "count": 399,
+   "pct_of_device_time": 0.01
+  },
+  {
+   "name": "_post_update_kernel",
+   "category": "elementwise/other",
+   "us": 2250.0,
+   "count": 399,
+   "pct_of_device_time": 0.01
+  }
+ ],
+ "steps": {
+  "all": {
+   "steps": 399,
+   "tokens_per_step_mean": 84.2,
+   "tokens_mode": 64,
+   "gpu_period_ms_mean": 66.669,
+   "gpu_period_ms_p50": 60.901,
+   "busy_pct": 99.46,
+   "idle_pct": 0.54,
+   "gemm_pct": 58.49,
+   "attn_pct": 38.2,
+   "gemm_tflops_calculated": 13.003,
+   "gemm_kernels_per_step_mode": 145,
+   "cpu_execute_ms_p50": 2.248,
+   "cpu_period_ms_p50": 60.767,
+   "gen_tokens_per_s_calculated": 955.2
+  },
+  "decode_only": {
+   "steps": 396,
+   "tokens_per_step_mean": 64.0,
+   "tokens_mode": 64,
+   "gpu_period_ms_mean": 60.624,
+   "gpu_period_ms_p50": 60.844,
+   "busy_pct": 99.41,
+   "idle_pct": 0.59,
+   "gemm_pct": 57.09,
+   "attn_pct": 39.78,
+   "gemm_tflops_calculated": 11.411,
+   "gemm_kernels_per_step_mode": 145,
+   "cpu_execute_ms_p50": 2.247,
+   "cpu_period_ms_p50": 60.741,
+   "gen_tokens_per_s_calculated": 1055.6
+  },
+  "mixed": {
+   "steps": 3,
+   "tokens_per_step_mean": 2752.3,
+   "tokens_mode": 166,
+   "gpu_period_ms_mean": 864.617,
+   "gpu_period_ms_p50": 1038.631,
+   "busy_pct": 99.93,
+   "idle_pct": 0.07,
+   "gemm_pct": 71.39,
+   "attn_pct": 23.6,
+   "gemm_tflops_calculated": 24.787,
+   "gemm_kernels_per_step_mode": 145,
+   "cpu_execute_ms_p50": 50.681,
+   "cpu_period_ms_p50": 84.101,
+   "gen_tokens_per_s_calculated": 25.1
+  }
+ },
+ "per_shape": {
+  "rule": "decode-only steps with exactly 145 GEMM kernels, launch order [qkv, o, gate_up, down] x 36 + lm_head",
+  "steps_used_by_tokens": {
+   "64": 395,
+   "63": 1
+  },
+  "shapes": [
+   {
+    "m": 63,
+    "shape": "down",
+    "us_total": 9284.5,
+    "tflops_calculated": 11.014,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_128x64_sliced1x2_ldg8_f2f_tn": 36
+    }
+   },
+   {
+    "m": 63,
+    "shape": "gate_up",
+    "us_total": 17403.2,
+    "tflops_calculated": 11.752,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_128x64_sliced1x2_ldg8_f2f_tn": 36
+    }
+   },
+   {
+    "m": 63,
+    "shape": "lm_head",
+    "us_total": 3227.0,
+    "tflops_calculated": 12.15,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_128x64_sliced1x2_ldg8_f2f_tn": 1
+    }
+   },
+   {
+    "m": 63,
+    "shape": "o",
+    "us_total": 1972.2,
+    "tflops_calculated": 9.647,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_64x64_sliced1x4_ldg8_f2f_tn": 36
+    }
+   },
+   {
+    "m": 63,
+    "shape": "qkv",
+    "us_total": 2357.1,
+    "tflops_calculated": 10.089,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_64x64_sliced1x4_ldg8_relu_f2f_tn": 36
+    }
+   },
+   {
+    "m": 64,
+    "shape": "down",
+    "us_total": 3697374.2,
+    "tflops_calculated": 11.098,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_128x64_sliced1x2_ldg8_f2f_tn": 14220
+    }
+   },
+   {
+    "m": 64,
+    "shape": "gate_up",
+    "us_total": 6934945.0,
+    "tflops_calculated": 11.834,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_128x64_sliced1x2_ldg8_f2f_tn": 14220
+    }
+   },
+   {
+    "m": 64,
+    "shape": "lm_head",
+    "us_total": 1276992.1,
+    "tflops_calculated": 12.32,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_128x64_sliced1x2_ldg8_f2f_tn": 395
+    }
+   },
+   {
+    "m": 64,
+    "shape": "o",
+    "us_total": 816880.3,
+    "tflops_calculated": 9.346,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_64x64_sliced1x4_ldg8_f2f_tn": 14220
+    }
+   },
+   {
+    "m": 64,
+    "shape": "qkv",
+    "us_total": 946029.8,
+    "tflops_calculated": 10.087,
+    "kernel_names": {
+     "turing_fp16_s1688gemm_fp16_64x64_sliced1x4_ldg8_relu_f2f_tn": 14220
+    }
+   }
+  ]
+ }
+}

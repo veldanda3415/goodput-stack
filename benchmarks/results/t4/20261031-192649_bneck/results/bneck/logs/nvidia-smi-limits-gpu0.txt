@@ -1,0 +1,4 @@
+$ nvidia-smi -i 0 --query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit,clocks.max.sm,clocks.applications.graphics,persistence_mode,compute_mode,uuid,pci.bus_id --format=csv
+# rc=0
+power.limit [W], enforced.power.limit [W], power.default_limit [W], power.min_limit [W], power.max_limit [W], clocks.max.sm [MHz], clocks.applications.graphics [MHz], persistence_mode, compute_mode, uuid, pci.bus_id
+70.00 W, 70.00 W, 70.00 W, 60.00 W, 70.00 W, 1590 MHz, 585 MHz, Disabled, Default, GPU-7b51045e-14ea-8b26-91ba-69a9e955ed85, 00000000:00:04.0

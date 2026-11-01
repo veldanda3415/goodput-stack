@@ -73,6 +73,8 @@ def test_parse_step_formats():
     ("triton_poi_fused_mul_silu_slice_1", "forward", ("elementwise", "activation")),
     ("argmax_kernel", "sample", ("sampling", "sample")),
     ("vectorized_elementwise_kernel", "forward", ("elementwise", "other")),
+    ("_gumbel_sample_kernel", None, ("sampling", "by_name")),
+    ("_prepare_pos_seq_lens_kernel", None, ("elementwise", "input_prep")),
 ])
 def test_category(name, scope, want):
     assert tb.category({"cat": "kernel", "name": name}, scope) == want
