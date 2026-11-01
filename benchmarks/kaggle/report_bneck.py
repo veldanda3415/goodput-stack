@@ -170,6 +170,155 @@ def breakdown(run: Path, key: str) -> dict | None:
     return json.loads(p.read_text()) if p.exists() else None
 
 
+BLUE, ORANGE, AQUA, YELLOW = "#2a78d6", "#eb6834", "#1baf7a", "#eda100"   # dataviz default categorical slots 1-4
+INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
+
+
+def g5(p1: Path, p2: Path, b14: Path) -> dict:
+    """The waterfall and the recomputed ceilings. Every input is a measured row (source recorded) or model arithmetic."""
+    from benchmarks.kaggle import trace_breakdown as tb
+    r1, r2 = rows(p1), rows(p2)
+    b14r = {json.loads(l)["key"]: json.loads(l) for l in (b14 / "results/ridge/ridge.jsonl").read_text().splitlines() if l.strip()}
+    trace = next((p1 / "results/bneck/trace-mns384").glob("*.pt.trace.json.gz"))
+    an = tb.analyze(tb.load(trace))
+    dec = [s for s in an["per_step"] if s["ctx_reqs"] == 0]
+    allst = an["per_step"]
+    dec_period = sum(s["gpu_period_us"] for s in dec)
+    gemm = sum(s["gemm_us"] for s in dec)
+    attn = sum(s["attn_us"] for s in dec)
+    busy = sum(s["busy_us"] for s in dec)
+    flops = sum(s["linear_flops"] for s in dec)
+    r_gemm = flops / gemm / 1e6                                     # TFLOP/s inside the GEMM kernels, decode steps
+    prof_clk = r1["prof-mns384"]["smi_clocks_sm_mean"]
+    dec_rate = sum(s["gen_tokens"] for s in dec) / (dec_period / 1e6)
+    all_rate = sum(s["gen_tokens"] for s in allst) / (sum(s["gpu_period_us"] for s in allst) / 1e6)
+    f_dec = 2 * P_LIN + 2 * P_LM
+    ctx = statistics.fmean(s["kv_tokens"] / s["gen_reqs"] for s in dec)
+    eta = (r_gemm / prof_clk) / (PEAK_TFLOPS / PEAK_MHZ)            # GEMM efficiency per clock, clock-independent assumed
+    other = busy - gemm - attn
+    factors = {
+        "clock": None,
+        "gemm_efficiency": eta,
+        "attention": (gemm + other) / busy,
+        "other_kernels": gemm / (gemm + other),
+        "idle": busy / dec_period,
+        "prompt_share": all_rate / dec_rate,
+    }
+    targets = {"Build 14 offline-mns384 (20261031-082141_ridge)": (b14r["offline-mns384"]["output_tok_s"], b14r["offline-mns384"]["gpu_sm_clock_mhz_mean"]),
+               f"P1 ref-start ({p1.name})": (r1["ref-start"]["output_tok_s"], r1["ref-start"]["smi_clocks_sm_mean"]),
+               f"P1 ref-end ({p1.name})": (r1["ref-end"]["output_tok_s"], r1["ref-end"]["smi_clocks_sm_mean"]),
+               f"P1 ref-gpu1 ({p1.name})": (r1["ref-gpu1"]["output_tok_s"], r1["ref-gpu1"]["smi_clocks_sm_mean"]),
+               f"P2 ref-start ({p2.name})": (r2["ref-start"]["output_tok_s"], r2["ref-start"]["smi_clocks_sm_mean"]),
+               f"P2 ref-end ({p2.name})": (r2["ref-end"]["output_tok_s"], r2["ref-end"]["smi_clocks_sm_mean"])}
+    d0 = PEAK_TFLOPS * 1e12 / f_dec
+    out = {"inputs": {"datasheet_tflops": PEAK_TFLOPS, "datasheet_mhz": PEAK_MHZ, "flop_per_decode_token_linear_and_lm_head": f_dec,
+                      "flop_per_output_token_mixed_128_256": flop_per_output_token(128, 256),
+                      "datasheet_mixed_ceiling_tok_s": PEAK_TFLOPS * 1e12 / flop_per_output_token(128, 256),
+                      "trace": str(trace.resolve().relative_to(T4)), "profile_clock_mhz": prof_clk, "decode_steps": len(dec), "all_steps": len(allst),
+                      "gemm_tflops_in_vllm_decode": r_gemm, "decode_rate_in_trace": dec_rate, "all_steps_rate_in_trace": all_rate,
+                      "mean_context_decode": ctx, "gemm_us": gemm, "attention_us": attn, "other_us": other, "busy_us": busy,
+                      "period_us": dec_period},
+           "factors": factors, "datasheet_decode_ceiling": d0, "chains": {}}
+    for name, (meas, clk) in targets.items():
+        chain = [("datasheet decode ceiling (65 TFLOP/s ÷ 6.17 GFLOP per decode token)", d0)]
+        v = d0 * clk / PEAK_MHZ
+        chain.append((f"× SM clock {clk:.0f} / 1,590 MHz", v))
+        for k, lab in (("gemm_efficiency", "× GEMM efficiency per clock"), ("attention", "− attention kernel time"),
+                       ("other_kernels", "− norm / activation / sampling / memcpy time"), ("idle", "− GPU idle between kernels"),
+                       ("prompt_share", "− prompt (prefill) steps")):
+            v *= factors[k]
+            chain.append((lab, v))
+        out["chains"][name] = {"steps": chain, "predicted": v, "measured": meas, "clock_mhz": clk,
+                               "residual_pct": 100 * (meas / v - 1)}
+    return out
+
+
+def waterfall_chart(g: dict, key: str, path: Path) -> None:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    ch = g["chains"][key]
+    labels = [s[0] for s in ch["steps"]] + ["measured (vllm bench throughput)"]
+    vals = [s[1] for s in ch["steps"]] + [ch["measured"]]
+    fig, ax = plt.subplots(figsize=(9, 5.2))
+    fig.patch.set_facecolor("#fcfcfb")
+    ax.set_facecolor("#fcfcfb")
+    y = list(range(len(vals)))[::-1]
+    colors = [BLUE] * (len(vals) - 1) + [ORANGE]
+    ax.barh(y, vals, color=colors, height=0.62, edgecolor="#fcfcfb", linewidth=2)
+    for yi, v, lab in zip(y, vals, labels):
+        ax.text(v + 120, yi, f"{v:,.0f}", va="center", fontsize=9, color=INK)
+    ax.set_yticks(y, labels, fontsize=9, color=INK)
+    ax.set_xlabel("output tokens / s (CALCULATED except the last bar)", color=INK2)
+    fig.suptitle(f"From the datasheet ceiling to the measured {ch['measured']:,.0f} tok/s — Qwen2.5-3B FP16, one T4, max-num-seqs 384\n"
+                 f"{key}; residual (unexplained) {ch['residual_pct']:+.1f} % — Kaggle T4, real", fontsize=9.5, color=INK, x=0.02, ha="left")
+    ax.grid(axis="x", color=GRID, lw=0.8)
+    ax.set_axisbelow(True)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.tick_params(colors=INK2, length=0)
+    ax.set_xlim(0, max(vals) * 1.12)
+    fig.subplots_adjust(top=0.86)
+    from matplotlib.patches import Patch
+    ax.legend(handles=[Patch(color=BLUE, label="after each measured factor (CALCULATED)"), Patch(color=ORANGE, label="measured")],
+              fontsize=8, frameon=False, loc="lower right")
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    fig.savefig(path, dpi=130, facecolor=fig.get_facecolor())
+
+
+def curve_chart(b14: Path, p2: Path, g: dict, micro_tf: float, copy_gbs: float, path: Path) -> None:
+    """Measured offline curves and the decode roofline with datasheet and achievable (G1) peaks, against max-num-seqs."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    b14r = [json.loads(l) for l in (b14 / "results/ridge/ridge.jsonl").read_text().splitlines() if l.strip()]
+    mixed = sorted((r["max_num_seqs"], r["output_tok_s"]) for r in b14r if r.get("kind") == "offline" and r.get("output_tok_s"))
+    r2 = rows(p2)
+    dec = sorted((r["max_num_seqs"], r["output_tok_s"]) for k, r in r2.items() if k.startswith("dec-mns") and "-out" not in k and r.get("output_tok_s"))
+    d256 = r2.get("dec-mns384-out256")
+    f_dec = 2 * P_LIN + 2 * P_LM
+    ctx = g["inputs"]["mean_context_decode"]
+    xs = list(range(8, 529, 8))
+
+    def roof(tf, gbs):   # decode step: B x f_dec FLOP, weights + B x ctx KV bytes
+        return [min(tf * 1e12 / f_dec, b * gbs * 1e9 / (WEIGHT_BYTES + b * ctx * KV_BYTES_PER_TOKEN)) for b in xs]
+    fig, ax = plt.subplots(figsize=(8.5, 5.2))
+    fig.patch.set_facecolor("#fcfcfb")
+    ax.set_facecolor("#fcfcfb")
+    ax.plot(xs, roof(PEAK_TFLOPS, PEAK_GBS), color=INK2, lw=1.5, ls="--")
+    ax.text(530, roof(PEAK_TFLOPS, PEAK_GBS)[-1], " datasheet roofline, decode\n (65 TFLOP/s, 300 GB/s)", fontsize=8, color=INK2, va="center")
+    ax.plot(xs, roof(micro_tf, copy_gbs), color=INK2, lw=1.5, ls=":")
+    ax.text(530, roof(micro_tf, copy_gbs)[-1], f" achievable roofline, decode\n (G1: {micro_tf:.1f} TFLOP/s, {copy_gbs:.0f} GB/s)", fontsize=8, color=INK2, va="center")
+    dm = g["inputs"]["datasheet_mixed_ceiling_tok_s"]
+    am = micro_tf * 1e12 / g["inputs"]["flop_per_output_token_mixed_128_256"]
+    ax.axhline(dm, color=ORANGE, lw=1, ls="--")
+    ax.text(10, dm, f" datasheet ceiling, 128 in / 256 out: {dm:,.0f} (CALCULATED)", fontsize=8, color=INK2, va="bottom")
+    ax.axhline(am, color=ORANGE, lw=1, ls=":")
+    ax.text(10, am, f" achievable ceiling, 128 in / 256 out: {am:,.0f} (CALCULATED)", fontsize=8, color=INK2, va="bottom")
+    ax.plot([x for x, _ in dec], [y for _, y in dec], "o-", color=BLUE, lw=2, ms=8, label="measured decode-only, 16 in / 512 out (G3.1)")
+    ax.plot([x for x, _ in mixed], [y for _, y in mixed], "s-", color=ORANGE, lw=2, ms=8, label="measured 128 in / 256 out (Build 14)")
+    if d256:
+        ax.plot([384], [d256["output_tok_s"]], "D", color=AQUA, ms=9, label="measured decode-only, 16 in / 256 out (G3.1)")
+    for pts, dy in ((dec, 9), (mixed, -15)):
+        for x, y in pts:
+            ax.annotate(f"{y:,.0f}", (x, y), textcoords="offset points", xytext=(0, dy), ha="center", fontsize=7.5, color=INK)
+    if d256:
+        ax.annotate(f"{d256['output_tok_s']:,.0f}", (384, d256["output_tok_s"]), textcoords="offset points", xytext=(10, 0),
+                    va="center", fontsize=7.5, color=INK)
+    ax.set_xlabel("max requests per step (--max-num-seqs)", color=INK2)
+    ax.set_ylabel("output tokens / s", color=INK2)
+    ax.set_title("Qwen2.5-3B FP16 on one T4: measured offline throughput vs ceilings — Kaggle T4, real", fontsize=10, color=INK, loc="left")
+    ax.set_yscale("log")
+    ax.set_ylim(300, 20000)
+    ax.set_xlim(0, 700)
+    ax.grid(color=GRID, lw=0.8)
+    ax.set_axisbelow(True)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.tick_params(colors=INK2)
+    ax.legend(fontsize=8, frameon=False, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(path, dpi=130, facecolor=fig.get_facecolor())
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("runs", type=Path, nargs="+")
@@ -200,7 +349,21 @@ def main() -> None:
                 print(json.dumps(b.get("subcategory_us"), indent=1)[:2000])
                 for k in b.get("top_kernels", [])[:15]:
                     print(f"  {k['pct_of_device_time']:5.1f} %  {k['count']:6d}  {k['category']:28s} {k['name'][:110]}")
-    print("\n(G5 is assembled in bottlenecks.md from these tables; see g5() once the data is in.)")
+    if len(a.runs) >= 2:
+        g = g5(a.runs[0], a.runs[1], a.build14)
+        (a.runs[0] / "results/bneck/g5.json").write_text(json.dumps(g, indent=1) + "\n")
+        print("\n### G5\n", json.dumps(g["inputs"], indent=1), json.dumps(g["factors"], indent=1))
+        for name, ch in g["chains"].items():
+            print(f"\n{name}: predicted {ch['predicted']:,.1f}, measured {ch['measured']:,.1f}, residual {ch['residual_pct']:+.2f} %")
+            for lab, v in ch["steps"]:
+                print(f"   {v:9,.1f}  {lab}")
+        CHARTS.mkdir(parents=True, exist_ok=True)
+        waterfall_chart(g, next(iter(g["chains"])), CHARTS / "bottlenecks_waterfall.png")
+        m0 = [m for m in micro.get(f"{a.runs[0].name}/gpu0", []) if m["kind"] in ("gemm_sustained", "bandwidth")]
+        tf = next(m["tflops_median_after_10s"] for m in m0 if m["kind"] == "gemm_sustained")
+        bw = next(m["gb_s_median"] for m in m0 if m.get("op") == "copy")
+        curve_chart(a.build14, a.runs[1], g, tf, bw, CHARTS / "bottlenecks_curve.png")
+        print("charts ->", CHARTS / "bottlenecks_waterfall.png", CHARTS / "bottlenecks_curve.png")
 
 
 if __name__ == "__main__":
