@@ -1,0 +1,11 @@
+$ /usr/bin/python3 -m pip uninstall -y torchaudio torchcodec torchvision
+# rc=0
+Found existing installation: torchaudio 2.11.0+cu128
+Uninstalling torchaudio-2.11.0+cu128:
+  Successfully uninstalled torchaudio-2.11.0+cu128
+Found existing installation: torchcodec 0.11.0+cu128
+Uninstalling torchcodec-0.11.0+cu128:
+  Successfully uninstalled torchcodec-0.11.0+cu128
+Found existing installation: torchvision 0.26.0+cu128
+Uninstalling torchvision-0.26.0+cu128:
+  Successfully uninstalled torchvision-0.26.0+cu128

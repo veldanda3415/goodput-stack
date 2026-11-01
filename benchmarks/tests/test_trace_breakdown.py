@@ -57,9 +57,9 @@ def build(n_steps=4, period=1000.0, tokens=8, ctx_step=None):
 
 def test_parse_step_formats():
     assert tb.parse_step("execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_384(sq384sk98304sqsq384sqsk98304)") == \
-        {"tokens": 384, "ctx_reqs": 0, "ctx_tokens": 0, "gen_reqs": 384, "gen_tokens": 384}
+        {"tokens": 384, "ctx_reqs": 0, "ctx_tokens": 0, "gen_reqs": 384, "gen_tokens": 384, "kv_tokens": 98304}
     assert tb.parse_step("execute_context_2(256)_generation_62(62)") == \
-        {"tokens": 318, "ctx_reqs": 2, "ctx_tokens": 256, "gen_reqs": 62, "gen_tokens": 62}
+        {"tokens": 318, "ctx_reqs": 2, "ctx_tokens": 256, "gen_reqs": 62, "gen_tokens": 62, "kv_tokens": None}
     assert tb.parse_step("gpu_model_runner: forward") is None
 
 

@@ -231,6 +231,9 @@
    "attn_pct": 51.97,
    "gemm_tflops_calculated": 28.423,
    "gemm_kernels_per_step_mode": 145,
+   "kv_tokens_per_step_mean": 94021.5,
+   "attn_kernel_ms_mean": 134.89,
+   "attn_kv_read_gb_s_calculated": 25.7,
    "cpu_execute_ms_p50": 2.905,
    "cpu_period_ms_p50": 203.597,
    "gen_tokens_per_s_calculated": 1463.1
@@ -247,6 +250,9 @@
    "attn_pct": 58.47,
    "gemm_tflops_calculated": 30.133,
    "gemm_kernels_per_step_mode": 145,
+   "kv_tokens_per_step_mean": 94321.7,
+   "attn_kernel_ms_mean": 121.212,
+   "attn_kv_read_gb_s_calculated": 28.7,
    "cpu_execute_ms_p50": 2.874,
    "cpu_period_ms_p50": 202.591,
    "gen_tokens_per_s_calculated": 1846.0
@@ -263,6 +269,9 @@
    "attn_pct": 29.72,
    "gemm_tflops_calculated": 25.05,
    "gemm_kernels_per_step_mode": 145,
+   "kv_tokens_per_step_mean": 84350.8,
+   "attn_kernel_ms_mean": 575.632,
+   "attn_kv_read_gb_s_calculated": 5.4,
    "cpu_execute_ms_p50": 50.679,
    "cpu_period_ms_p50": 2736.241,
    "gen_tokens_per_s_calculated": 152.4

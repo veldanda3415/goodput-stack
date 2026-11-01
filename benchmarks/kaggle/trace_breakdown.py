@@ -48,6 +48,7 @@ ROPE_RE = re.compile(r"rotary|rope", re.I)
 SAMPLE_RE = re.compile(r"sampl|gumbel|argmax|topk|top_k|logprob|penalt|multinomial", re.I)
 PREP_RE = re.compile(r"prepare|gather_block|slot_mapping|combine_sampled|num_sampled", re.I)
 STEP_RE = re.compile(r"^execute_(?:(\d+)_)?context_(\d+)\((?:sq)?(\d+)[^)]*\)_generation_(\d+)\((?:sq)?(\d+)")
+KV_BYTES_PER_TOKEN = 36 * 2 * 2 * 128 * 2   # Qwen2.5-3B fp16 KV: layers x (K, V) x KV heads x head_dim x 2 B
 SCOPES = ("forward", "postprocess", "sample", "preprocess", "bookkeep", "draft", "eplb", "ModelRunnerOutput")
 
 # Qwen2.5-3B-Instruct (config.json @ aa8e7253): per layer qkv 2048x2560, o 2048x2048, gate_up 2048x22016, down 11008x2048
@@ -71,7 +72,9 @@ def parse_step(name: str) -> dict | None:
         return None
     total, c, ct, g, gt = m.groups()
     ct, gt = int(ct), int(gt)
-    return {"tokens": int(total) if total else ct + gt, "ctx_reqs": int(c), "ctx_tokens": ct, "gen_reqs": int(g), "gen_tokens": gt}
+    sk = [int(x) for x in re.findall(r"sk(\d+)sqsq", name)]   # detailed format: KV length summed over requests (ctx, gen)
+    return {"tokens": int(total) if total else ct + gt, "ctx_reqs": int(c), "ctx_tokens": ct, "gen_reqs": int(g), "gen_tokens": gt,
+            "kv_tokens": sum(sk) if len(sk) == 2 else None}
 
 
 def load(path: str | Path) -> dict:
@@ -201,7 +204,11 @@ def analyze(trace: dict, model: dict = QWEN3B) -> dict:
         gemm_t = sum(r["dur"] for r in gemm_k)
         flops = 2 * lin * info["tokens"] + 2 * lmh * (info["ctx_reqs"] + info["gen_reqs"])
         nxt = steps[si + 1]["ts"] if si + 1 < len(steps) else None
+        attn_t = sum(r["dur"] for r in rs if r["cat"] == "attention" and r["sub"] == "attention")
         per_step.append({"step": si, **info, "gpu_period_us": s1 - s0, "busy_us": union_length(iv),
+                         "attn_kernel_us": attn_t,
+                         "attn_kv_gb_s_calculated": (info["kv_tokens"] * KV_BYTES_PER_TOKEN / attn_t / 1e3)
+                         if info.get("kv_tokens") and attn_t else None,
                          "gemm_us": gemm_t, "gemm_kernels": len(gemm_k),
                          "attn_us": sum(r["dur"] for r in rs if r["cat"] == "attention"),
                          "linear_flops": flops, "gemm_tflops": flops / gemm_t / 1e6 if gemm_t else None,
@@ -263,6 +270,11 @@ def _step_summary(per_step: list[dict]) -> dict:
                      "gemm_pct": round(100 * gemm / period, 2), "attn_pct": round(100 * sum(p["attn_us"] for p in ps) / period, 2),
                      "gemm_tflops_calculated": round(flops / gemm / 1e6, 3) if gemm else None,
                      "gemm_kernels_per_step_mode": Counter(p["gemm_kernels"] for p in ps).most_common(1)[0][0],
+                     "kv_tokens_per_step_mean": round(statistics.fmean(p["kv_tokens"] for p in ps), 1) if all(p.get("kv_tokens") for p in ps) else None,
+                     "attn_kernel_ms_mean": round(statistics.fmean(p["attn_kernel_us"] for p in ps) / 1e3, 3),
+                     "attn_kv_read_gb_s_calculated": round(sum(p["kv_tokens"] for p in ps) * KV_BYTES_PER_TOKEN
+                                                          / sum(p["attn_kernel_us"] for p in ps) / 1e3, 1)
+                     if all(p.get("kv_tokens") for p in ps) and sum(p["attn_kernel_us"] for p in ps) else None,
                      "cpu_execute_ms_p50": round(statistics.median(cpu_ex) / 1e3, 3) if cpu_ex else None,
                      "cpu_period_ms_p50": round(statistics.median(cpu_per) / 1e3, 3) if cpu_per else None,
                      "gen_tokens_per_s_calculated": round(sum(p["gen_tokens"] for p in ps) / (period / 1e6), 1)}
