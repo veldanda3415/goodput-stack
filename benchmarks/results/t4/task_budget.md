@@ -412,3 +412,58 @@ Two policies in [driver.py](../../task_budget/driver.py), unit-tested in
   Both pools' /metrics are saved before and after the run. The same expression is added as query C of
   [grafana-panel-tokens-per-completed-task.json](../../task_budget/observability/grafana-panel-tokens-per-completed-task.json).
 - Stage `leftover --parts l3,l4` (`leftover_l4`).
+
+### Run (20261031-210126_leftover, Kaggle T4, real; policy in client; gateway not exercised)
+
+- Same session as L3 (git `7991fde-dirty`), GPU 0. Strong `Qwen/Qwen2.5-3B-Instruct-AWQ` @0.50 (KV pool 130,384),
+  cheap `Qwen/Qwen2.5-0.5B-Instruct` @0.35 (KV pool 293,040), both `--dtype half --no-enable-prefix-caching`. All
+  **600 task runs complete** (4 policies × 150) in 480.5 s; L4 used **0.195 GPU-h** (marks `l4-begin` → `l4-end`).
+- Raw: [tasks.jsonl](20261031-210126_leftover/results/leftover/tasks.jsonl) (phase `l4`), row `l4`,
+  [analysis-l4.json](20261031-210126_leftover/results/leftover/analysis-l4.json) (`python -m benchmarks.task_budget.analyze
+  benchmarks/results/t4/20261031-210126_leftover --stage-dir leftover --phase l4`), `logs/l4-metrics-{before,end}-*.txt`.
+  The pool-rate and $ columns of the analysis are empty: the stage wrote `l4-metrics.jsonl`, the analyser reads
+  `metrics.jsonl`.
+
+| policy | success | aborted | tokens per success | tokens per attempted task | wasted on aborted tasks | tokens in failed attempts | share of steps escalated | steps cut at their share | strong-pool tokens | cheap-pool tokens | wall p95 s |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| baseline | **95** / 150 | 0 | 1,540.5 | 975.6 | 0 | 18,221 | 0 % | — | 146,344 | 0 | 8.36 |
+| escalate_fresh | **10** | 97 | 13,725.1 | 915.0 | 96,910 | 60,961 | 30.1 % | — | 30,435 | 106,816 | 5.57 |
+| escalate_fresh_strong_final | **22** | 108 | 6,303.0 | 924.4 | 106,990 | 63,759 | 29.6 % | — | 71,928 | 66,738 | 6.70 |
+| per_step_budget (234 / 241 / 476) | **10** | 103 | 13,650.2 | 910.0 | 101,396 | 70,166 | 42.1 % | 105 | 40,268 | 96,234 | 4.97 |
+
+(tokens = prompt + completion, all calls; "escalated" = a cheap attempt followed by a strong one in the same step.)
+
+**Where the tasks die** (failed step, from `tasks.jsonl`):
+
+| policy | step 1 fail | step 2 abort | step 3 abort | step 3 fail (wrong answer / format) | median tokens spent before the dying step |
+|---|---:|---:|---:|---:|---:|
+| baseline | 1 | — | — | 47 (+7 at step 2) | — |
+| escalate_fresh | 3 | 6 | **91** | 40 | 700 |
+| escalate_fresh_strong_final | 3 | 8 | **100** | 17 | 690 |
+| per_step_budget | 2 | **35** | **68** | 35 | 609 |
+
+- **Step 1 eats the budget.** The cheap pool passes step 1 (JSON quantities) on the first try in only 34 / 150 tasks
+  (30 / 150 under per_step_budget). Every other task pays for a failed cheap attempt and a strong retry: step 1's median
+  cost is ~440 tokens under all three escalating policies vs 217 for baseline. With ~690–700 of 951 tokens gone, step 3
+  (median 441 tokens on the strong pool) cannot fit, and the task is cut there.
+- **Moving step 3 to the strong pool** (policy 3) cut wrong final answers from 40 to 17 and doubled successes (10 → 22).
+  It did not change the budget arithmetic: 100 tasks were cut at step 3.
+- **The per-step split** does not stop the overspend: a step that hits its share escalates, and the escalated attempt
+  is limited only by what is left of 951. Step 1 then costs ~441 tokens again, and more tasks die earlier (35 at step 2).
+- **Cancellation count, checked:** `http_requests_total{handler="/v1/chat/completions"}` − Σ `vllm:request_success_total`
+  over the run (`l4-metrics-before/end`) = 1,058 − 907 = **151** on the strong pool and 1,146 − 884 = **262** on the cheap
+  pool; the driver recorded **151** and **262** cancelled calls. Exact on both pools.
+- Baseline success 95 / 150 is the same as Build 15's F4 (95 / 150).
+
+### Predicted vs measured (L4)
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| policy 3 success within ~10 points of baseline, with fewer strong-pool tokens | 22 / 150 (14.7 %) vs 95 / 150 (63.3 %): **−48.6 points**; strong-pool tokens 71,928 vs 146,344 (−51 %) | **wrong** on success; fewer strong tokens as predicted |
+| policy 4 fewer aborts than escalate_fresh | 103 vs 97 aborts | **wrong**: 6 more aborts |
+
+### Does NOT show (L4)
+
+- One run per policy, one session, 150 tasks, two small models on one T4, budget fixed at 951.
+- No variant with a budget larger than ~2 × baseline's step-1 cost, or with the cheap pool skipped for step 1. The data
+  say step 1 is where the cheap pool fails (77 % of tasks); that design was not run.

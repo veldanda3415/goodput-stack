@@ -232,3 +232,45 @@ MPS > time-sharing by a measurable margin at the same clock; both < single insta
 - **MPS-client check fixed.** `smi_process_lines` now accepts `6342MiB` (no space). It is unit-tested on the F3 raw file
   (`benchmarks/tests/test_notebook_helpers.py`). The `l3-mps-clients` row counts the EngineCores listed as `M+C`.
 - Stage `leftover --parts l3,l4` (`leftover_l3`).
+
+### Run (20261031-210126_leftover, Kaggle T4, real)
+
+- Git `7991fde` (`-dirty`: uncommitted write-up files only), Tesla T4 GPU 0, driver 580.178.04, CUDA 13.0, vLLM 0.31.0
+  (torch 2.13.0+cu130), `Qwen/Qwen2.5-3B-Instruct-AWQ` @ 3559b226 (full sha in the rows). L3 used **0.190 GPU-h**
+  (marks `l3-begin` → `l3-end`). Serve flags: `--dtype half --no-enable-prefix-caching --revision … --gpu-memory-utilization
+  {0.90 | 0.45}`. MPS: `CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe CUDA_MPS_LOG_DIRECTORY=/tmp/goodput-mps/log
+  CUDA_VISIBLE_DEVICES=0 nvidia-cuda-mps-control -d` (rc 0, daemon running).
+- **MPS clients verified:** row `l3-mps-clients` lists both EngineCores as MPS clients (`engine_cores_as_mps_clients: 2`):
+  `917  M+C  VLLM::EngineCore  6798MiB` and `1070  M+C  VLLM::EngineCore  6798MiB`.
+- Raw: rows `l3-single`, `l3-ts-both-busy`, `l3-mps-both-busy` and the `startup-l3-*` rows in
+  [leftover.jsonl](20261031-210126_leftover/results/leftover/leftover.jsonl); per-condition directories with requests,
+  `gpu.csv` (nvidia-smi columns), `cpu.csv`, `metrics.jsonl`; `logs/l3-nvidia-smi-mps-both-up.txt`.
+
+| condition (order run) | combined output tok/s (server counters, joint window) | per instance | ITL p50 / p95 ms | TTFT p50 ms | SM clock MHz | power W | throttle reasons | util.gpu % | KV pool per instance |
+|---|---:|---|---:|---:|---:|---:|---|---:|---:|
+| 1. one instance @0.90, 32 users | **1,084.2** | 1,084.2 | 26.2 / 29.7 | 407 | 1,271 | 68.0 | sw_power_cap 100 % | 100 | 287,072 |
+| 2. two @0.45, time-sharing, 16 + 16 | **720.4** | 360.9 / 359.5 | 40.2 / 45.0 (both) | 638 / 638 | 1,242 | 67.3 | sw_power_cap 100 % | 100 | 109,168 |
+| 3. same two under MPS, 16 + 16 | **798.0** | 399.2 / 398.8 | 36.3 / 40.4 (both) | 545 / 469 | **1,061** | 66.1 | sw_power_cap 100 % | 100 | 109,120 |
+
+Harness steady output tok/s (sum): 1,079.4 / 711.8 / 788.7. Joint full-batch windows: 21.2 / 33.6 / 28.5 s. Every request
+succeeded (96 / 96 + 96 / 96 + 96).
+
+- **MPS beats time-sharing by +10.8 %** (798.0 vs 720.4 tok/s), with ITL p50 −9.5 % (36.3 vs 40.2 ms), in the same session,
+  4 minutes apart.
+- **The clocks were not equal:** the MPS condition ran at 1,061 MHz, time-sharing at 1,242 (−14.6 %), both with
+  sw_power_cap active in every sample at 66–67 W. Per MHz (CALCULATED) MPS made 0.752 tok/s per MHz vs 0.580: +30 %. With
+  MPS both processes' kernels run at the same time, the card draws its cap at a lower clock and still finishes more work.
+- **Both shared setups lose to one instance:** −33.6 % (time-sharing) and −26.4 % (MPS) vs 1,084.2.
+
+### Predicted vs measured (L3)
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| MPS > time-sharing by a measurable margin at the same clock | +10.8 % combined tok/s, ITL p50 −9.5 %; but **not at the same clock**: 1,061 vs 1,242 MHz (+30 % per MHz) | **direction as predicted**; the "same clock" condition did not hold — MPS ran at a lower clock and still won |
+| both < single instance | 720.4 and 798.0 vs 1,084.2 | **as predicted** |
+
+### Does NOT show (L3)
+
+- One run per condition, fixed order (single → time-sharing → MPS); the card warmed from 68 to 80 °C over the three.
+  Whether the lower MPS clock is caused by MPS or by order / temperature is not separated.
+- MPS memory and fault isolation, `CUDA_MPS_ACTIVE_THREAD_PERCENTAGE` and uneven loads were not tested.
