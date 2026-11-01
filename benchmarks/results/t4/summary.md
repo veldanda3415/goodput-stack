@@ -363,5 +363,6 @@ Engine: vLLM None, chunked prefill None, max_num_batched_tokens 2048, max_num_se
 | 20261031-192649_bneck | bneck | complete | 3,086.5 | 0.857 | 0.883 |
 | 20261031-192658_bneck | bneck | complete | 5,349.5 | 1.486 | 1.512 |
 | 20261031-202130_leftover | leftover | complete | 2,490.3 | 0.692 | 0.710 |
-| **total** | | | | **11.253** | **11.944** |
+| 20261031-210126_leftover | leftover | complete | 1,593.7 | 0.443 | 0.460 |
+| **total** | | | | **11.696** | **12.404** |
 

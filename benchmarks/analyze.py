@@ -961,6 +961,36 @@ def ridge_part_rows() -> list[tuple[str, str, str, dict]]:
                          (r.get(r['pool']) or {}).get("model", ""), r))
     rows += followup_rows()
     rows += bneck_rows()
+    rows += leftover_rows()
+    return rows
+
+
+def leftover_rows() -> list[tuple[str, str, str, dict]]:
+    """Headline rows of Part L (stage leftover): F1c replay, long-context steady state, single / time-sharing / MPS, L4 policies."""
+    rows: list[tuple[str, str, str, dict]] = []
+    for rs in run_rows("leftover"):
+        for key, name in (("l1-f1b-u64-mbt2048", "old 64-user sweep point, max-num-batched-tokens 2048 (L1, same session as 8192)"),
+                          ("l1-f1c-u64-mbt8192", "old 64-user sweep point, max-num-batched-tokens 8192 (L1, F1c)")):
+            if (r := rs.get(key)) and r.get("kind") == "http":
+                rows.append((f"{name} (Kaggle T4, real)", f"{r['harness_steady_output_tok_s_sum']:,.1f} tok/s harness; ITL p50 {r['itl_ms_p50']:.1f} ms; "
+                             f"SM {r.get('smi_clocks_sm_mean', 0):,.0f} MHz", r["model"], r))
+        for mns in (32, 48, 64):
+            if (r := rs.get(f"l2-in3840-mns{mns}")) and r.get("kind") == "offline" and r.get("output_tok_s"):
+                rows.append((f"offline 3,840 in / 256 out, max-num-seqs {mns}, 4 × {mns} prompts (L2, Kaggle T4, real)",
+                             f"{r['output_tok_s']:,.1f} output tok/s; preemptions {r.get('eng_preemptions_delta')}; KV usage max {r.get('eng_kv_usage_max', 0):.3f}",
+                             r["model"], r))
+        for key, name in (("l3-single", "one AWQ instance @0.90, 32 users"), ("l3-ts-both-busy", "two AWQ instances @0.45 time-sharing, 16 + 16"),
+                          ("l3-mps-both-busy", "two AWQ instances @0.45 under MPS, 16 + 16")):
+            if (r := rs.get(key)) and r.get("combined_output_tok_s_server_counters") is not None:
+                rows.append((f"combined output tok/s, {name} (L3, one session, Kaggle T4, real)",
+                             f"{r['combined_output_tok_s_server_counters']:,.1f} tok/s (SM {r.get('smi_clocks_sm_mean', 0):,.0f} MHz; "
+                             f"ITL p50 {r['inst_i1']['itl_ms_p50']:.1f} ms)", r["model"], r))
+        an = REPO / Path(next(iter(rs.values()))["_src"]).parent / "analysis-l4.json"
+        if an.exists() and (r := rs.get("l4")):
+            for t in json.loads(an.read_text())["policy_table"]:
+                rows.append((f"tokens per successful GSM8K task, policy {t['policy']}, budget 951 (L4, Kaggle T4, real; policy in client)",
+                             f"{t['tokens_per_success']:,.0f} tokens (success {t['successes']}/{t['tasks']}, aborted {t['aborted']})",
+                             r["strong"]["model"], r))
     return rows
 
 
