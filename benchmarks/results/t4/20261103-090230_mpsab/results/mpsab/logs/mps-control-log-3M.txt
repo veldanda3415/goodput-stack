@@ -1,0 +1,29 @@
+$ tail -n 40 /tmp/goodput-mps/log/control.log
+# rc=0
+[2026-11-03 14:15:08.120 Control   854] Starting control daemon using socket /tmp/goodput-mps/pipe/control
+[2026-11-03 14:15:08.120 Control   854] To connect CUDA applications to this daemon, set env CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe
+[2026-11-03 14:15:08.120 Control   854] CUDA MPS Control binary version: 13000
+[2026-11-03 14:15:10.127 Control   854] Accepting connection...
+[2026-11-03 14:15:10.128 Control   854] NEW UI
+[2026-11-03 14:15:10.128 Control   854] Cmd:get_server_list
+[2026-11-03 14:15:10.128 Control   854] UI closed
+[2026-11-03 14:16:11.989 Control   854] Accepting connection...
+[2026-11-03 14:16:11.989 Control   854] User did not send valid credentials
+[2026-11-03 14:16:11.989 Control   854] Accepting connection...
+[2026-11-03 14:16:11.989 Control   854] NEW CLIENT 912 from user 0: Server is not ready, push client to pending list
+[2026-11-03 14:16:11.989 Control   932] Starting new server 932 for user 0
+[2026-11-03 14:16:11.996 Control   854] Accepting connection...
+[2026-11-03 14:16:12.261 Control   854] NEW SERVER 932: Ready
+[2026-11-03 14:16:12.923 Control   854] Accepting connection...
+[2026-11-03 14:16:12.923 Control   854] NEW CLIENT 912 from user 0: Server already exists
+[2026-11-03 14:17:13.018 Control   854] Accepting connection...
+[2026-11-03 14:17:13.018 Control   854] User did not send valid credentials
+[2026-11-03 14:17:13.018 Control   854] Accepting connection...
+[2026-11-03 14:17:13.018 Control   854] NEW CLIENT 1064 from user 0: Server already exists
+[2026-11-03 14:17:13.545 Control   854] Accepting connection...
+[2026-11-03 14:17:13.545 Control   854] NEW CLIENT 1064 from user 0: Server already exists
+[2026-11-03 14:17:50.861 Control   854] Accepting connection...
+[2026-11-03 14:17:50.861 Control   854] NEW UI
+[2026-11-03 14:17:50.861 Control   854] Cmd:get_server_list
+[2026-11-03 14:17:50.861 Control   854] 932
+[2026-11-03 14:17:50.861 Control   854] UI closed
