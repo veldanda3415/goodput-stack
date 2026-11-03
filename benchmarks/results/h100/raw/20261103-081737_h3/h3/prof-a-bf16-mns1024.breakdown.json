@@ -1,0 +1,411 @@
+{
+ "window_us": 18051441.3,
+ "steps_in_window": 299,
+ "device_events": 125544,
+ "device_events_in_window": 125132,
+ "unjoined_device_events": 0,
+ "busy_us": 14109660.9,
+ "category_us": {
+  "memcpy": 142625.0,
+  "elementwise": 1267028.3,
+  "sampling": 166944.9,
+  "attention": 4216516.9,
+  "gemm": 8445386.6
+ },
+ "subcategory_us": {
+  "gemm/linear": 8445386.6,
+  "attention/attention": 4120516.3,
+  "elementwise/other": 621004.7,
+  "elementwise/activation": 363694.0,
+  "elementwise/norm": 277885.4,
+  "sampling/by_name": 166944.9,
+  "memcpy/gpu_memcpy": 131101.4,
+  "attention/kv_write": 96000.6,
+  "memcpy/gpu_memset": 11523.6,
+  "elementwise/input_prep": 4444.2
+ },
+ "share_pct_of_window": {
+  "memcpy": 0.79,
+  "elementwise": 7.02,
+  "sampling": 0.92,
+  "attention": 23.36,
+  "gemm": 46.79,
+  "idle": 21.84
+ },
+ "overlap_us": 128840.7,
+ "gap_us": {
+  "n": 124805,
+  "sum": 3929862.6,
+  "p50": 1.82,
+  "p90": 2.79,
+  "p99": 187.26,
+  "max": 29830.12
+ },
+ "top_kernels": [
+  {
+   "name": "nvjet_sm90_tst_256x128_64x4_1x2_h_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 5337659.4,
+   "count": 27712,
+   "pct_of_device_time": 37.49
+  },
+  {
+   "name": "void cutlass::device_kernel<flash::enable_sm90_or_later<flash::FlashAttnFwdSm90<flash::CollectiveMainloopFwdSm90<2, cute::tuple<cute::C<1>, cute::C<1>, cute::C<",
+   "category": "attention/attention",
+   "us": 3730904.6,
+   "count": 8928,
+   "pct_of_device_time": 26.2
+  },
+  {
+   "name": "nvjet_sm90_tst_192x192_64x4_2x1_v_bz_coopB_TNN",
+   "category": "gemm/linear",
+   "us": 1707440.9,
+   "count": 1024,
+   "pct_of_device_time": 11.99
+  },
+  {
+   "name": "nvjet_sm90_tst_192x128_64x5_1x2_h_bz_coopB_TNT",
+   "category": "gemm/linear",
+   "us": 608675.3,
+   "count": 8928,
+   "pct_of_device_time": 4.27
+  },
+  {
+   "name": "_post_update_kernel",
+   "category": "elementwise/other",
+   "us": 469020.9,
+   "count": 299,
+   "pct_of_device_time": 3.29
+  },
+  {
+   "name": "void cutlass::device_kernel<flash::enable_sm90_or_later<flash::FlashAttnFwdSm90<flash::CollectiveMainloopFwdSm90<2, cute::tuple<cute::C<1>, cute::C<1>, cute::C<",
+   "category": "attention/attention",
+   "us": 388998.5,
+   "count": 640,
+   "pct_of_device_time": 2.73
+  },
+  {
+   "name": "nvjet_sm90_tst_320x128_64x3_1x2_h_bz_coopB_TNT",
+   "category": "gemm/linear",
+   "us": 387765.4,
+   "count": 279,
+   "pct_of_device_time": 2.72
+  },
+  {
+   "name": "triton_poi_fused_mul_silu_slice_1",
+   "category": "elementwise/activation",
+   "us": 363694.0,
+   "count": 9568,
+   "pct_of_device_time": 2.55
+  },
+  {
+   "name": "triton_red_fused_fused_add_rms_norm_2",
+   "category": "elementwise/norm",
+   "us": 169631.6,
+   "count": 9568,
+   "pct_of_device_time": 1.19
+  },
+  {
+   "name": "_gumbel_sample_kernel",
+   "category": "sampling/by_name",
+   "us": 160571.2,
+   "count": 299,
+   "pct_of_device_time": 1.13
+  },
+  {
+   "name": "Memcpy DtoH (Device -> Pinned)",
+   "category": "memcpy/gpu_memcpy",
+   "us": 129792.7,
+   "count": 598,
+   "pct_of_device_time": 0.91
+  },
+  {
+   "name": "triton_poi_fused_3",
+   "category": "elementwise/other",
+   "us": 126983.5,
+   "count": 9269,
+   "pct_of_device_time": 0.89
+  },
+  {
+   "name": "nvjet_sm90_tst_192x208_64x4_2x1_v_bz_coopB_TNT",
+   "category": "gemm/linear",
+   "us": 124960.0,
+   "count": 129,
+   "pct_of_device_time": 0.88
+  },
+  {
+   "name": "triton_red_fused_fused_add_rms_norm_0",
+   "category": "elementwise/norm",
+   "us": 104635.9,
+   "count": 9568,
+   "pct_of_device_time": 0.73
+  },
+  {
+   "name": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*,",
+   "category": "attention/kv_write",
+   "us": 96000.6,
+   "count": 9568,
+   "pct_of_device_time": 0.67
+  },
+  {
+   "name": "nvjet_sm90_tst_256x144_64x4_2x1_v_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 84460.4,
+   "count": 83,
+   "pct_of_device_time": 0.59
+  },
+  {
+   "name": "nvjet_sm90_tst_256x160_64x4_1x2_h_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 51563.5,
+   "count": 32,
+   "pct_of_device_time": 0.36
+  },
+  {
+   "name": "nvjet_sm90_tst_256x152_64x4_2x1_v_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 44144.3,
+   "count": 32,
+   "pct_of_device_time": 0.31
+  },
+  {
+   "name": "nvjet_sm90_tst_256x136_64x4_2x1_v_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 38151.5,
+   "count": 96,
+   "pct_of_device_time": 0.27
+  },
+  {
+   "name": "nvjet_sm90_tst_256x152_64x4_1x2_h_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 33710.3,
+   "count": 64,
+   "pct_of_device_time": 0.24
+  },
+  {
+   "name": "nvjet_sm90_tst_192x192_64x4_1x2_h_bz_coopB_TNN",
+   "category": "gemm/linear",
+   "us": 18111.6,
+   "count": 96,
+   "pct_of_device_time": 0.13
+  },
+  {
+   "name": "Memset (Device)",
+   "category": "memcpy/gpu_memset",
+   "us": 11523.6,
+   "count": 11691,
+   "pct_of_device_time": 0.08
+  },
+  {
+   "name": "void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1u",
+   "category": "elementwise/other",
+   "us": 10549.3,
+   "count": 10166,
+   "pct_of_device_time": 0.07
+  },
+  {
+   "name": "nvjet_sm90_tst_128x256_64x4_2x1_v_bz_coopA_TNN",
+   "category": "gemm/linear",
+   "us": 6288.1,
+   "count": 64,
+   "pct_of_device_time": 0.04
+  },
+  {
+   "name": "triton_poi_fused_1",
+   "category": "elementwise/other",
+   "us": 4400.5,
+   "count": 299,
+   "pct_of_device_time": 0.03
+  }
+ ],
+ "steps": {
+  "all": {
+   "steps": 299,
+   "tokens_per_step_mean": 1455.3,
+   "tokens_mode": 1024,
+   "gpu_period_ms_mean": 60.373,
+   "gpu_period_ms_p50": 51.222,
+   "busy_pct": 78.16,
+   "idle_pct": 21.84,
+   "gemm_pct": 46.79,
+   "attn_pct": 23.36,
+   "gemm_tflops_calculated": 757.177,
+   "gemm_kernels_per_step_mode": 129,
+   "kv_tokens_per_step_mean": 249941.5,
+   "attn_kernel_ms_mean": 13.781,
+   "attn_kv_read_gb_s_calculated": 2377.2,
+   "cpu_execute_ms_p50": 28.888,
+   "cpu_period_ms_p50": 51.239,
+   "gen_tokens_per_s_calculated": 16845.0
+  },
+  "decode_only": {
+   "steps": 279,
+   "tokens_per_step_mean": 1024.0,
+   "tokens_mode": 1024,
+   "gpu_period_ms_mean": 51.208,
+   "gpu_period_ms_p50": 51.073,
+   "busy_pct": 72.6,
+   "idle_pct": 27.4,
+   "gemm_pct": 38.18,
+   "attn_pct": 26.56,
+   "gemm_tflops_calculated": 786.16,
+   "gemm_kernels_per_step_mode": 129,
+   "kv_tokens_per_step_mean": 250516.3,
+   "attn_kernel_ms_mean": 13.374,
+   "attn_kv_read_gb_s_calculated": 2455.1,
+   "cpu_execute_ms_p50": 28.839,
+   "cpu_period_ms_p50": 51.137,
+   "gen_tokens_per_s_calculated": 19996.6
+  },
+  "mixed": {
+   "steps": 20,
+   "tokens_per_step_mean": 7472.6,
+   "tokens_mode": 8192,
+   "gpu_period_ms_mean": 188.214,
+   "gpu_period_ms_p50": 203.486,
+   "busy_pct": 99.27,
+   "idle_pct": 0.73,
+   "gemm_pct": 79.46,
+   "attn_pct": 11.19,
+   "gemm_tflops_calculated": 704.321,
+   "gemm_kernels_per_step_mode": 129,
+   "kv_tokens_per_step_mean": 241922.6,
+   "attn_kernel_ms_mean": 19.452,
+   "attn_kv_read_gb_s_calculated": 1630.1,
+   "cpu_execute_ms_p50": 32.245,
+   "cpu_period_ms_p50": 203.296,
+   "gen_tokens_per_s_calculated": 4883.0
+  }
+ },
+ "model_table": {
+  "layers": 32,
+  "shapes": [
+   [
+    "qkv",
+    4096,
+    6144
+   ],
+   [
+    "o",
+    4096,
+    4096
+   ],
+   [
+    "gate_up",
+    4096,
+    28672
+   ],
+   [
+    "down",
+    14336,
+    4096
+   ]
+  ],
+  "lm_head": [
+   4096,
+   128256
+  ],
+  "kv_bytes_per_token": 131072
+ },
+ "per_shape": {
+  "rule": "decode-only steps with exactly 129 GEMM kernels, launch order [qkv, o, gate_up, down] x 32 + lm_head",
+  "steps_used_by_tokens": {
+   "1024": 278,
+   "1023": 1
+  },
+  "shapes": [
+   {
+    "m": 1023,
+    "shape": "down",
+    "us_total": 4818.4,
+    "tflops_calculated": 797.88,
+    "kernel_names": {
+     "nvjet_sm90_tst_128x256_64x4_2x1_v_bz_coopA_TNN": 32
+    }
+   },
+   {
+    "m": 1023,
+    "shape": "gate_up",
+    "us_total": 10109.2,
+    "tflops_calculated": 760.604,
+    "kernel_names": {
+     "nvjet_sm90_tst_192x208_64x4_2x1_v_bz_coopB_TNT": 32
+    }
+   },
+   {
+    "m": 1023,
+    "shape": "lm_head",
+    "us_total": 1364.0,
+    "tflops_calculated": 787.986,
+    "kernel_names": {
+     "nvjet_sm90_tst_192x208_64x4_2x1_v_bz_coopB_TNT": 1
+    }
+   },
+   {
+    "m": 1023,
+    "shape": "o",
+    "us_total": 1469.7,
+    "tflops_calculated": 747.41,
+    "kernel_names": {
+     "nvjet_sm90_tst_128x256_64x4_2x1_v_bz_coopA_TNN": 32
+    }
+   },
+   {
+    "m": 1023,
+    "shape": "qkv",
+    "us_total": 2215.8,
+    "tflops_calculated": 743.58,
+    "kernel_names": {
+     "nvjet_sm90_tst_192x128_64x5_1x2_h_bz_coopB_TNT": 32
+    }
+   },
+   {
+    "m": 1024,
+    "shape": "down",
+    "us_total": 1331132.9,
+    "tflops_calculated": 803.695,
+    "kernel_names": {
+     "nvjet_sm90_tst_256x128_64x4_1x2_h_bz_coopA_TNT": 8896
+    }
+   },
+   {
+    "m": 1024,
+    "shape": "gate_up",
+    "us_total": 2711887.4,
+    "tflops_calculated": 788.989,
+    "kernel_names": {
+     "nvjet_sm90_tst_256x128_64x4_1x2_h_bz_coopA_TNT": 8896
+    }
+   },
+   {
+    "m": 1024,
+    "shape": "lm_head",
+    "us_total": 386293.2,
+    "tflops_calculated": 774.275,
+    "kernel_names": {
+     "nvjet_sm90_tst_320x128_64x3_1x2_h_bz_coopB_TNT": 278
+    }
+   },
+   {
+    "m": 1024,
+    "shape": "o",
+    "us_total": 398717.6,
+    "tflops_calculated": 766.618,
+    "kernel_names": {
+     "nvjet_sm90_tst_256x128_64x4_1x2_h_bz_coopA_TNT": 8896
+    }
+   },
+   {
+    "m": 1024,
+    "shape": "qkv",
+    "us_total": 606459.4,
+    "tflops_calculated": 756.021,
+    "kernel_names": {
+     "nvjet_sm90_tst_192x128_64x5_1x2_h_bz_coopB_TNT": 8896
+    }
+   }
+  ]
+ },
+ "trace_file": "trace-prof-a-bf16-mns1024/rank0.1793714204915555363.pt.trace.json.gz",
+ "kv_elem_bytes": 2
+}

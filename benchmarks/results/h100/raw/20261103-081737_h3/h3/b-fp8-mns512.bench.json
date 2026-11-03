@@ -1,0 +1,8 @@
+{
+    "model_id": "RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8",
+    "elapsed_time": 21.45457265999994,
+    "num_requests": 2048,
+    "total_num_tokens": 786432,
+    "requests_per_second": 95.45750607367286,
+    "tokens_per_second": 36655.68233229038
+}

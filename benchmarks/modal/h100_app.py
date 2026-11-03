@@ -55,7 +55,8 @@ hf_vol = modal.Volume.from_name("goodput-hf-cache", create_if_missing=True)
 res_vol = modal.Volume.from_name("goodput-h100-results", create_if_missing=True)
 app = modal.App(APP_NAME, image=image)
 GPU_KW = dict(gpu="H100!", cpu=8.0, memory=32768, volumes={"/hf": hf_vol, "/results": res_vol},
-              secrets=[modal.Secret.from_name("huggingface")], retries=0, max_containers=1)
+              secrets=[modal.Secret.from_name("huggingface")], retries=0, max_containers=1,
+              scaledown_window=2)   # an idle container after the function returns is billed; stop it at once
 # per-task container timeouts (s): the task budget plus room for the image pull / start and the final writes
 TIMEOUTS = {"h0": 25 * 60, "h1": 30 * 60, "h2": 80 * 60, "h3": 110 * 60, "h4": 55 * 60, "h5": 50 * 60}
 
