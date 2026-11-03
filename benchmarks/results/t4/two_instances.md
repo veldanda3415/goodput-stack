@@ -274,3 +274,25 @@ succeeded (96 / 96 + 96 / 96 + 96).
 - One run per condition, fixed order (single → time-sharing → MPS); the card warmed from 68 to 80 °C over the three.
   Whether the lower MPS clock is caused by MPS or by order / temperature is not separated.
 - MPS memory and fault isolation, `CUDA_MPS_ACTIVE_THREAD_PERCENTAGE` and uneven loads were not tested.
+
+## Build 17 — single vs time-sharing vs MPS, one session, alternating order, per MHz
+
+Kaggle T4, real. Same model, serving flags and harness setup as L3 (read from run 20261031-210126_leftover, rows
+`startup-l3-*` / `l3-*`): Qwen/Qwen2.5-3B-Instruct-AWQ @ 3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd, vLLM 0.31.0,
+`--dtype half --no-enable-prefix-caching --revision <sha> --gpu-memory-utilization {0.90 | 0.45}`; prompt 128 / output 256
+tokens, ignore_eos, temperature 0, max_tokens jitter 0, start jitter 1 s, streamed `/v1/completions`, one client process per
+instance, a discarded 32-request warm-up wave per instance.
+
+Conditions:
+- **S** = one instance @ 0.90, 32 users.
+- **T** = two instances @ 0.45, plain time-sharing (no MPS daemon), 16 + 16 users, both busy.
+- **M** = the same two instances under MPS (daemon with `CUDA_MPS_PIPE_DIRECTORY` / `CUDA_MPS_LOG_DIRECTORY`), 16 + 16 users.
+
+Order S T M M T S in one session; same measured window for every condition.
+
+### Predictions (written before the Build 17 run, verbatim from the assignment)
+
+- Combined output tok/s: S > M > T.
+- Per MHz (output tok/s ÷ mean SM clock): M > T by a measurable margin (> 5 %); the raw-tok/s gap may be smaller or larger than per-MHz because MPS may change the clock.
+- sw_power_cap active most of the time in all three; clock differs between conditions by more than run-to-run noise within a condition.
+- ITL p50: M ≤ T.
