@@ -1,0 +1,317 @@
+{
+ "window_us": 1368041.6,
+ "steps_in_window": 299,
+ "device_events": 137940,
+ "device_events_in_window": 137479,
+ "unjoined_device_events": 0,
+ "busy_us": 1243118.2,
+ "category_us": {
+  "elementwise": 105354.8,
+  "memcpy": 2747.7,
+  "sampling": 18189.9,
+  "attention": 219129.7,
+  "gemm": 898323.7
+ },
+ "subcategory_us": {
+  "gemm/linear": 898323.7,
+  "attention/attention": 194950.4,
+  "elementwise/norm": 50446.7,
+  "elementwise/activation": 26897.2,
+  "elementwise/other": 25487.9,
+  "attention/kv_write": 24179.3,
+  "sampling/by_name": 18189.9,
+  "elementwise/input_prep": 2523.0,
+  "memcpy/gpu_memcpy": 2303.3,
+  "memcpy/gpu_memset": 444.4
+ },
+ "share_pct_of_window": {
+  "elementwise": 7.7,
+  "memcpy": 0.2,
+  "sampling": 1.33,
+  "attention": 16.02,
+  "gemm": 65.66,
+  "idle": 9.13
+ },
+ "overlap_us": 627.5,
+ "gap_us": {
+  "n": 136566,
+  "sum": 124922.1,
+  "p50": 0.45,
+  "p90": 0.8,
+  "p99": 2.43,
+  "max": 3195.22
+ },
+ "top_kernels": [
+  {
+   "name": "nvjet_sm90_tst_168x64_64x7_2x1_v_bz_TNN",
+   "category": "gemm/linear",
+   "us": 388997.5,
+   "count": 10656,
+   "pct_of_device_time": 31.28
+  },
+  {
+   "name": "nvjet_sm90_tst_64x64_64x13_2x1_v_bz_splitK_TNT",
+   "category": "gemm/linear",
+   "us": 213183.0,
+   "count": 10656,
+   "pct_of_device_time": 17.14
+  },
+  {
+   "name": "void cutlass::device_kernel<flash::enable_sm90_or_later<flash::FlashAttnFwdSm90<flash::CollectiveMainloopFwdSm90<2, cute::tuple<cute::C<1>, cute::C<1>, cute::C<",
+   "category": "attention/attention",
+   "us": 163468.5,
+   "count": 10656,
+   "pct_of_device_time": 13.14
+  },
+  {
+   "name": "nvjet_sm90_tst_64x32_64x16_4x2_h_bz_bias_TNT",
+   "category": "gemm/linear",
+   "us": 78378.6,
+   "count": 10656,
+   "pct_of_device_time": 6.3
+  },
+  {
+   "name": "nvjet_sm90_tst_64x32_64x16_4x2_h_bz_TNT",
+   "category": "gemm/linear",
+   "us": 69071.4,
+   "count": 10656,
+   "pct_of_device_time": 5.55
+  },
+  {
+   "name": "nvjet_sm90_tst_384x64_64x3_2x1_v_bz_coopB_TNN",
+   "category": "gemm/linear",
+   "us": 68127.3,
+   "count": 297,
+   "pct_of_device_time": 5.48
+  },
+  {
+   "name": "nvjet_sm90_tst_256x152_64x4_2x1_v_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 33437.2,
+   "count": 72,
+   "pct_of_device_time": 2.69
+  },
+  {
+   "name": "void cutlass::device_kernel<flash::FlashAttnFwdCombine<cute::tuple<cute::C<8>, cute::C<128> >, 5, 256, 1, false, true, cutlass::bfloat16_t, float, cutlass::arch",
+   "category": "attention/attention",
+   "us": 27975.2,
+   "count": 10656,
+   "pct_of_device_time": 2.25
+  },
+  {
+   "name": "triton_poi_fused_mul_silu_slice_1",
+   "category": "elementwise/activation",
+   "us": 26897.2,
+   "count": 10764,
+   "pct_of_device_time": 2.16
+  },
+  {
+   "name": "triton_red_fused_fused_add_rms_norm_2",
+   "category": "elementwise/norm",
+   "us": 26380.0,
+   "count": 10764,
+   "pct_of_device_time": 2.12
+  },
+  {
+   "name": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*,",
+   "category": "attention/kv_write",
+   "us": 24179.3,
+   "count": 10764,
+   "pct_of_device_time": 1.94
+  },
+  {
+   "name": "triton_red_fused_fused_add_rms_norm_0",
+   "category": "elementwise/norm",
+   "us": 23275.2,
+   "count": 10764,
+   "pct_of_device_time": 1.87
+  },
+  {
+   "name": "void cublasLt::splitKreduce_kernel<32, 16, int, float, __nv_bfloat16, float, __nv_bfloat16, false, float, __nv_bfloat16, __nv_bfloat16, true, false, false, fals",
+   "category": "gemm/linear",
+   "us": 20289.0,
+   "count": 10692,
+   "pct_of_device_time": 1.63
+  },
+  {
+   "name": "triton_poi_fused_3",
+   "category": "elementwise/other",
+   "us": 19082.8,
+   "count": 10465,
+   "pct_of_device_time": 1.53
+  },
+  {
+   "name": "nvjet_sm90_tst_128x248_64x4_2x1_v_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 14052.7,
+   "count": 72,
+   "pct_of_device_time": 1.13
+  },
+  {
+   "name": "_gumbel_sample_kernel",
+   "category": "sampling/by_name",
+   "us": 13674.2,
+   "count": 299,
+   "pct_of_device_time": 1.1
+  },
+  {
+   "name": "nvjet_sm90_tst_192x192_64x4_1x2_h_bz_coopB_TNN",
+   "category": "gemm/linear",
+   "us": 5430.5,
+   "count": 72,
+   "pct_of_device_time": 0.44
+  },
+  {
+   "name": "nvjet_sm90_tst_256x152_64x4_2x1_v_bz_coopA_bias_TNT",
+   "category": "gemm/linear",
+   "us": 2985.8,
+   "count": 36,
+   "pct_of_device_time": 0.24
+  },
+  {
+   "name": "void cutlass::device_kernel<flash::enable_sm90_or_later<flash::FlashAttnFwdSm90<flash::CollectiveMainloopFwdSm90<2, cute::tuple<cute::C<1>, cute::C<1>, cute::C<",
+   "category": "attention/attention",
+   "us": 2913.1,
+   "count": 108,
+   "pct_of_device_time": 0.23
+  },
+  {
+   "name": "_get_num_sampled_and_rejected_kernel",
+   "category": "sampling/by_name",
+   "us": 1574.9,
+   "count": 299,
+   "pct_of_device_time": 0.13
+  },
+  {
+   "name": "_combine_sampled_and_draft_tokens_kernel",
+   "category": "sampling/by_name",
+   "us": 1569.0,
+   "count": 299,
+   "pct_of_device_time": 0.13
+  },
+  {
+   "name": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, 4, 4> >(at::native::ReduceOp<float, at::nat",
+   "category": "sampling/by_name",
+   "us": 1371.8,
+   "count": 299,
+   "pct_of_device_time": 0.11
+  },
+  {
+   "name": "nvjet_sm90_tst_192x176_64x4_4x1_v_bz_coopB_TNT",
+   "category": "gemm/linear",
+   "us": 1341.8,
+   "count": 36,
+   "pct_of_device_time": 0.11
+  },
+  {
+   "name": "_gather_block_tables_kernel",
+   "category": "elementwise/input_prep",
+   "us": 1224.8,
+   "count": 299,
+   "pct_of_device_time": 0.1
+  },
+  {
+   "name": "_post_update_kernel",
+   "category": "elementwise/other",
+   "us": 1194.5,
+   "count": 299,
+   "pct_of_device_time": 0.1
+  }
+ ],
+ "steps": {
+  "all": {
+   "steps": 299,
+   "tokens_per_step_mean": 91.0,
+   "tokens_mode": 64,
+   "gpu_period_ms_mean": 4.575,
+   "gpu_period_ms_p50": 4.204,
+   "busy_pct": 90.87,
+   "idle_pct": 9.13,
+   "gemm_pct": 65.66,
+   "attn_pct": 16.02,
+   "gemm_tflops_calculated": 181.23,
+   "gemm_kernels_per_step_mode": 181,
+   "kv_tokens_per_step_mean": 15697.7,
+   "attn_kernel_ms_mean": 0.652,
+   "attn_kv_read_gb_s_calculated": 887.5,
+   "cpu_execute_ms_p50": 1.518,
+   "cpu_period_ms_p50": 4.216,
+   "gen_tokens_per_s_calculated": 13894.3
+  },
+  "decode_only": {
+   "steps": 296,
+   "tokens_per_step_mean": 64.0,
+   "tokens_mode": 64,
+   "gpu_period_ms_mean": 4.267,
+   "gpu_period_ms_p50": 4.204,
+   "busy_pct": 92.44,
+   "idle_pct": 7.56,
+   "gemm_pct": 66.33,
+   "attn_pct": 17.05,
+   "gemm_tflops_calculated": 139.556,
+   "gemm_kernels_per_step_mode": 181,
+   "kv_tokens_per_step_mean": 15761.3,
+   "attn_kernel_ms_mean": 0.649,
+   "attn_kv_read_gb_s_calculated": 895.6,
+   "cpu_execute_ms_p50": 1.516,
+   "cpu_period_ms_p50": 4.214,
+   "gen_tokens_per_s_calculated": 14999.6
+  },
+  "mixed": {
+   "steps": 3,
+   "tokens_per_step_mean": 2752.3,
+   "tokens_mode": 174,
+   "gpu_period_ms_mean": 35.048,
+   "gpu_period_ms_p50": 26.79,
+   "busy_pct": 71.96,
+   "idle_pct": 28.04,
+   "gemm_pct": 57.67,
+   "attn_pct": 3.64,
+   "gemm_tflops_calculated": 757.003,
+   "gemm_kernels_per_step_mode": 145,
+   "kv_tokens_per_step_mean": 9420.7,
+   "attn_kernel_ms_mean": 0.973,
+   "attn_kv_read_gb_s_calculated": 357.0,
+   "cpu_execute_ms_p50": 22.725,
+   "cpu_period_ms_p50": 26.336,
+   "gen_tokens_per_s_calculated": 618.2
+  }
+ },
+ "model_table": {
+  "layers": 36,
+  "shapes": [
+   [
+    "qkv",
+    2048,
+    2560
+   ],
+   [
+    "o",
+    2048,
+    2048
+   ],
+   [
+    "gate_up",
+    2048,
+    22016
+   ],
+   [
+    "down",
+    11008,
+    2048
+   ]
+  ],
+  "lm_head": [
+   2048,
+   151936
+  ],
+  "kv_bytes_per_token": 36864
+ },
+ "per_shape": {
+  "rule": "decode-only steps with exactly 145 GEMM kernels, launch order [qkv, o, gate_up, down] x 36 + lm_head",
+  "steps_used_by_tokens": {},
+  "shapes": []
+ },
+ "trace_file": "trace-prof-mns64/rank0.1793710938178003149.pt.trace.json.gz",
+ "kv_elem_bytes": 2
+}

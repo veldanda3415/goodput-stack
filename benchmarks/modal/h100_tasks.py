@@ -84,7 +84,8 @@ class Runner:
 
     def off(self, key: str, model: str, mns: int, n_prompts: int, in_len: int, out_len: int, warmups: int = 32,
             extra: list[str] | None = None, env: dict | None = None, dtype: str = DTYPE, need_h: float = 0.05,
-            reserve_h: float = 0.0, util: float = 0.95, **row_extra) -> dict | None:
+            reserve_h: float = 0.0, util: float = 0.95, cmd_prefix: list[str] | None = None, max_s: float | None = None,
+            **row_extra) -> dict | None:
         if key in self.done:
             rows = [r for r in self.st.rows() if r.get("key") == key]
             return rows[-1] if rows else None
@@ -100,9 +101,9 @@ class Runner:
         if "--max-num-batched-tokens" not in extra:
             extra = ["--max-num-batched-tokens", "8192"] + extra
         r = nb.offline_point(self.st, key, model, rev(model), mns, n_prompts, in_len, out_len, util, warmups,
-                             max(300.0, (left - reserve_h) * 3600), provenance(self.st, model), extra_args=extra, gpu=0,
+                             min(max_s or 1e9, max(300.0, (left - reserve_h) * 3600)), provenance(self.st, model), extra_args=extra, gpu=0,
                              gpu_interval_s=0.5, env_extra=env, dtype=dtype, label=LABEL,
-                             row_extra=row_extra)
+                             row_extra=row_extra, cmd_prefix=cmd_prefix)
         wall = time.time() - t0
         el = (r.get("bench_json") or {}).get("elapsed_time")
         text = (self.st.logs / f"{key}.log").read_text(errors="replace")
@@ -124,6 +125,27 @@ class Runner:
                         env={"VLLM_CUSTOM_SCOPES_FOR_PROFILING": "1"}, dtype=dtype, profiler_config=pc,
                         profiler_note="tok/s of this run include profiler overhead and the trace export; use unprofiled rows for speed",
                         **kw)
+
+    def nsys(self, key: str, model: str, mns: int, extra: list[str] | None = None, dtype: str = DTYPE, **kw) -> dict | None:
+        """The profile window of `profile`, captured by Nsight Systems instead of the torch profiler: vLLM's
+        ProfilerConfig profiler="cuda" (vllm/config/profiler.py, 0.31.0) calls cudaProfilerStart / Stop after
+        delay_iterations and wraps each step in an NVTX range (vllm/profiler/wrapper.py); nsys captures only that range.
+        Kernel tracing only (-t cuda,nvtx, graph nodes traced), no CPU sampling. Exported to SQLite in the container."""
+        delay, iters = PROFILE_WINDOW
+        pc = {"profiler": "cuda", "delay_iterations": delay, "max_iterations": iters, "detailed_trace_annotation": True}
+        rep = self.st.dir / f"{key}"
+        prefix = ["nsys", "profile", "-t", "cuda,nvtx", "--cuda-graph-trace=node", "--sample=none", "--cpuctxsw=none",
+                  "--capture-range=cudaProfilerApi", "--capture-range-end=stop", "-f", "true", "-o", str(rep)]
+        r = self.off(key, model, mns, 4 * mns, 128, 256, 32, list(extra or []) + ["--profile", "--profiler-config", json.dumps(pc)],
+                     env={"VLLM_CUSTOM_SCOPES_FOR_PROFILING": "1"}, dtype=dtype, cmd_prefix=prefix, profiler_config=pc, max_s=600,
+                     nsys_cmd=shlex.join(prefix), profiler_note="tok/s include nsys overhead; use unprofiled rows for speed", **kw)
+        if r is not None and Path(f"{rep}.nsys-rep").exists():
+            rc, text = nb.sh(["nsys", "export", "--type", "sqlite", "--force-overwrite", "true", "--output", f"{rep}.sqlite", f"{rep}.nsys-rep"],
+                             timeout=900, out=self.st.logs / f"{key}.nsys-export.txt")
+            self.st.write(f"{key}-export", {"kind": "nsys_export", "rc": rc, "sqlite_bytes": Path(f"{rep}.sqlite").stat().st_size
+                                            if Path(f"{rep}.sqlite").exists() else None,
+                                            "rep_bytes": Path(f"{rep}.nsys-rep").stat().st_size}, **provenance(self.st, model))
+        return r
 
     def sweep(self, tag: str, model: str, extra: list[str] | None = None, mns_list: list[int] = SWEEP, need_h: float = 0.06,
               reserve_h: float = 0.0, skip_mns: dict | None = None, **kw) -> dict:
@@ -304,6 +326,14 @@ def task_h4(st: nb.Stage, a) -> None:
         R.off(f"prefix-{'on' if on else 'off'}-a-bf16-mns{best}", LLAMA, best, 4 * best, 128, 256,
               extra=[*a.prefix_args.split(), flag], part="H4.4", config="a-bf16", prefix_caching=on,
               note="offline_point puts --no-enable-prefix-caching first; the later flag here wins (argparse: last one)")
+    # extras for the H6 waterfalls and P5 (budget permitting, in priority order): Nsight Systems captures of the same
+    # 300-step window as the torch-profiler runs (lower overhead: the torch profiler stretched decode steps), the
+    # Qwen eager point at 64, and Qwen above the H2 sweep's top (it was still rising at 2,048)
+    R.nsys(f"nsys-qwen-mns{a.qwen_best}", QWEN, a.qwen_best, need_h=0.06, part="H2-ext")
+    R.nsys(f"nsys-a-bf16-mns{best}", LLAMA, best, need_h=0.07, part="H3-ext", config="a-bf16")
+    R.off("qwen-eager-mns64", QWEN, 64, 256, 128, 256, extra=["--enforce-eager"], need_h=0.03, part="H2-ext", ablation="enforce-eager")
+    R.off("qwen-mns4096", QWEN, 4096, 4 * 4096, 128, 256, need_h=0.06, part="H2-ext", sweep="sweep-ext")
+    R.nsys("nsys-qwen-mns384", QWEN, 384, need_h=0.05, part="H2-ext")
 
 
 # ---------------------------------------------------------------- H5
@@ -359,6 +389,7 @@ def main() -> None:
     ap.add_argument("--kv-bf16", type=int, default=0)
     ap.add_argument("--kv-fp8kv", type=int, default=0)
     ap.add_argument("--pre-prompts", type=int, default=512)
+    ap.add_argument("--qwen-best", type=int, default=2048)
     ap.add_argument("--prefix-args", default="")
     ap.add_argument("--fp8kv", type=int, default=0)
     ap.add_argument("--users", default="16,64,128,256,512,1024")

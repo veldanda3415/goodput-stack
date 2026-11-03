@@ -1,6 +1,6 @@
 Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
 ✓ Initialized. View run at 
-https://modal.com/apps/veldanda3415/main/ap-i6C10Wk8sNAjQeceiiFw4y
+https://modal.com/apps/veldanda3415/main/ap-uNzv0KBqB2z00yuHC9sL0H
 ✓ Created objects.
 ├── ✓ Uploaded 
 │   /home/veldanda3415/workspace/goodput-stack-h100/benchmarks/modal/h100_app.py
@@ -12,7 +12,7 @@ https://modal.com/apps/veldanda3415/main/ap-i6C10Wk8sNAjQeceiiFw4y
 ├── ✓ Created Function h4.
 ├── ✓ Created Function h5.
 └── ✓ Created Function download.
-run_id=20261103-073941_h2 git=b7791bf app=goodput-h100
+run_id=20261103-074323_h2 git=ed3c1ca-dirty app=goodput-h100
 
 ==========
 == CUDA ==
@@ -28,52 +28,42 @@ https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
 
 A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
 
-$ python -m benchmarks.modal.h100_tasks --task h2 --budget-h 0.96
-[12:39:49] row start: {"kind": "start", "budget_h": 0.96}
-[12:42:20] row ref-start: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 384, "num_prompts": 1536, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "ref_tag": "start", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 -
-[12:42:20] row ref-start-wall: {"kind": "wall", "of": "ref-start", "proc_wall_s": 150.5, "bench_elapsed_s": 10.589772223000011, "start_and_teardown_s": 139.9, "attention_backend": "FLASH_ATTN"}
-Stopping app - user stopped from CLI.
-╭───────────────────── Traceback (most recent call last) ──────────────────────╮
-│ /home/veldanda3415/workspace/goodput-stack-h100/benchmarks/modal/h100_app.py │
-│ :179 in task                                                                 │
-│                                                                              │
-│   178 │   print(f"run_id={run_id} git={_git_sha()} app={APP_NAME}", flush=Tr │
-│ ❱ 179 │   print(fn.remote(args, _git_sha(), run_id, time.time()), flush=True │
-│   180                                                                        │
-│                                                                              │
-│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
-│ s/modal/_object.py:49 in wrapped                                             │
-│                                                                              │
-│    48 │   │   await self.hydrate()                                           │
-│ ❱  49 │   │   return await method(self, *args, **kwargs)                     │
-│    50                                                                        │
-│                                                                              │
-│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
-│ s/modal/_functions.py:2081 in remote                                         │
-│                                                                              │
-│   2080 │   │                                                                 │
-│ ❱ 2081 │   │   return await self._call_function(args, kwargs)                │
-│   2082                                                                       │
-│                                                                              │
-│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
-│ s/modal/_functions.py:2018 in _call_function                                 │
-│                                                                              │
-│   2017 │   │                                                                 │
-│ ❱ 2018 │   │   return await invocation.run_function()                        │
-│   2019                                                                       │
-│                                                                              │
-│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
-│ s/modal/_functions.py:498 in run_function                                    │
-│                                                                              │
-│    497 │   │   │   if await_response.output.result.status in TERMINAL_STATUS │
-│ ❱  498 │   │   │   │   return await _process_result(                         │
-│    499 │   │   │   │   │   await_response.output.result, await_response.outp │
-│                                                                              │
-│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
-│ s/modal/_utils/function_utils.py:574 in _process_result                      │
-│                                                                              │
-│   573 │   │                                                                  │
-│ ❱ 574 │   │   raise RemoteError(result.exception)                            │
-│   575                                                                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
-RemoteError
+$ python -m benchmarks.modal.h100_tasks --task h2 --budget-h 0.90
+[12:43:29] row start: {"kind": "start", "budget_h": 0.9}
+[12:44:42] row ref-start: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 384, "num_prompts": 1536, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "ref_tag": "start", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 -
+[12:44:42] row ref-start-wall: {"kind": "wall", "of": "ref-start", "proc_wall_s": 73.1, "bench_elapsed_s": 10.430710115999993, "start_and_teardown_s": 62.7, "attention_backend": "FLASH_ATTN"}
+[12:45:38] row sweep-mns64: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 64, "num_prompts": 256, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "sweep": "sweep", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 --dty
+[12:45:38] row sweep-mns64-wall: {"kind": "wall", "of": "sweep-mns64", "proc_wall_s": 55.7, "bench_elapsed_s": 4.588329047000002, "start_and_teardown_s": 51.1, "attention_backend": "FLASH_ATTN"}
+[12:46:36] row sweep-mns128: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 128, "num_prompts": 512, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "sweep": "sweep", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 --dt
+[12:46:36] row sweep-mns128-wall: {"kind": "wall", "of": "sweep-mns128", "proc_wall_s": 57.7, "bench_elapsed_s": 5.562538300999989, "start_and_teardown_s": 52.2, "attention_backend": "FLASH_ATTN"}
+[12:47:41] row sweep-mns256: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 256, "num_prompts": 1024, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "sweep": "sweep", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 --d
+[12:47:41] row sweep-mns256-wall: {"kind": "wall", "of": "sweep-mns256", "proc_wall_s": 65.3, "bench_elapsed_s": 7.715585462000007, "start_and_teardown_s": 57.5, "attention_backend": "FLASH_ATTN"}
+[12:48:55] row sweep-mns512: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 512, "num_prompts": 2048, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "sweep": "sweep", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 --d
+[12:48:55] row sweep-mns512-wall: {"kind": "wall", "of": "sweep-mns512", "proc_wall_s": 74.4, "bench_elapsed_s": 13.18593436499998, "start_and_teardown_s": 61.2, "attention_backend": "FLASH_ATTN"}
+[12:50:21] row sweep-mns1024: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 1024, "num_prompts": 4096, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "sweep": "sweep", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 --
+[12:50:21] row sweep-mns1024-wall: {"kind": "wall", "of": "sweep-mns1024", "proc_wall_s": 86.0, "bench_elapsed_s": 27.627058014, "start_and_teardown_s": 58.3, "attention_backend": "FLASH_ATTN"}
+[12:52:09] row sweep-mns2048: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 2048, "num_prompts": 8192, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "sweep": "sweep", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 --
+[12:52:09] row sweep-mns2048-wall: {"kind": "wall", "of": "sweep-mns2048", "proc_wall_s": 107.6, "bench_elapsed_s": 46.228258639000046, "start_and_teardown_s": 61.4, "attention_backend": "FLASH_ATTN"}
+[12:52:09] row sweep-best: {"kind": "sweep_best", "sweep": "sweep", "best_mns": 2048, "best_output_tok_s": 45365.15}
+[12:53:59] row mbt16384-mns2048: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 2048, "num_prompts": 8192, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "part": "H2", "ablation": "max-num-batched-tokens", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaa
+[12:53:59] row mbt16384-mns2048-wall: {"kind": "wall", "of": "mbt16384-mns2048", "proc_wall_s": 110.4, "bench_elapsed_s": 48.56052003399998, "start_and_teardown_s": 61.8, "attention_backend": "FLASH_ATTN"}
+[12:55:52] row mbt32768-mns2048: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 2048, "num_prompts": 8192, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "part": "H2", "ablation": "max-num-batched-tokens", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaa
+[12:55:52] row mbt32768-mns2048-wall: {"kind": "wall", "of": "mbt32768-mns2048", "proc_wall_s": 112.8, "bench_elapsed_s": 47.026657387, "start_and_teardown_s": 65.7, "attention_backend": "FLASH_ATTN"}
+[12:57:42] row half-mns2048: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "half", "max_num_seqs": 2048, "num_prompts": 8192, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "part": "H2", "ablation": "dtype half", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d
+[12:57:42] row half-mns2048-wall: {"kind": "wall", "of": "half-mns2048", "proc_wall_s": 109.7, "bench_elapsed_s": 47.00739940099993, "start_and_teardown_s": 62.6, "attention_backend": "FLASH_ATTN"}
+[12:59:03] row eager-mns2048: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 2048, "num_prompts": 8192, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "part": "H2", "ablation": "enforce-eager", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015
+[12:59:03] row eager-mns2048-wall: {"kind": "wall", "of": "eager-mns2048", "proc_wall_s": 81.7, "bench_elapsed_s": 51.13601842200001, "start_and_teardown_s": 30.5, "attention_backend": "FLASH_ATTN"}
+[13:01:19] row cg2048-mns2048: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 2048, "num_prompts": 8192, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "part": "H2", "ablation": "CUDA graphs up to max-num-seqs", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba9
+[13:01:19] row cg2048-mns2048-wall: {"kind": "wall", "of": "cg2048-mns2048", "proc_wall_s": 135.5, "bench_elapsed_s": 45.360801102000096, "start_and_teardown_s": 90.1, "attention_backend": "FLASH_ATTN"}
+[13:02:41] row prof-mns64: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 64, "num_prompts": 256, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "profiler_note": "tok/s of this run include profiler overhead and the trace export; use unprofiled rows for speed", "part": "H2", "bench_cmd": "vllm bench throughput --backe
+[13:02:41] row prof-mns64-wall: {"kind": "wall", "of": "prof-mns64", "proc_wall_s": 82.0, "bench_elapsed_s": 22.382819670000117, "start_and_teardown_s": 59.6, "attention_backend": "FLASH_ATTN"}
+[13:04:22] row prof-mns384: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 384, "num_prompts": 1536, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "profiler_note": "tok/s of this run include profiler overhead and the trace export; use unprofiled rows for speed", "part": "H2", "bench_cmd": "vllm bench throughput --bac
+[13:04:22] row prof-mns384-wall: {"kind": "wall", "of": "prof-mns384", "proc_wall_s": 101.7, "bench_elapsed_s": 37.31871956600003, "start_and_teardown_s": 64.3, "attention_backend": "FLASH_ATTN"}
+[13:08:13] row prof-mns2048: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 2048, "num_prompts": 8192, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "profiler_note": "tok/s of this run include profiler overhead and the trace export; use unprofiled rows for speed", "part": "H2", "bench_cmd": "vllm bench throughput --ba
+[13:08:13] row prof-mns2048-wall: {"kind": "wall", "of": "prof-mns2048", "proc_wall_s": 230.2, "bench_elapsed_s": 163.46788556200022, "start_and_teardown_s": 66.7, "attention_backend": "FLASH_ATTN"}
+[13:09:00] row ref-end: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 384, "num_prompts": 1536, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "ref_tag": "end", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 --d
+[13:09:00] row ref-end-wall: {"kind": "wall", "of": "ref-end", "proc_wall_s": 47.2, "bench_elapsed_s": 10.434448855000028, "start_and_teardown_s": 36.8, "attention_backend": "FLASH_ATTN"}
+[13:09:00] row session: {"kind": "session", "session_h": 0.4259}
+{'run_id': '20261103-074323_h2', 'rc': 0, 'fn_wall_s': 1535.0}
+✓ App completed. View run at 
+https://modal.com/apps/veldanda3415/main/ap-uNzv0KBqB2z00yuHC9sL0H

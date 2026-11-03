@@ -1881,7 +1881,7 @@ RIDGE_LABEL = "Kaggle T4, real"
 def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts: int, in_len: int, out_len: int,
                   util: float, warmups: int, timeout_s: float, prov: dict, extra_args: list[str] | None = None,
                   gpu: int = 0, gpu_interval_s: float = 1.0, env_extra: dict | None = None, row_extra: dict | None = None,
-                  dtype: str = "half", label: str | None = None) -> dict:
+                  dtype: str = "half", label: str | None = None, cmd_prefix: list[str] | None = None) -> dict:
     """One `vllm bench throughput` run (benchmarks/kaggle/offline_throughput.py) with NVML, CPU and engine-metric sampling.
     gpu: physical index (CUDA_VISIBLE_DEVICES, nvidia-smi -i); nvidia-smi -q snapshots before and after.
     CPU groups: `bench` = the bench process and all its children; `engine` = the EngineCore process(es) alone."""
@@ -1892,7 +1892,7 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
                   "--dataset-name", "random", "--random-input-len", str(in_len), "--random-output-len", str(out_len),
                   "--random-range-ratio", "0.0", "--num-prompts", str(n_prompts), "--num-warmups", str(warmups),
                   "--seed", "0", "--output-json", str(bench_json)] + list(extra_args or [])
-    cmd = [sys.executable, "-m", "benchmarks.kaggle.offline_throughput", str(mfile), "--", *bench_args]
+    cmd = [*(cmd_prefix or []), sys.executable, "-m", "benchmarks.kaggle.offline_throughput", str(mfile), "--", *bench_args]
     log_path = st.logs / f"{key}.log"
     env_extra = dict(env_extra or {})
     t_th0 = throttle_counters(gpu)

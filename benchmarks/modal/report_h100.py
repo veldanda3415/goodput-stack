@@ -233,6 +233,61 @@ def traces(force: bool = False) -> None:
             print(f"{r['key']}: {files[0].name} -> {out.name}: {res.get('share_pct_of_window')}")
 
 
+def nsys_events(db: Path) -> dict:
+    """Nsight Systems SQLite export -> the Kineto-like event list trace_breakdown.analyze reads (times in us):
+    NVTX ranges -> user_annotation, CUDA runtime / driver API calls -> cuda_runtime (with correlation), kernels ->
+    kernel, memcpy / memset -> gpu_memcpy / gpu_memset. Column names are read from the file (PRAGMA table_info)."""
+    import sqlite3
+    con = sqlite3.connect(str(db))
+    tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    cols = lambda t: {r[1] for r in con.execute(f"PRAGMA table_info({t})")}
+    strings = dict(con.execute("SELECT id, value FROM StringIds")) if "StringIds" in tables else {}
+    evs: list[dict] = []
+    if "NVTX_EVENTS" in tables:
+        c = cols("NVTX_EVENTS")
+        q = "SELECT start, end, text" + (", textId" if "textId" in c else ", NULL") + " FROM NVTX_EVENTS WHERE end IS NOT NULL"
+        for st, en, text, tid in con.execute(q):
+            name = text if text is not None else strings.get(tid, "")
+            if name:
+                evs.append({"ph": "X", "cat": "user_annotation", "name": name, "ts": st / 1e3, "dur": (en - st) / 1e3})
+    for t in ("CUPTI_ACTIVITY_KIND_RUNTIME", "CUPTI_ACTIVITY_KIND_DRIVER"):
+        if t in tables:
+            for st, corr in con.execute(f"SELECT start, correlationId FROM {t}"):
+                evs.append({"ph": "X", "cat": "cuda_runtime", "name": "launch", "ts": st / 1e3, "dur": 0, "args": {"correlation": corr}})
+    if "CUPTI_ACTIVITY_KIND_KERNEL" in tables:
+        c = cols("CUPTI_ACTIVITY_KIND_KERNEL")
+        name_col = "demangledName" if "demangledName" in c else "shortName"
+        for st, en, corr, nid in con.execute(f"SELECT start, end, correlationId, {name_col} FROM CUPTI_ACTIVITY_KIND_KERNEL"):
+            evs.append({"ph": "X", "cat": "kernel", "name": strings.get(nid, str(nid)), "ts": st / 1e3, "dur": (en - st) / 1e3,
+                        "args": {"correlation": corr}})
+    for t, cat in (("CUPTI_ACTIVITY_KIND_MEMCPY", "gpu_memcpy"), ("CUPTI_ACTIVITY_KIND_MEMSET", "gpu_memset")):
+        if t in tables:
+            for st, en, corr in con.execute(f"SELECT start, end, correlationId FROM {t}"):
+                evs.append({"ph": "X", "cat": cat, "name": cat, "ts": st / 1e3, "dur": (en - st) / 1e3, "args": {"correlation": corr}})
+    return {"traceEvents": evs}
+
+
+def nsys(force: bool = False) -> None:
+    """trace_breakdown.analyze over every downloaded nsys SQLite export; <key>.nsys-breakdown.json next to the row."""
+    sys.path.insert(0, str(REPO))
+    from benchmarks.kaggle import trace_breakdown as tb
+    for task in ("h2", "h3", "h4"):
+        for r in rows(task):
+            if r.get("kind") != "offline" or not r.get("nsys_cmd"):
+                continue
+            d = RAW.parent / Path(r["_src"]).parent
+            db, out = d / f"{r['key']}.sqlite", d / f"{r['key']}.nsys-breakdown.json"
+            if not db.exists() or (out.exists() and not force):
+                print(f"{r['key']}: {'no sqlite' if not db.exists() else 'done'}")
+                continue
+            kv_bytes = 1 if "fp8" in " ".join(r.get("bench_cmd", "").split("--kv-cache-dtype")[1:2]) else 2
+            res = tb.analyze(nsys_events(db), tb.model_from_config(config_for(r["model"]), kv_bytes))
+            res.pop("per_step", None)
+            res["source"] = f"{db.name} (nsys SQLite export)"
+            out.write_text(json.dumps(res, indent=1) + "\n")
+            print(f"{r['key']}: {res.get('share_pct_of_window')} {(res.get('steps') or {}).get('decode_only')}")
+
+
 if __name__ == "__main__":
     for sec in sys.argv[1:]:
         globals()[sec]()
