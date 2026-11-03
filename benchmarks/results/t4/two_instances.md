@@ -296,3 +296,36 @@ Order S T M M T S in one session; same measured window for every condition.
 - Per MHz (output tok/s ÷ mean SM clock): M > T by a measurable margin (> 5 %); the raw-tok/s gap may be smaller or larger than per-MHz because MPS may change the clock.
 - sw_power_cap active most of the time in all three; clock differs between conditions by more than run-to-run noise within a condition.
 - ITL p50: M ≤ T.
+
+### Decisions made
+
+- **Stage `mpsab`** (new, `benchmarks/kaggle/t4_notebook.py`), kernel slug `goodput-t4-b17k` (a separate slug, so no other
+  checkout's kernel is overwritten; the model is ungated, no HF token needed).
+- **Fixed measured window instead of L3's request count.** L3's closed loop ran 3 requests per user and measured the
+  "joint full-batch window" (21–34 s, different per condition). Here each client runs closed-loop for `ramp 5 s + window
+  90 s` and every in-flight request is cancelled at the window end. Output tok/s = output-token chunks that arrived inside
+  the 90 s window ÷ 90 s (client-side, per instance, summed for the combined number); the server's
+  `generation_tokens_total` rate over the same window is recorded next to it. ITL = gaps with both chunks inside the window;
+  TTFT = requests sent inside the window. The request body is the harness's `client.request_body` (L3's), prompt 128 /
+  output 256, ignore_eos, temperature 0, max_tokens jitter 0, start jitter 1 s.
+- **Prompts made once** (512, 128 tokens each, harness `make_prompts`, seed 17) on the first server and reused in every
+  condition (S: all 512; T/M: even ones to instance 1, odd ones to instance 2). Prefix caching is off, so reuse is not a
+  cache effect; it keeps the prompt set identical across conditions.
+- **Warm-up as L3:** one discarded 32-request wave (16 output tokens) per instance before the load.
+- **Instance 2 start:** launched as soon as instance 1 logs `Available KV cache memory` (instance 1 has profiled; its KV
+  allocation and second graph capture follow within ~13 s). Instance 2's own memory check comes ~40 s after its launch
+  (L3 log: launch → EngineCore init 41 s). This saves ~20 s per pair; the KV pool of every instance is recorded so any
+  effect on memory sizing is visible.
+- **MPS per M condition:** a fresh daemon (same command as L3: `CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe
+  CUDA_MPS_LOG_DIRECTORY=/tmp/goodput-mps/log CUDA_VISIBLE_DEVICES=0 nvidia-cuda-mps-control -d`) before the engines,
+  `echo quit | nvidia-cuda-mps-control` after. In S and T the `CUDA_MPS_*` variables are removed from the environment.
+  With the engines up, `nvidia-smi` and `pgrep -fa nvidia-cuda-mps` are saved: M needs both EngineCores `M+C`; S/T need no
+  `M+C` row and no MPS process (`mps_state_ok` per row).
+- **Idle:** ≥ 30 s with no engine before each condition (counted from the last engine's exit); temperature, SM clock and
+  power are read at the end of the idle and again at load start. Condition 1 follows the install (no engine before it).
+- **Model prefetch** (`huggingface_hub.snapshot_download`, pinned revision) runs next to the vLLM install, to take the
+  download out of the first engine start.
+- **Budget guard 0.5 h** (script session time, install included): a condition starts only if its estimate (engine start
+  85 s single / 150 s pair / 175 s cold, + idle left + 25 + 5 + 90 + 10 s) fits; otherwise it and all later ones are
+  skipped and recorded. Estimate for all six: ~0.53 h, so the last S may be cut.
+- **Per MHz** = output tok/s ÷ mean SM clock (`clocks.sm` from nvidia-smi, 1 Hz, same 90 s window); CALCULATED offline.
