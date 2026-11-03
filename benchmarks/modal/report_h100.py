@@ -184,12 +184,15 @@ def h5() -> None:
           "TTFT p50 / p95 ms | ITL p50 / p95 ms | running mean | waiting mean / max | KV use max | SM MHz | power W | client CPU % mean / max | server CPU % mean |")
     print("|" + "---:|" * 15)
     for r in http:
+        full = bool(r.get("srv_samples"))
+        g = (lambda k: r.get(k, 0)) if full else (lambda k: r.get("run_" + k, 0))   # whole run when no full window
+        na = lambda v, f: f.format(v) if full else "—"
         print(f"| {r['users']} | {r['client_processes']} | {r['requests_ok']} / {r['requests']} | **{r.get('harness_steady_output_tok_s_sum', 0):,.0f}** | "
-              f"{r.get('srv_generation_tokens_per_s', 0):,.0f} | {r.get('ttft_ms_p50', 0):,.0f} / {r.get('ttft_ms_p95', 0):,.0f} | "
-              f"{r.get('itl_ms_p50', 0):.1f} / {r.get('itl_ms_p95', 0):.1f} | {r.get('srv_running_mean', 0):,.0f} | "
-              f"{r.get('srv_waiting_mean', 0):,.0f} / {r.get('srv_waiting_max', 0):,.0f} | {r.get('srv_kv_usage_max', 0):.3f} | "
-              f"{r.get('gpu_sm_clock_mhz_mean', 0):,.0f} | {r.get('gpu_power_w_mean', 0):.0f} | "
-              f"{r.get('cpu_client_pct_mean', 0):.0f} / {r.get('cpu_client_pct_max', 0):.0f} | {r.get('cpu_server_pct_mean', 0):.0f} |")
+              f"{g('srv_generation_tokens_per_s'):,.0f}{'' if full else ' (whole run¹)'} | {r.get('ttft_ms_p50', 0):,.0f} / {r.get('ttft_ms_p95', 0):,.0f} | "
+              f"{r.get('itl_ms_p50', 0):.1f} / {r.get('itl_ms_p95', 0):.1f} | {g('srv_running_mean'):,.0f}{'' if full else '¹'} | "
+              f"{g('srv_waiting_mean'):,.0f} / {g('srv_waiting_max'):,.0f} | {g('srv_kv_usage_max'):.3f} | "
+              f"{na(r.get('gpu_sm_clock_mhz_mean', 0), '{:,.0f}')} | {na(r.get('gpu_power_w_mean', 0), '{:.0f}')} | "
+              f"{na(r.get('cpu_client_pct_mean', 0), '{:.0f}')} / {na(r.get('cpu_client_pct_max', 0), '{:.0f}')} | {na(r.get('cpu_server_pct_mean', 0), '{:.0f}')} |")
 
 
 CONFIGS = {   # model id -> config.json saved in a run (H3 logs) or by the T4 build (Qwen, same revision)

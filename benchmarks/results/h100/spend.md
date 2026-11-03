@@ -1,6 +1,6 @@
 # Modal spend (this build)
 
-Source: `modal billing report --for today -r h --show-resources --json` (UTC 2026-11-03), read 2026-11-03T14:43:47+00:00; attributed by app id (description `goodput-h100`). GPU-seconds CALCULATED = H100 cost ÷ $3.95/h. Modal bills the H100 from container start to stop, so it includes the image load / container boot before the function runs.
+Source: `modal billing report --for today -r h --show-resources --json` (UTC 2026-11-03), read 2026-11-03T14:55:54+00:00; attributed by app id (description `goodput-h100`). GPU-seconds CALCULATED = H100 cost ÷ $3.95/h. Modal bills the H100 from container start to stop, so it includes the image load / container boot before the function runs.
 
 | run | task | app | H100 $ | CPU $ | memory $ | other $ | total $ | H100 GPU-s (CALCULATED) | note |
 |---|---|---|---:|---:|---:|---:|---:|---:|---|
@@ -14,5 +14,6 @@ Source: `modal billing report --for today -r h --show-resources --json` (UTC 202
 | 20261103-081737_h3 | h3 | `ap-QprtvcB3ROj4kwXZPpiS8X` | 3.1442 | 0.3012 | 0.2038 | 0.0000 | **3.6492** | 2866 | H3 Llama-3.1-8B BF16/FP8/FP8-KV (git e513d7b; -dirty = results files only) |
 | 20261103-090417_h4 | h4 | `ap-aLoWnUbZebes4qht7vuWdw` | 0.1273 | 0.0122 | 0.0082 | 0.0000 | **0.1477** | 116 | H4 first try: task argparse error on --prefix-args value (exited in seconds), app stopped |
 | 20261103-090523_h4 | h4 | `ap-0lQ9vphWMSeZ3vnhAgEM9M` | 2.0386 | 0.1953 | 0.1321 | 0.0000 | **2.3661** | 1858 | H4 Llama ablations + nsys extras (git c8c87a6) |
-| 20261103-094019_h5 | h5 | `ap-sv8goss5w0ObdMGYS6lnXq` | 0.1712 | 0.0328 | 0.0111 | 0.0000 | **0.2151** | 156 | H5 served Llama FP8+FP8KV + CUDA-graph extras (git b255523; -dirty = RESULTS.md only) |
-| **total** | | | 8.5339 | 0.8543 | 0.5567 | 0.0326 | **9.9775** | 7778 (2.160 GPU-h) | |
+| 20261103-094019_h5 | h5 | `ap-sv8goss5w0ObdMGYS6lnXq` | 0.8361 | 0.1602 | 0.0542 | 0.0000 | **1.0504** | 762 | H5 served Llama FP8+FP8KV + CUDA-graph extras (git b255523; -dirty = RESULTS.md only) |
+| 20261103-095405_h4 | h4 | `ap-CzUpLLSGEifhnGU31WyyYH` | 0.0000 | 0.0000 | 0.0000 | 0.0000 | **0.0000** | 0 | H4 follow-up: nsys time windows, no vLLM profiler (git a4797ca; -dirty = RESULTS.md only) |
+| **total** | | | 9.1988 | 0.9817 | 0.5998 | 0.0326 | **10.8129** | 8384 (2.329 GPU-h) | |
