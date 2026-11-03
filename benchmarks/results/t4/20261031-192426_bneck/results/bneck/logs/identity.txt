@@ -1,0 +1,7 @@
+$ id; uname -r; grep -E '^Cap(Eff|Prm|Bnd)' /proc/self/status
+# rc=0
+uid=0(root) gid=0(root) groups=0(root)
+6.18.55+
+CapPrm:	00000000a80425fb
+CapEff:	00000000a80425fb
+CapBnd:	00000000a80425fb

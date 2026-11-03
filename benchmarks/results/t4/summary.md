@@ -359,5 +359,10 @@ Engine: vLLM None, chunked prefill None, max_num_batched_tokens 2048, max_num_se
 | 20261031-091201_taskbudget | taskbudget | complete | 1,462.2 | 0.406 | 0.425 |
 | 20261031-171557_followup | followup | complete | 1,288.4 | 0.358 | 0.368 |
 | 20261031-173838_followup | followup | complete | 1,161.8 | 0.323 | 0.337 |
-| **total** | | | | **8.204** | **8.819** |
+| 20261031-192426_bneck | bneck | complete | 51.2 | 0.014 | 0.020 |
+| 20261031-192649_bneck | bneck | complete | 3,086.5 | 0.857 | 0.883 |
+| 20261031-192658_bneck | bneck | complete | 5,349.5 | 1.486 | 1.512 |
+| 20261031-202130_leftover | leftover | complete | 2,490.3 | 0.692 | 0.710 |
+| 20261031-210126_leftover | leftover | complete | 1,593.7 | 0.443 | 0.460 |
+| **total** | | | | **11.696** | **12.404** |
 

@@ -1,0 +1,23 @@
+{
+  "run_id": "20261031-192649_bneck",
+  "stage": "bneck",
+  "args": [
+    "--plan",
+    "tools,ref:start,micro:0,micro:1,base:64,prof:64,prof:384,eager:64,eager:384,ref:gpu1@1,ref:end",
+    "--budget-h",
+    "1.45"
+  ],
+  "kernel": "raviveldanda/goodput-t4",
+  "git_sha": "977557c-dirty",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-31T23:26:51+00:00",
+  "push_output": "Warning: Looks like you're using an outdated `kaggle` version (installed: 2.2.3), please consider upgrading to the latest version (2.2.5)\nKernel version 27 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4",
+  "output_cmd_output": "esults/bneck/ref-gpu1.gpu.csv.fields.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/ref-start.bench.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/ref-start.cpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/ref-start.engine-metrics.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/ref-start.gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/ref-start.gpu.csv.fields.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/stage.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/trace-mns384/profiler_out_0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/trace-mns384/rank0.1793490945551575269.pt.trace.json.gz\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/trace-mns64/profiler_out_0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/bneck/trace-mns64/rank0.1793490574092844598.pt.trace.json.gz\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/results/kernel_session.txt\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192649_bneck/_download/goodput-t4.log",
+  "finished_at_utc": "2026-11-01T00:19:50+00:00",
+  "status": "complete",
+  "wall_push_to_done_min": 53.0,
+  "script_session_s": 3086.5,
+  "gpu_hours_script": 0.857,
+  "gpu_hours_upper_bound": 0.883
+}

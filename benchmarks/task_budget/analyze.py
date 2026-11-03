@@ -24,7 +24,8 @@ import random
 import statistics
 from pathlib import Path
 
-POLICIES = ("baseline", "hard_cut", "downgrade", "escalate", "escalate_fresh", "escalate_carry")
+POLICIES = ("baseline", "hard_cut", "downgrade", "escalate", "escalate_fresh", "escalate_carry", "escalate_fresh_strong_final",
+            "per_step_budget")
 
 
 def read_jsonl(p: Path) -> list[dict]:
@@ -135,6 +136,9 @@ def policy_table(rows: list[dict], rates: dict, price_h: float) -> list[dict]:
             "tokens_failed_attempts": sum(a["prompt_tokens"] + a["completion_tokens"] for a in atts if not a["check_ok"]),
             "steps_reached": len(steps), "steps_escalated": sum(escalated(st) for st in steps),
             "share_steps_escalated": round(sum(escalated(st) for st in steps) / len(steps), 4) if steps else None,
+            "steps_cut_at_step_share": sum(any(a.get("step_cut") for a in st["attempts"]) for st in steps),
+            "attempts": len(atts), "tokens_per_attempt_call": round(total / len(atts), 1) if atts else None,
+            "cancelled_calls": sum(a["cancelled"] for a in atts),
             "cheap_step1_first_try_pass": sum(1 for r in rs if r["steps"] and r["steps"][0]["attempts"][0]["pool"] == "cheap"
                                               and r["steps"][0]["attempts"][0]["check_ok"]),
             "tokens_by_pool": allt, "completion_tokens_by_pool": comp,

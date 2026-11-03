@@ -297,3 +297,88 @@ def test_p75_and_taskset():
     tasks = driver.load_tasks()
     assert len(tasks) == 150 and len({t["id"] for t in tasks}) == 150
     assert all(float(t["gold"]) == float(t["answer"].split("####")[-1].replace(",", "")) for t in tasks)
+
+
+# ---------------------------------------------------------------- L4 policies
+
+def test_step_shares_split():
+    assert driver.step_shares(951, [216.5, 223, 440]) == (234, 241, 476)
+    assert sum(driver.step_shares(1000, [1, 1, 1])) == 1000
+
+
+def test_strong_final_pool_choice():
+    p = driver.Policy("escalate_fresh_strong_final", 951)
+    bad = {"pool": "cheap", "check_ok": False}
+    assert p.pool_for([], 0, 1) == "cheap" and p.pool_for([], 0, 2) == "cheap" and p.pool_for([], 0, 3) == "strong"
+    assert p.pool_for([bad], 0, 1) == "strong"
+    assert p.cuts and p.fresh
+    q = driver.Policy("per_step_budget", 951, step_shares=(234, 241, 476))
+    assert q.pool_for([], 0, 3) == "cheap" and q.pool_for([bad], 0, 2) == "strong" and q.cuts and q.fresh
+
+
+def _two_pools(server, policy, cheap_replies, strong_replies=GOOD):
+    """cheap = `server`, strong = a second fake server; replies scripted per pool; every prompt kept per pool."""
+    strong = fake_openai.serve(0)
+    seen = {"s": [], "c": []}
+    try:
+        good, bad = scripted(strong_replies), scripted(cheap_replies)
+
+        def fn(prompt, max_tokens):
+            model = fake_openai.STATE.get("_model")
+            seen[model].append(prompt)
+            return good(prompt, max_tokens) if model == "s" else bad(prompt, max_tokens)
+        fake_openai.STATE["reply_fn"] = fn
+        orig = fake_openai.H.do_POST
+
+        def do_post(self):
+            import io
+            raw = self.rfile.read(int(self.headers["Content-Length"]))
+            fake_openai.STATE["_model"] = json.loads(raw).get("model")
+            self.rfile = io.BytesIO(raw)
+            return orig(self)
+        fake_openai.H.do_POST = do_post
+        try:
+            r = _run(f"http://127.0.0.1:{strong.server_address[1]}", policy, cheap_url=server)
+        finally:
+            fake_openai.H.do_POST = orig
+    finally:
+        strong.shutdown()
+    return r, seen
+
+
+def test_strong_final_runs_step3_on_strong_and_escalates_fresh(server):
+    r, seen = _two_pools(server, driver.Policy("escalate_fresh_strong_final", 100_000),
+                         {1: [CHEAP_FAIL], 2: ["eggs * price"], 3: ["Answer: 99"]})
+    assert r["success"]
+    assert [s["pools"] for s in r["steps"]] == [["cheap", "strong"], ["cheap"], ["strong"]]
+    assert not any(CHEAP_FAIL in p or "failed the check" in p for p in seen["s"])   # no failed cheap reply in escalated prompts
+    assert not any("Compute the answer" in p for p in seen["c"])                      # step 3 never reached the cheap pool
+
+
+LONG = " ".join(["blah"] * 300)   # a cheap reply far over any step share
+
+
+def test_per_step_budget_step_cut_escalates_instead_of_abort(server):
+    shares = (120, 241, 476)
+    r, seen = _two_pools(server, driver.Policy("per_step_budget", 951, step_shares=shares), {1: [LONG], 2: ["eggs * price"],
+                                                                                            3: ["Answer: 18"]})
+    s1 = r["steps"][0]
+    assert s1["pools"] == ["cheap", "strong"] and not r["aborted"] and r["success"]
+    a0, a1 = s1["attempts"]
+    assert a0["cancelled"] and a0["step_cut"] and a0["check_reason"] == "cancelled at step share"
+    assert a0["step_cap"] == 120 and a0["prompt_tokens"] + a0["completion_tokens"] == 120   # cut exactly at the share
+    assert a1["step_cap"] is None and not a1["cancelled"] and a1["carried_attempts"] == 0
+    assert not any("blah" in p for p in seen["s"])                                          # fresh context
+    # per-step accounting: steps 2 and 3 got their own caps; the task total is the sum of every attempt
+    assert r["steps"][1]["attempts"][0]["step_cap"] == 241 and r["steps"][2]["attempts"][0]["step_cap"] == 476
+    assert r["tokens"] == sum(a["prompt_tokens"] + a["completion_tokens"] for s in r["steps"] for a in s["attempts"])
+
+
+def test_per_step_budget_cap_counts_earlier_attempts_and_aborts_only_at_total(server):
+    # step 1: cheap fails the checker (short), strong also fails until the total budget is spent -> abort
+    r, _ = _two_pools(server, driver.Policy("per_step_budget", 200, step_shares=(60, 60, 80)),
+                      {1: ["oops"], 2: ["x"], 3: ["x"]}, strong_replies={1: [LONG], 2: ["x"], 3: ["x"]})
+    s1 = r["steps"][0]
+    assert s1["pools"][0] == "cheap" and s1["attempts"][0]["check_reason"] != "cancelled at step share"
+    assert s1["pools"][1] == "strong" and s1["attempts"][1]["cancelled"] and not s1["attempts"][1]["step_cut"]
+    assert r["aborted"] and r["tokens"] == 200

@@ -1,0 +1,249 @@
+{
+ "inputs": {
+  "datasheet_tflops": 65.0,
+  "datasheet_mhz": 1590,
+  "flop_per_decode_token_linear_and_lm_head": 6171394048,
+  "flop_per_output_token_mixed_128_256": 9031081984.0,
+  "datasheet_mixed_ceiling_tok_s": 7197.365732606331,
+  "trace": "20261031-192649_bneck/results/bneck/trace-mns384/rank0.1793490945551575269.pt.trace.json.gz",
+  "profile_clock_mhz": 980.37,
+  "decode_steps": 290,
+  "all_steps": 299,
+  "gemm_tflops_in_vllm_decode": 30.132508170972855,
+  "decode_rate_in_trace": 1846.0239425830039,
+  "all_steps_rate_in_trace": 1463.1068034394352,
+  "mean_context_decode": 245.6327699451922,
+  "gemm_us": 22807270.669,
+  "attention_us": 35272761.228,
+  "other_us": 2123068.911105469,
+  "busy_us": 60203100.80810547,
+  "period_us": 60323702.9765625
+ },
+ "factors": {
+  "clock": null,
+  "gemm_efficiency": 0.7518462494434495,
+  "attention": 0.4141039123477999,
+  "other_kernels": 0.9148399521681732,
+  "idle": 0.9980007499124534,
+  "prompt_share": 0.7925719540734768
+ },
+ "datasheet_decode_ceiling": 10532.466326804222,
+ "chains": {
+  "Build 14 offline-mns384 (20261031-082141_ridge)": {
+   "steps": [
+    [
+     "datasheet decode ceiling (65 TFLOP/s \u00f7 6.17 GFLOP per decode token)",
+     10532.466326804222
+    ],
+    [
+     "\u00d7 SM clock 967 / 1,590 MHz",
+     6403.938252476718
+    ],
+    [
+     "\u00d7 GEMM efficiency per clock",
+     4814.776956792059
+    ],
+    [
+     "\u2212 attention kernel time",
+     1993.8179748896255
+    ],
+    [
+     "\u2212 norm / activation / sampling / memcpy time",
+     1824.0243407800688
+    ],
+    [
+     "\u2212 GPU idle between kernels",
+     1820.377659957077
+    ],
+    [
+     "\u2212 prompt (prefill) steps",
+     1442.7802791038835
+    ]
+   ],
+   "predicted": 1442.7802791038835,
+   "measured": 1458.57,
+   "clock_mhz": 966.75,
+   "residual_pct": 1.09439539234093
+  },
+  "P1 ref-start (20261031-192649_bneck)": {
+   "steps": [
+    [
+     "datasheet decode ceiling (65 TFLOP/s \u00f7 6.17 GFLOP per decode token)",
+     10532.466326804222
+    ],
+    [
+     "\u00d7 SM clock 929 / 1,590 MHz",
+     6153.411286137261
+    ],
+    [
+     "\u00d7 GEMM efficiency per clock",
+     4626.419196765292
+    ],
+    [
+     "\u2212 attention kernel time",
+     1915.8182895414734
+    ],
+    [
+     "\u2212 norm / activation / sampling / memcpy time",
+     1752.6671123670328
+    ],
+    [
+     "\u2212 GPU idle between kernels",
+     1749.1630924891929
+    ],
+    [
+     "\u2212 prompt (prefill) steps",
+     1386.3376102073653
+    ]
+   ],
+   "predicted": 1386.3376102073653,
+   "measured": 1404.29,
+   "clock_mhz": 928.93,
+   "residual_pct": 1.2949507869118193
+  },
+  "P1 ref-end (20261031-192649_bneck)": {
+   "steps": [
+    [
+     "datasheet decode ceiling (65 TFLOP/s \u00f7 6.17 GFLOP per decode token)",
+     10532.466326804222
+    ],
+    [
+     "\u00d7 SM clock 938 / 1,590 MHz",
+     6212.764052356234
+    ],
+    [
+     "\u00d7 GEMM efficiency per clock",
+     4671.043351441121
+    ],
+    [
+     "\u2212 attention kernel time",
+     1934.2973265779474
+    ],
+    [
+     "\u2212 norm / activation / sampling / memcpy time",
+     1769.5724737255946
+    ],
+    [
+     "\u2212 GPU idle between kernels",
+     1766.0346558025785
+    ],
+    [
+     "\u2212 prompt (prefill) steps",
+     1399.7095381109298
+    ]
+   ],
+   "predicted": 1399.7095381109298,
+   "measured": 1418.55,
+   "clock_mhz": 937.89,
+   "residual_pct": 1.3460265416564532
+  },
+  "P1 ref-gpu1 (20261031-192649_bneck)": {
+   "steps": [
+    [
+     "datasheet decode ceiling (65 TFLOP/s \u00f7 6.17 GFLOP per decode token)",
+     10532.466326804222
+    ],
+    [
+     "\u00d7 SM clock 1034 / 1,590 MHz",
+     6849.547692605095
+    ],
+    [
+     "\u00d7 GEMM efficiency per clock",
+     5149.806743069174
+    ],
+    [
+     "\u2212 attention kernel time",
+     2132.5551201400262
+    ],
+    [
+     "\u2212 norm / activation / sampling / memcpy time",
+     1950.9466241048945
+    ],
+    [
+     "\u2212 GPU idle between kernels",
+     1947.046193895854
+    ],
+    [
+     "\u2212 prompt (prefill) steps",
+     1543.1742065673627
+    ]
+   ],
+   "predicted": 1543.1742065673627,
+   "measured": 1552.74,
+   "clock_mhz": 1034.02,
+   "residual_pct": 0.6198777423785051
+  },
+  "P2 ref-start (20261031-192658_bneck)": {
+   "steps": [
+    [
+     "datasheet decode ceiling (65 TFLOP/s \u00f7 6.17 GFLOP per decode token)",
+     10532.466326804222
+    ],
+    [
+     "\u00d7 SM clock 987 / 1,590 MHz",
+     6535.163509038976
+    ],
+    [
+     "\u00d7 GEMM efficiency per clock",
+     4913.438173770647
+    ],
+    [
+     "\u2212 attention kernel time",
+     2034.6739708374541
+    ],
+    [
+     "\u2212 norm / activation / sampling / memcpy time",
+     1861.4010381587634
+    ],
+    [
+     "\u2212 GPU idle between kernels",
+     1857.679631970265
+    ],
+    [
+     "\u2212 prompt (prefill) steps",
+     1472.3447759531703
+    ]
+   ],
+   "predicted": 1472.3447759531703,
+   "measured": 1491.05,
+   "clock_mhz": 986.56,
+   "residual_pct": 1.2704377637853481
+  },
+  "P2 ref-end (20261031-192658_bneck)": {
+   "steps": [
+    [
+     "datasheet decode ceiling (65 TFLOP/s \u00f7 6.17 GFLOP per decode token)",
+     10532.466326804222
+    ],
+    [
+     "\u00d7 SM clock 987 / 1,590 MHz",
+     6537.018282983319
+    ],
+    [
+     "\u00d7 GEMM efficiency per clock",
+     4914.832678604266
+    ],
+    [
+     "\u2212 attention kernel time",
+     2035.2514407448436
+    ],
+    [
+     "\u2212 norm / activation / sampling / memcpy time",
+     1861.9293307012183
+    ],
+    [
+     "\u2212 GPU idle between kernels",
+     1858.2068683238083
+    ],
+    [
+     "\u2212 prompt (prefill) steps",
+     1472.7626487001564
+    ]
+   ],
+   "predicted": 1472.7626487001564,
+   "measured": 1493.15,
+   "clock_mhz": 986.84,
+   "residual_pct": 1.3842930711094104
+  }
+ }
+}

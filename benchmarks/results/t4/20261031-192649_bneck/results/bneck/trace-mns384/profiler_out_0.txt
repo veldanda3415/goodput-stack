@@ -1,0 +1,107 @@
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                               kernel_unified_attention         0.00%       0.000us         0.00%       0.000us       0.000us       40.438s        51.83%       40.438s       3.744ms         10800  
+         turing_fp16_s1688gemm_fp16_128x128_ldg8_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us       14.261s        18.28%       14.261s     668.031us         21348  
+                                               aten::mm         0.07%      51.631ms         0.09%      71.516ms      61.439us       12.532s        16.06%       12.532s      10.766ms          1164  
+         turing_fp16_s1688gemm_fp16_256x128_ldg8_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us       12.032s        15.42%       12.032s       1.084ms         11100  
+         turing_fp16_s1688gemm_fp16_128x256_ldg8_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us        5.454s         6.99%        5.454s      21.645ms           252  
+                    vllm::unified_attention_with_output         0.10%      75.135ms         0.12%      93.705ms     289.213us        5.181s         6.64%        5.185s      16.004ms           324  
+execute_8192_context_62(sq7932sk7932sqsq1014800sqsk1...         0.00%       0.000us         0.00%       0.000us       0.000us        2.755s         3.53%        2.755s        2.755s             1  
+execute_8192_context_63(sq7933sk8057sqsq1014081sqsk1...         0.00%       0.000us         0.00%       0.000us       0.000us        2.746s         3.52%        2.746s        2.746s             1  
+execute_8192_context_63(sq7933sk8054sqsq1013397sqsk1...         0.00%       0.000us         0.00%       0.000us       0.000us        2.732s         3.50%        2.732s        2.732s             1  
+execute_8069_context_61(sq7808sk7808sqsq999424sqsk99...         0.00%       0.000us         0.00%       0.000us       0.000us        2.728s         3.50%        2.728s        2.728s             1  
+execute_8192_context_63(sq7894sk8012sqsq1005300sqsk1...         0.00%       0.000us         0.00%       0.000us       0.000us        2.720s         3.49%        2.720s        2.720s             1  
+    turing_fp16_s1688gemm_fp16_256x128_ldg8_relu_f2f_tn         0.00%       0.000us         0.00%       0.000us       0.000us        2.692s         3.45%        2.692s     250.094us         10764  
+execute_4514_context_33(sq4224sk4224sqsq540672sqsk54...         0.00%       0.000us         0.00%       0.000us       0.000us        1.521s         1.95%        1.521s        1.521s             1  
+                      triton_poi_fused_mul_silu_slice_1         0.00%       0.000us         0.00%       0.000us       0.000us        1.502s         1.93%        1.502s     139.098us         10800  
+execute_3356_context_24(sq2996sk3072sqsq379536sqsk38...         0.00%       0.000us         0.00%       0.000us       0.000us        1.105s         1.42%        1.105s        1.105s             1  
+                                            aten::addmm         0.01%       9.263ms         0.02%      12.600ms      43.751us     964.678ms         1.24%     964.678ms       3.350ms           288  
+execute_2637_context_18(sq2304sk2304sqsq294912sqsk29...         0.00%       0.000us         0.00%       0.000us       0.000us     937.678ms         1.20%     937.678ms     937.678ms             1  
+                  triton_red_fused_fused_add_rms_norm_2         0.00%       0.000us         0.00%       0.000us       0.000us     484.761ms         0.62%     484.761ms      44.885us         10800  
+                      triton_poi_fused_mul_silu_slice_1         0.01%       4.566ms         0.01%       7.149ms      24.824us     476.851ms         0.61%     476.851ms       1.656ms           288  
+                                  _gumbel_sample_kernel         0.00%       0.000us         0.00%       0.000us       0.000us     427.319ms         0.55%     427.319ms       1.424ms           300  
+                  triton_red_fused_fused_add_rms_norm_0         0.00%       0.000us         0.00%       0.000us       0.000us     269.111ms         0.34%     269.111ms      24.918us         10800  
+execute_493_context_1(sq128sk128sqsq16384sqsk16384)_...         0.00%       0.000us         0.00%       0.000us       0.000us     261.716ms         0.34%     261.716ms     261.716ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     244.715ms         0.31%     244.715ms     244.715ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     244.277ms         0.31%     244.277ms     244.277ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     241.849ms         0.31%     241.849ms     241.849ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     240.520ms         0.31%     240.520ms     240.520ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     239.617ms         0.31%     239.617ms     239.617ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     239.286ms         0.31%     239.286ms     239.286ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     238.850ms         0.31%     238.850ms     238.850ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     238.380ms         0.31%     238.380ms     238.380ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     238.263ms         0.31%     238.263ms     238.263ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     238.073ms         0.31%     238.073ms     238.073ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     237.951ms         0.31%     237.951ms     237.951ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     237.208ms         0.30%     237.208ms     237.208ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     237.199ms         0.30%     237.199ms     237.199ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     237.096ms         0.30%     237.096ms     237.096ms             1  
+execute_383_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     236.767ms         0.30%     236.767ms     236.767ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     236.745ms         0.30%     236.745ms     236.745ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     236.611ms         0.30%     236.611ms     236.611ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     236.024ms         0.30%     236.024ms     236.024ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     236.021ms         0.30%     236.021ms     236.021ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.952ms         0.30%     235.952ms     235.952ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.948ms         0.30%     235.948ms     235.948ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.937ms         0.30%     235.937ms     235.937ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.665ms         0.30%     235.665ms     235.665ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.613ms         0.30%     235.613ms     235.613ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.611ms         0.30%     235.611ms     235.611ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.500ms         0.30%     235.500ms     235.500ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.494ms         0.30%     235.494ms     235.494ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.193ms         0.30%     235.193ms     235.193ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.155ms         0.30%     235.155ms     235.155ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.134ms         0.30%     235.134ms     235.134ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.066ms         0.30%     235.066ms     235.066ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.048ms         0.30%     235.048ms     235.048ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     235.017ms         0.30%     235.017ms     235.017ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     234.935ms         0.30%     234.935ms     234.935ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     234.913ms         0.30%     234.913ms     234.913ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     234.870ms         0.30%     234.870ms     234.870ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     234.785ms         0.30%     234.785ms     234.785ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     234.781ms         0.30%     234.781ms     234.781ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     234.478ms         0.30%     234.478ms     234.478ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     233.886ms         0.30%     233.886ms     233.886ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     233.693ms         0.30%     233.693ms     233.693ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     233.363ms         0.30%     233.363ms     233.363ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     233.170ms         0.30%     233.170ms     233.170ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     232.637ms         0.30%     232.637ms     232.637ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     232.430ms         0.30%     232.430ms     232.430ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     231.737ms         0.30%     231.737ms     231.737ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     230.726ms         0.30%     230.726ms     230.726ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     230.618ms         0.30%     230.618ms     230.618ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     230.475ms         0.30%     230.475ms     230.475ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     229.974ms         0.29%     229.974ms     229.974ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     229.610ms         0.29%     229.610ms     229.610ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     229.280ms         0.29%     229.280ms     229.280ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     228.984ms         0.29%     228.984ms     228.984ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     228.580ms         0.29%     228.580ms     228.580ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     228.161ms         0.29%     228.161ms     228.161ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     226.810ms         0.29%     226.810ms     226.810ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     226.523ms         0.29%     226.523ms     226.523ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     225.920ms         0.29%     225.920ms     225.920ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     225.909ms         0.29%     225.909ms     225.909ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     225.256ms         0.29%     225.256ms     225.256ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     223.164ms         0.29%     223.164ms     223.164ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     222.949ms         0.29%     222.949ms     222.949ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     222.540ms         0.29%     222.540ms     222.540ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     221.955ms         0.28%     221.955ms     221.955ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     221.194ms         0.28%     221.194ms     221.194ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     220.930ms         0.28%     220.930ms     220.930ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     220.832ms         0.28%     220.832ms     220.832ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     220.614ms         0.28%     220.614ms     220.614ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     220.073ms         0.28%     220.073ms     220.073ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     220.045ms         0.28%     220.045ms     220.045ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     219.840ms         0.28%     219.840ms     219.840ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     219.065ms         0.28%     219.065ms     219.065ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     218.542ms         0.28%     218.542ms     218.542ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     218.142ms         0.28%     218.142ms     218.142ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     217.895ms         0.28%     217.895ms     217.895ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     217.885ms         0.28%     217.885ms     217.885ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     217.779ms         0.28%     217.779ms     217.779ms             1  
+execute_384_context_0(sq0sk0sqsq0sqsk0)_generation_3...         0.00%       0.000us         0.00%       0.000us       0.000us     217.604ms         0.28%     217.604ms     217.604ms             1  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 75.731s
+Self CUDA time total: 78.014s
+

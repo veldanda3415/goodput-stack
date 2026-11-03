@@ -260,3 +260,63 @@ What happened at 64 (engine log `loggers.py` lines, 10–17 s averages, and the 
 - Why prefill at 3,840 tokens runs at ~900 tok/s on this card is not separated (attention backend, chunk size, clock).
   The only measured facts are the rates above.
 - One run, one session, temperature 1.0 (offline tool).
+
+## L2 — long-conversation memory limit, steady state (leftover)
+
+### Predictions (written before the L2 run, verbatim from the assignment)
+
+No preemptions at 32; first preemptions around 48–53; output far below the short-context numbers.
+
+### Decisions made
+
+- **Point order 32, 48, 64.** The prediction is about 32 (no preemptions) and 48–53 (first preemptions). Those two run
+  first. 64 runs only if its estimated time fits the L2 budget (0.5 h): 4 × N prompts × 3,840 tokens at F2's ~900
+  prompt tok/s, plus 150 s for the engine start.
+- **num-prompts = 4 × max-num-seqs** (steady state with a queue), `--num-warmups 2`, `--max-num-batched-tokens 8192`,
+  everything else as F2. The GPU sampler runs at 2 Hz with the nvidia-smi columns.
+- Stage `leftover --parts l1,l2` (`leftover_l2`).
+
+### Run (20261031-202130_leftover, Kaggle T4, real)
+
+- Same session as L1 (git `34ce189`, GPU 0, driver 580.178.04, vLLM 0.31.0, torch 2.13.0+cu130). L2 used
+  **0.524 GPU-h** (marks `l2-begin` → `l2-end`), 0.024 h over its 0.5 h budget: the guard's estimate (prompts ×
+  3,840 ÷ 900 prompt tok/s + 150 s) admitted the 48 point, and prefill ran at ~760 tok/s, not 900.
+- Command per point (row `bench_cmd`): `vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision
+  aa8e7253… --dtype half --gpu-memory-utilization 0.95 --no-enable-prefix-caching --max-num-seqs N --dataset-name random
+  --random-input-len 3840 --random-output-len 256 --random-range-ratio 0.0 --num-prompts 4N --num-warmups 2 --seed 0
+  --max-num-batched-tokens 8192`.
+- Raw: rows `l2-in3840-mns32`, `l2-in3840-mns48` and `l2-in3840-mns64` (skipped) in
+  [leftover.jsonl](20261031-202130_leftover/results/leftover/leftover.jsonl), the `l2-*.{bench.json, engine-metrics.json,
+  gpu.csv, cpu.csv}` files and `logs/l2-*.log`.
+
+| max-num-seqs | prompts | **output tok/s** | prompt tok/s (CALCULATED) | total tok/s | KV pool (log) | running max / mean | waiting mean | KV usage mean / **max** | **preemptions** | SM clock MHz | power W | elapsed s |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 32 | 128 | **49.8** | 746.4 | 796.1 | 207,408 | 32 / 28.1 | 57.8 | 0.534 / **0.632** | **0** | 1,338 | 65.9 | 658.5 |
+| 48 | 192 | **50.9** | 762.8 | 813.7 | 206,736 | 48 / 42.4 | 87.4 | 0.807 / **0.950** | **0** | 1,351 | 65.6 | 966.5 |
+| 64 | — | not run: L2 budget (−0.024 h left; estimate 0.345 h) | | | | | | | | | | |
+
+prompt tok/s = (total prompt tokens 491,520 / 737,280) ÷ elapsed. sw_power_cap active in 99.8 % of samples at both
+points; no thermal or hardware reason.
+
+- **No preemptions at 32 or 48** in steady state with a queue (58 / 87 waiting on average). At 48 the KV pool peaked at
+  95 %. With F2's 3 preemptions at 64 (53 running when the pool filled), the first preemption lies **between 48 and 64
+  running sequences**; this run does not narrow it further.
+- **Output is flat: 49.8 → 50.9 tok/s** from 32 to 48 sequences, because prefill dominates. Each 3,840-token prompt
+  costs 15 prompt tokens per output token, and prefill runs at only ~750–760 prompt tok/s here (F2: ~870–1,100 at 64).
+  Output is 5 % of the short-context numbers (941.5 at 64 in Build 14).
+
+### Predicted vs measured (L2)
+
+| Prediction | Measured | Verdict |
+|---|---|---|
+| no preemptions at 32 | 0 preemptions, KV max 0.63 | **as predicted** |
+| first preemptions around 48–53 | 0 at 48 (KV max 0.95); F2 saw 3 at 64 with 53 running | **consistent, not pinned down**: none at 48, so the first preemption is above 48; 53 is not tested directly |
+| output far below the short-context numbers | 49.8 / 50.9 vs 941.5 (64) and 1,265.1 (128) | **as predicted** |
+
+### Does NOT show (L2)
+
+- The 64 point in steady state did not run (budget), so "first preemption between 48 and 53" vs "between 53 and 64"
+  is not separated.
+- Why prefill at 3,840 tokens runs at only ~750 tok/s is not profiled here. Part G's prefill-only point (2,048 tokens)
+  ran at 1,463 prompt tok/s, 8.6 TFLOP/s ([bottlenecks.md](bottlenecks.md), G3.2).
+- One run per point, temperature 1.0 (offline tool).

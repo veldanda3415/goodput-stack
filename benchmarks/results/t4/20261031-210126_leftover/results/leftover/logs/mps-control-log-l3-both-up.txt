@@ -1,0 +1,29 @@
+$ tail -n 40 /tmp/goodput-mps/log/control.log
+# rc=0
+[2026-11-01 01:12:47.087 Control   862] Starting control daemon using socket /tmp/goodput-mps/pipe/control
+[2026-11-01 01:12:47.087 Control   862] To connect CUDA applications to this daemon, set env CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe
+[2026-11-01 01:12:47.087 Control   862] CUDA MPS Control binary version: 13000
+[2026-11-01 01:12:49.095 Control   862] Accepting connection...
+[2026-11-01 01:12:49.096 Control   862] NEW UI
+[2026-11-01 01:12:49.096 Control   862] Cmd:get_server_list
+[2026-11-01 01:12:49.096 Control   862] UI closed
+[2026-11-01 01:13:29.529 Control   862] Accepting connection...
+[2026-11-01 01:13:29.529 Control   862] User did not send valid credentials
+[2026-11-01 01:13:29.529 Control   862] Accepting connection...
+[2026-11-01 01:13:29.529 Control   862] NEW CLIENT 917 from user 0: Server is not ready, push client to pending list
+[2026-11-01 01:13:29.530 Control   940] Starting new server 940 for user 0
+[2026-11-01 01:13:29.534 Control   862] Accepting connection...
+[2026-11-01 01:13:29.804 Control   862] NEW SERVER 940: Ready
+[2026-11-01 01:13:30.413 Control   862] Accepting connection...
+[2026-11-01 01:13:30.413 Control   862] NEW CLIENT 917 from user 0: Server already exists
+[2026-11-01 01:14:53.156 Control   862] Accepting connection...
+[2026-11-01 01:14:53.158 Control   862] User did not send valid credentials
+[2026-11-01 01:14:53.158 Control   862] Accepting connection...
+[2026-11-01 01:14:53.158 Control   862] NEW CLIENT 1070 from user 0: Server already exists
+[2026-11-01 01:14:53.835 Control   862] Accepting connection...
+[2026-11-01 01:14:53.835 Control   862] NEW CLIENT 1070 from user 0: Server already exists
+[2026-11-01 01:15:33.089 Control   862] Accepting connection...
+[2026-11-01 01:15:33.089 Control   862] NEW UI
+[2026-11-01 01:15:33.089 Control   862] Cmd:get_server_list
+[2026-11-01 01:15:33.089 Control   862] 940
+[2026-11-01 01:15:33.089 Control   862] UI closed

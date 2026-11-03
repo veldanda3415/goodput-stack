@@ -25,6 +25,14 @@ Policies (budget B = tokens per task, prompt + completion):
     escalate_carry
                the Build 14 escalate: the same, but the strong pool's prompt carries the cheap pool's failed reply
                and the checker's reason (the plain retry context)
+    escalate_fresh_strong_final
+               escalate_fresh for steps 1-2; step 3 always on the strong pool (abort at B as above)
+    per_step_budget
+               B split per step (`step_shares`, e.g. in proportion to the baseline's median tokens per step). Every
+               step starts on the cheap pool, capped at its share: the stream is cancelled when the step's tokens reach
+               the share. A cheap attempt that fails its checker or hits the share escalates the step once to the
+               strong pool (fresh context, as escalate_fresh), capped only by what is left of B. The task is aborted
+               only when B is spent
 Cancelling a stream frees the server slot only where that was measured (task_budget.md, Task 7).
 """
 
@@ -41,9 +49,12 @@ from pathlib import Path
 from benchmarks.task_budget import checkers
 
 TASKS = Path(__file__).with_name("gsm8k_test_150.jsonl")
-POLICIES = ("baseline", "hard_cut", "downgrade", "escalate_fresh", "escalate_carry")
-ESCALATE = ("escalate", "escalate_fresh", "escalate_carry")
+POLICIES = ("baseline", "hard_cut", "downgrade", "escalate_fresh", "escalate_carry", "escalate_fresh_strong_final",
+            "per_step_budget")
+ESCALATE = ("escalate", "escalate_fresh", "escalate_carry", "escalate_fresh_strong_final", "per_step_budget")
+FRESH = ("escalate", "escalate_fresh", "escalate_fresh_strong_final", "per_step_budget")
 F4_POLICIES = ("baseline", "escalate_fresh", "escalate_carry")   # the follow-up run (task_budget.md, F4)
+L4_POLICIES = ("baseline", "escalate_fresh", "escalate_fresh_strong_final", "per_step_budget")   # the L4 run
 SYSTEM = "You are a careful assistant that solves grade-school math word problems step by step, following the requested format exactly."
 MAX_TOKENS = {1: 256, 2: 128, 3: 384}
 
@@ -161,6 +172,7 @@ class Policy:
     budget: int | None = None
     downgrade_at: float = 0.30
     max_retries: int = 2
+    step_shares: tuple[int, ...] | None = None   # per_step_budget: tokens per step 1, 2, 3 (sum = budget)
 
     @property
     def cuts(self) -> bool:
@@ -168,7 +180,7 @@ class Policy:
 
     @property
     def fresh(self) -> bool:
-        return self.name in ("escalate", "escalate_fresh")
+        return self.name in FRESH
 
     def context_attempts(self, step_attempts: list[dict], pool: str) -> list[dict]:
         """The earlier failed attempts of this step that go into the next prompt. Fresh escalation drops the cheap
@@ -177,7 +189,9 @@ class Policy:
             return [a for a in step_attempts if a["pool"] != "cheap"]
         return step_attempts
 
-    def pool_for(self, step_attempts: list[dict], spent: int) -> str:
+    def pool_for(self, step_attempts: list[dict], spent: int, step: int | None = None) -> str:
+        if self.name == "escalate_fresh_strong_final" and step == 3:
+            return "strong"
         if self.name in ESCALATE:
             return "strong" if any(a["pool"] == "cheap" and not a["check_ok"] for a in step_attempts) else "cheap"
         if self.name == "downgrade" and self.budget is not None and (self.budget - spent) < self.downgrade_at * self.budget:
@@ -196,18 +210,25 @@ async def run_task(client, task: dict, policy: Policy, pools: dict[str, Pool]) -
             if policy.cuts and policy.budget is not None and spent >= policy.budget:
                 aborted = True
                 break
-            pool = policy.pool_for(attempts, spent)
+            pool = policy.pool_for(attempts, spent, step)
             limit = policy.budget - spent if policy.cuts and policy.budget is not None else None
+            step_cap = None
+            if policy.name == "per_step_budget" and policy.step_shares and pool == "cheap":
+                step_cap = policy.step_shares[step - 1] - sum(a["prompt_tokens"] + a["completion_tokens"] for a in attempts)
+                limit = step_cap if limit is None else min(limit, step_cap)
             carried = policy.context_attempts(attempts, pool)
             res = await stream_call(client, pools[pool], messages_for(step, task, ctx, carried), MAX_TOKENS[step], limit)
             spent += res.tokens
-            chk = check_step(step, res.text, ctx) if not res.cancelled and not res.error else checkers.Check(False, res.error or "cancelled at budget")
+            # a cancel below the total budget can only be the step share (per_step_budget): escalate, do not abort
+            step_cut = res.cancelled and step_cap is not None and not (policy.budget is not None and spent >= policy.budget)
+            reason = "cancelled at step share" if step_cut else "cancelled at budget"
+            chk = check_step(step, res.text, ctx) if not res.cancelled and not res.error else checkers.Check(False, res.error or reason)
             attempts.append({"pool": pool, "prompt_tokens": res.prompt_tokens, "completion_tokens": res.completion_tokens,
                              "usage_seen": res.usage_seen, "content_chunks": res.content_chunks, "cancelled": res.cancelled,
                              "finish_reason": res.finish_reason, "status": res.status, "error": res.error,
                              "ttft_s": res.ttft_s, "e2e_s": res.e2e_s, "check_ok": chk.ok, "check_reason": chk.reason,
-                             "carried_attempts": len(carried), "text": res.text})
-            if res.cancelled:
+                             "carried_attempts": len(carried), "step_cap": step_cap, "step_cut": step_cut, "text": res.text})
+            if res.cancelled and not step_cut:
                 aborted = True
                 break
             if chk.ok:
@@ -274,6 +295,13 @@ async def run_batches(tasks: list[dict], policies: list[Policy], pools: dict[str
                         f.write(json.dumps(r) + "\n")
                 rows.extend(res)
     return rows
+
+
+def step_shares(budget: int, medians: list[float]) -> tuple[int, ...]:
+    """Split `budget` over the steps in proportion to `medians` (rounded; the last step takes the remainder)."""
+    tot = sum(medians)
+    shares = [round(budget * m / tot) for m in medians[:-1]]
+    return tuple(shares + [budget - sum(shares)])
 
 
 def p75(values: list[int]) -> int:

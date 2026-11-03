@@ -960,6 +960,114 @@ def ridge_part_rows() -> list[tuple[str, str, str, dict]]:
                          f"{len(freed)}/{len(ok)} freed; after {', '.join(f'{v:.2f}' for v in freed)} s (0.25 s sampling)",
                          (r.get(r['pool']) or {}).get("model", ""), r))
     rows += followup_rows()
+    rows += bneck_rows()
+    rows += leftover_rows()
+    return rows
+
+
+def leftover_rows() -> list[tuple[str, str, str, dict]]:
+    """Headline rows of Part L (stage leftover): F1c replay, long-context steady state, single / time-sharing / MPS, L4 policies."""
+    rows: list[tuple[str, str, str, dict]] = []
+    for rs in run_rows("leftover"):
+        for key, name in (("l1-f1b-u64-mbt2048", "old 64-user sweep point, max-num-batched-tokens 2048 (L1, same session as 8192)"),
+                          ("l1-f1c-u64-mbt8192", "old 64-user sweep point, max-num-batched-tokens 8192 (L1, F1c)")):
+            if (r := rs.get(key)) and r.get("kind") == "http":
+                rows.append((f"{name} (Kaggle T4, real)", f"{r['harness_steady_output_tok_s_sum']:,.1f} tok/s harness; ITL p50 {r['itl_ms_p50']:.1f} ms; "
+                             f"SM {r.get('smi_clocks_sm_mean', 0):,.0f} MHz", r["model"], r))
+        for mns in (32, 48, 64):
+            if (r := rs.get(f"l2-in3840-mns{mns}")) and r.get("kind") == "offline" and r.get("output_tok_s"):
+                rows.append((f"offline 3,840 in / 256 out, max-num-seqs {mns}, 4 × {mns} prompts (L2, Kaggle T4, real)",
+                             f"{r['output_tok_s']:,.1f} output tok/s; preemptions {r.get('eng_preemptions_delta')}; KV usage max {r.get('eng_kv_usage_max', 0):.3f}",
+                             r["model"], r))
+        for key, name in (("l3-single", "one AWQ instance @0.90, 32 users"), ("l3-ts-both-busy", "two AWQ instances @0.45 time-sharing, 16 + 16"),
+                          ("l3-mps-both-busy", "two AWQ instances @0.45 under MPS, 16 + 16")):
+            if (r := rs.get(key)) and r.get("combined_output_tok_s_server_counters") is not None:
+                rows.append((f"combined output tok/s, {name} (L3, one session, Kaggle T4, real)",
+                             f"{r['combined_output_tok_s_server_counters']:,.1f} tok/s (SM {r.get('smi_clocks_sm_mean', 0):,.0f} MHz; "
+                             f"ITL p50 {r['inst_i1']['itl_ms_p50']:.1f} ms)", r["model"], r))
+        an = REPO / Path(next(iter(rs.values()))["_src"]).parent / "analysis-l4.json"
+        if an.exists() and (r := rs.get("l4")):
+            for t in json.loads(an.read_text())["policy_table"]:
+                rows.append((f"tokens per successful GSM8K task, policy {t['policy']}, budget 951 (L4, Kaggle T4, real; policy in client)",
+                             f"{t['tokens_per_success']:,.0f} tokens (success {t['successes']}/{t['tasks']}, aborted {t['aborted']})",
+                             r["strong"]["model"], r))
+    return rows
+
+
+def run_rows(stage: str) -> list[dict[str, dict]]:
+    """One {key: row} dict per run of a stage (oldest first), not merged: keys repeat across sessions (ref-start)."""
+    out = []
+    for f in sorted(T4.glob(f"*_{stage}/results/{stage}/{stage}.jsonl")):
+        rs = {}
+        for line in f.read_text().splitlines():
+            if line.strip():
+                r = json.loads(line)
+                r["_src"] = str(f.relative_to(REPO))
+                rs[r["key"]] = r
+        out.append(rs)
+    return out
+
+
+def bneck_rows() -> list[tuple[str, str, str, dict]]:
+    """Headline rows of Part G (stage bneck): references, microbench, profile shares, ablations, waterfall."""
+    rows: list[tuple[str, str, str, dict]] = []
+    lab = "Kaggle T4, real"
+    clk = lambda r: f"SM {r.get('smi_clocks_sm_mean') or r.get('gpu_sm_clock_mhz_mean') or 0:,.0f} MHz, {r.get('smi_power_draw_mean') or 0:.1f} W"
+    for rs in run_rows("bneck"):
+        tools = rs.get("tools")
+        if tools and tools.get("power_limit") and not any(r[0].startswith("nvidia-smi -pl") for r in rows):
+            pl, lg = tools["power_limit"], tools["lock_clocks"]
+            rows.append((f"nvidia-smi -pl / -lgc permitted on Kaggle? ({lab})",
+                         f"-pl rc {pl.get('attempt_rc')} ({(pl.get('attempt_output') or '').splitlines()[0][:80]}); -lgc rc {lg.get('attempt_rc')}; "
+                         f"dcgmi {'absent' if not tools['tools']['dcgmi']['path'] else 'present'}, nsys {'absent' if not tools['tools']['nsys']['path'] else 'present'}, "
+                         f"ncu {'ERR_NVGPUCTRPERM' if 'ERR_NVGPUCTRPERM' in str(tools['tools']['ncu']) else str(tools['tools']['ncu'].get('path'))}", tools.get("model", ""), tools))
+        for g in ("0", "1"):
+            m = rs.get(f"micro-gpu{g}")
+            if not m or not m.get("rows") or "--quick" in (m.get("cmd") or ""):   # the G0 smoke's short version
+                continue
+            by = {(x["kind"], x.get("op") or x.get("shape"), x.get("m")): x for x in m["rows"]}
+            cp, gs = by.get(("bandwidth", "copy", None)), by.get(("gemm_sustained", "torch.matmul(out=)", 8192))
+            q = [x for x in m["rows"] if x["kind"] == "shape" and x["m"] == 384]
+            if cp and gs:
+                rows.append((f"GPU {g} copy bandwidth and sustained 8192³ FP16 GEMM, no vLLM ({lab})",
+                             f"copy {cp['gb_s_median']} GB/s; GEMM {gs['tflops_median_after_10s']} TFLOP/s after 10 s (first chunk {gs['tflops_first_chunk']}) "
+                             f"at SM {gs.get('gpu_clocks_sm_mean', 0):,.0f} MHz, sw_power_cap {100 * (gs.get('gpu_reason_sw_power_cap_frac') or 0):.0f} %; "
+                             f"Qwen shapes at M=384 {min(x['tflops'] for x in q):.1f}–{max(x['tflops'] for x in q):.1f} TFLOP/s", "torch.matmul (cuBLAS)", m))
+        for key, name in (("ref-start", "reference (Build 14 workload, max-num-seqs 384), session start"),
+                          ("ref-end", "reference, session end"), ("ref-gpu1", "reference on GPU 1"),
+                          ("dec-mns384-out256", "decode-only 16 in / 256 out, max-num-seqs 384"),
+                          ("dec-mns256", "decode-only 16 in / 512 out, max-num-seqs 256"),
+                          ("pre-in2048", "prefill-only 2,048 in / 1 out"),
+                          ("eager-mns384", "--enforce-eager, max-num-seqs 384"), ("eager-mns64", "--enforce-eager, max-num-seqs 64"),
+                          ("attn-FLEX_ATTENTION-mns384", "--attention-backend FLEX_ATTENTION, max-num-seqs 384"),
+                          ("awq-mns384", "Qwen2.5-3B-AWQ, max-num-seqs 384")):
+            r = rs.get(key)
+            if r and r.get("kind") == "offline" and r.get("output_tok_s"):
+                val = (f"{r['total_tok_s'] - r['output_tok_s']:,.1f} prompt tok/s" if key.startswith("pre-") else f"{r['output_tok_s']:,.1f} output tok/s")
+                rows.append((f"{name}, offline ({lab})", f"{val} ({clk(r)})", r["model"], r))
+        for key in ("attn-FLASH_ATTN-mns384", "attn-FLASHINFER-mns384"):
+            r = rs.get(key)
+            if r and r.get("rc") not in (0, None):
+                err = next((l.split("ValueError: ", 1)[-1] for l in reversed(r.get("error_lines") or []) if "not valid" in l), "engine start failed")
+                rows.append((f"--attention-backend {key.split('-')[1]} on T4 (sm_75) ({lab})", f"start-up error: {err[:160]}", r["model"], r))
+        b = REPO / Path(next(iter(rs.values()))["_src"]).parent / "prof-mns384.breakdown.json"
+        if b.exists() and (r := rs.get("prof-mns384")):
+            d = json.loads(b.read_text())
+            sh = d["share_pct_of_window"]
+            dec = d["steps"]["decode_only"]
+            rows.append((f"GPU time at max-num-seqs 384, torch-profiler window of {d['steps_in_window']} steps ({lab})",
+                         f"attention {sh.get('attention')} %, GEMM {sh.get('gemm')} %, elementwise {sh.get('elementwise')} %, sampling {sh.get('sampling')} %, "
+                         f"idle {sh.get('idle')} %; GEMM {dec['gemm_tflops_calculated']} TFLOP/s, attention KV read {dec['attn_kv_read_gb_s_calculated']} GB/s (CALCULATED)",
+                         r["model"], r))
+        g5 = b.parent / "g5.json"
+        if g5.exists() and (r := rs.get("prof-mns384")):
+            g = json.loads(g5.read_text())
+            ch = next(iter(g["chains"].values()))
+            f = g["factors"]
+            rows.append((f"Gap datasheet → measured, Build 14 offline 1,458.6 tok/s (CALCULATED from measured factors)",
+                         f"{g['datasheet_decode_ceiling']:,.0f} decode ceiling × clock {ch['clock_mhz'] / 1590:.3f} × GEMM eff {f['gemm_efficiency']:.3f} × attention "
+                         f"{f['attention']:.3f} × other kernels {f['other_kernels']:.3f} × idle {f['idle']:.3f} × prompt {f['prompt_share']:.3f} = "
+                         f"{ch['predicted']:,.0f}; residual {ch['residual_pct']:+.1f} %", r["model"], r))
     return rows
 
 

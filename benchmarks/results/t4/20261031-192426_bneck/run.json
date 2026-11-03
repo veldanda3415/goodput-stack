@@ -1,0 +1,25 @@
+{
+  "run_id": "20261031-192426_bneck",
+  "stage": "bneck",
+  "args": [
+    "--plan",
+    "tools,micro:0",
+    "--no-install",
+    "--micro-quick",
+    "--budget-h",
+    "0.2"
+  ],
+  "kernel": "raviveldanda/goodput-t4",
+  "git_sha": "b29d107",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-10-31T23:24:28+00:00",
+  "push_output": "Warning: Looks like you're using an outdated `kaggle` version (installed: 2.2.3), please consider upgrading to the latest version (2.2.5)\nKernel version 26 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4",
+  "output_cmd_output": "_bneck/_download/results/bneck/logs/nvidia-smi-q-gpu0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/logs/nvidia-smi-rgc-finally.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/logs/nvidia-smi-rgc.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/logs/nvidia-smi-supported-clocks-gpu0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/micro-gpu0/gemm_sustained.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/micro-gpu0/gpu.csv\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/micro-gpu0/gpu.csv.fields.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/micro-gpu0/microbench.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/micro-gpu0/nvidia-smi-q-after.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/micro-gpu0/nvidia-smi-q-before.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/bneck/stage.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/results/kernel_session.txt\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack/benchmarks/results/t4/20261031-192426_bneck/_download/goodput-t4.log",
+  "finished_at_utc": "2026-10-31T23:25:40+00:00",
+  "status": "complete",
+  "wall_push_to_done_min": 1.2,
+  "script_session_s": 51.2,
+  "gpu_hours_script": 0.014,
+  "gpu_hours_upper_bound": 0.02
+}
