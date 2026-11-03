@@ -247,7 +247,17 @@ def task_h2(st: nb.Stage, a) -> None:
 
 # ---------------------------------------------------------------- H3
 
+def save_configs(st: nb.Stage) -> None:
+    """config.json of every model into the results (the HF snapshot files are symlinks the volume CLI cannot fetch)."""
+    for repo in (QWEN, LLAMA, LLAMA_FP8):
+        try:
+            (st.logs / f"config-{repo.replace('/', '--')}.json").write_text(Path(cfg_path(repo)).read_text())
+        except OSError as exc:
+            nb.log(f"config of {repo}: {exc!r}")
+
+
 def task_h3(st: nb.Stage, a) -> None:
+    save_configs(st)
     R = Runner(st, a)
     configs = {"a-bf16": (LLAMA, []), "b-fp8": (LLAMA_FP8, []), "c-fp8kv": (LLAMA_FP8, ["--kv-cache-dtype", "fp8"])}
     wanted = [c.strip() for c in a.configs.split(",")]

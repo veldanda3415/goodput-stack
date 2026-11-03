@@ -91,6 +91,148 @@ def h1() -> None:
           f"{DATASHEET['bf16_tflops'] * 1e3 / DATASHEET['hbm_gb_s']:.0f}, FP8 {DATASHEET['fp8_tflops']:,.0f} ÷ 3,350 = {DATASHEET['fp8_tflops'] * 1e3 / DATASHEET['hbm_gb_s']:.0f}.")
 
 
+def reasons(r: dict, prefix: str = "smi_") -> str:
+    out = [f"{k[len(prefix) + 7:-5]} {100 * v:.0f} %" for k, v in sorted(r.items())
+           if k.startswith(prefix + "reason_") and k.endswith("_frac") and v and "gpu_idle" not in k]
+    return ", ".join(out) or "none"
+
+
+def offline_table(rs: list[dict], keys: list[str] | None = None, extra_col: str | None = None) -> None:
+    """One markdown row per offline result (rows in `keys` order if given)."""
+    by = {r["key"]: r for r in rs if r.get("kind") == "offline"}
+    sel = [by[k] for k in keys if k in by] if keys else list(by.values())
+    hdr = ["key", "max-num-seqs", "prompts", "output tok/s", "total tok/s", "timed s", "running mean", "KV use max",
+           "preempt.", "SM MHz mean", "power W mean", "throttle (excl. idle)", "GPU util %", "EngineCore CPU % mean / max",
+           "start+stop s"]
+    if extra_col:
+        hdr.insert(1, extra_col)
+    print("| " + " | ".join(hdr) + " |\n|" + "---|" * len(hdr))
+    for r in sel:
+        el = (r.get("bench_json") or {}).get("elapsed_time")
+        cells = [f"`{r['key']}`", str(r["max_num_seqs"]), str(r["num_prompts"]),
+                 f"**{r['output_tok_s']:,.1f}**" if r.get("output_tok_s") else f"rc {r.get('rc')}",
+                 f"{r['total_tok_s']:,.1f}" if r.get("total_tok_s") else "",
+                 f"{el:.1f}" if el else "", f"{r.get('eng_running_mean', 0):,.0f}",
+                 f"{r.get('eng_kv_usage_max', 0):.3f}", f"{r.get('eng_preemptions_delta', '')}",
+                 f"{r.get('smi_clocks_sm_mean', 0):,.0f}", f"{r.get('smi_power_draw_mean', 0):.0f}", reasons(r),
+                 f"{r.get('gpu_util_gpu_pct_mean', 0):.0f}",
+                 f"{r.get('cpu_engine_pct_mean', 0):.0f} / {r.get('cpu_engine_pct_max', 0):.0f}",
+                 f"{r.get('start_and_teardown_s') or wall(r):.0f}" if (r.get('start_and_teardown_s') or wall(r)) else ""]
+        if extra_col:
+            cells.insert(1, str(r.get(extra_col.split()[0].lower().replace("-", "_"), "")))
+        print("| " + " | ".join(cells) + " |")
+
+
+_WALLS: dict = {}
+
+
+def wall(r: dict):
+    if not _WALLS:
+        for task in ("h2", "h3", "h4", "h5"):
+            for x in rows(task):
+                if x.get("kind") == "wall":
+                    _WALLS[(x["run_id"], x["of"])] = x.get("start_and_teardown_s")
+    return _WALLS.get((r.get("run_id"), r["key"]))
+
+
+def h2() -> None:
+    rs = [r for r in rows("h2") if r.get("run_id") != "20261103-073941_h2"]   # the stopped first try (mbt 16,384)
+    sweep = sorted((r for r in rs if r.get("kind") == "offline" and (r["key"].startswith("sweep-") or r["key"] == "ref-start")),
+                   key=lambda r: r["max_num_seqs"])
+    print("Sweep (in 128 / out 256, util 0.95, max-num-batched-tokens 8,192, num-prompts 4 x max-num-seqs; 384 = ref-start):\n")
+    offline_table(rs, [r["key"] for r in sweep])
+    print("\nAblations, profiles, end reference:\n")
+    offline_table(rs, [r["key"] for r in rs if r.get("kind") == "offline" and r not in sweep])
+    first = next(r for r in rs if r.get("kind") == "offline")
+    print(f"\nGPU {first.get('gpu_uuid')}, Modal task {first.get('modal_task_id')}, region {first.get('modal_region')}, "
+          f"{first.get('modal_cloud')}; KV cache {first.get('gpu_kv_cache_tokens'):,} tokens; backend lines: {first.get('attention_backend_lines')}")
+
+
+def h3() -> None:
+    rs = rows("h3")
+    for tag in ("a-bf16", "b-fp8", "c-fp8kv"):
+        sel = sorted((r for r in rs if r.get("kind") == "offline" and r.get("config") == tag and r.get("sweep")),
+                     key=lambda r: r["max_num_seqs"])
+        if not sel:
+            continue
+        print(f"\n{tag}: `{sel[0]['model']}` @ `{sel[0]['model_revision'][:8]}`, KV cache {sel[0].get('gpu_kv_cache_tokens') or 0:,} tokens, "
+              f"weights {sel[0].get('model_weights_gib')} GiB, KV memory {sel[0].get('available_kv_gib')} GiB\n")
+        offline_table(rs, [r["key"] for r in sel])
+    prof = [r for r in rs if r.get("kind") == "offline" and r.get("profiler_config")]
+    if prof:
+        print("\nProfiled runs (speed not used):\n")
+        offline_table(rs, [r["key"] for r in prof])
+
+
+def h4() -> None:
+    rs = rows("h4")
+    offline_table(rs, [r["key"] for r in rs if r.get("kind") == "offline"])
+    for r in rs:
+        if r.get("kind") == "offline":
+            print(f"- `{r['key']}`: prompt tokens {r.get('total_prompt_tokens')}, output {r.get('total_output_tokens')}, "
+                  f"elapsed {(r.get('bench_json') or {}).get('elapsed_time')}, eng prompt tok/s {r.get('eng_prompt_tokens_per_s')}, "
+                  f"rule {r.get('mns_rule', '')}")
+
+
+def h5() -> None:
+    rs = rows("h5")
+    off = [r for r in rs if r.get("kind") == "offline"]
+    if off:
+        offline_table(rs, [r["key"] for r in off])
+    http = sorted((r for r in rs if r.get("kind") == "http"), key=lambda r: (r["users"], r["client_processes"]))
+    print("\n| users | client procs | requests ok / all | output tok/s (harness steady, sum) | engine gen tok/s (/metrics, full window) | "
+          "TTFT p50 / p95 ms | ITL p50 / p95 ms | running mean | waiting mean / max | KV use max | SM MHz | power W | client CPU % mean / max | server CPU % mean |")
+    print("|" + "---:|" * 15)
+    for r in http:
+        print(f"| {r['users']} | {r['client_processes']} | {r['requests_ok']} / {r['requests']} | **{r.get('harness_steady_output_tok_s_sum', 0):,.0f}** | "
+              f"{r.get('srv_generation_tokens_per_s', 0):,.0f} | {r.get('ttft_ms_p50', 0):,.0f} / {r.get('ttft_ms_p95', 0):,.0f} | "
+              f"{r.get('itl_ms_p50', 0):.1f} / {r.get('itl_ms_p95', 0):.1f} | {r.get('srv_running_mean', 0):,.0f} | "
+              f"{r.get('srv_waiting_mean', 0):,.0f} / {r.get('srv_waiting_max', 0):,.0f} | {r.get('srv_kv_usage_max', 0):.3f} | "
+              f"{r.get('gpu_sm_clock_mhz_mean', 0):,.0f} | {r.get('gpu_power_w_mean', 0):.0f} | "
+              f"{r.get('cpu_client_pct_mean', 0):.0f} / {r.get('cpu_client_pct_max', 0):.0f} | {r.get('cpu_server_pct_mean', 0):.0f} |")
+
+
+CONFIGS = {   # model id -> config.json saved in a run (H3 logs) or by the T4 build (Qwen, same revision)
+    "Qwen/Qwen2.5-3B-Instruct": REPO / "benchmarks/results/t4/20261031-192658_bneck/results/bneck/logs/model-config.json",
+}
+
+
+def config_for(model: str) -> dict:
+    if model in CONFIGS:
+        return json.loads(CONFIGS[model].read_text())
+    name = model.replace("/", "--")
+    f = next(iter(sorted(RAW.glob(f"*/*/logs/config-{name}.json"))), None)
+    if f is None:
+        raise FileNotFoundError(f"no saved config.json for {model}")
+    return json.loads(f.read_text())
+
+
+def traces(force: bool = False) -> None:
+    """benchmarks/kaggle/trace_breakdown.py over every downloaded trace dir; <key>.breakdown.json next to the row."""
+    sys.path.insert(0, str(REPO))
+    from benchmarks.kaggle import trace_breakdown as tb
+    for task in ("h2", "h3"):
+        for r in rows(task):
+            if r.get("kind") != "offline" or not r.get("profiler_config"):
+                continue
+            d = RAW.parent / Path(r["_src"]).parent
+            out = d / f"{r['key']}.breakdown.json"
+            if out.exists() and not force:
+                continue
+            files = sorted((d / f"trace-{r['key']}").glob("**/*.pt.trace.json*"), key=lambda p: p.stat().st_size, reverse=True)
+            if not files:
+                print(f"{r['key']}: no trace file")
+                continue
+            kv_bytes = 1 if "fp8" in " ".join(r.get("bench_cmd", "").split("--kv-cache-dtype")[1:2]) else 2
+            model = tb.model_from_config(config_for(r["model"]), kv_bytes)
+            res = tb.analyze(tb.load(files[0]), model)
+            res.pop("per_step", None)
+            res["trace_file"] = str(files[0].relative_to(d))
+            res["kv_elem_bytes"] = kv_bytes
+            out.write_text(json.dumps(res, indent=1) + "\n")
+            print(f"{r['key']}: {files[0].name} -> {out.name}: {res.get('share_pct_of_window')}")
+
+
 if __name__ == "__main__":
     for sec in sys.argv[1:]:
         globals()[sec]()
