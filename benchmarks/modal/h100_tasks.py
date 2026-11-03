@@ -345,10 +345,10 @@ def task_h5(st: nb.Stage, a) -> None:
     prov = provenance(st, model)
     R = Runner(st, a)
     # offline at the same max-num-seqs and the same request shape (output 128 +/- 25 %), for the served / offline ratio
-    R.off(f"offline-mns{a.mns}-256-128", model, a.mns, 4 * a.mns, 256, 128, 32,
+    R.off(f"offline-mns{a.serve_mns}-256-128", model, a.serve_mns, 4 * a.serve_mns, 256, 128, 32,
           extra + ["--random-range-ratio", "0.25"], part="H5", reserve_h=0.3,
           note="--random-range-ratio 0.25 jitters input and output lengths by +/- 25 % (the later flag wins)")
-    flags = ["--revision", rev(model), "--dtype", DTYPE, "--gpu-memory-utilization", "0.95", "--max-num-seqs", str(a.mns),
+    flags = ["--revision", rev(model), "--dtype", DTYPE, "--gpu-memory-utilization", "0.95", "--max-num-seqs", str(a.serve_mns),
              "--max-num-batched-tokens", "8192", "--no-enable-prefix-caching", *extra]
     srv = nb.VllmServer(model, flags, st.logs / "serve.log")
     res = srv.start(timeout_s=900)
@@ -374,6 +374,14 @@ def task_h5(st: nb.Stage, a) -> None:
                         "purpose": "client-bottleneck check: one client process"}, max_tokens_jitter=0.25, label=LABEL)
     finally:
         srv.stop()
+    # extras (budget permitting): H3's best Llama points with CUDA graphs captured up to the batch size; H3's BF16
+    # profile showed the GPU idle 27 % of each decode step above the default capture limit of 512
+    if a.cg_extras:
+        R.off(f"cg1024-a-bf16-mns1024", LLAMA, 1024, 4 * 1024, 128, 256, extra=["--max-cudagraph-capture-size", "1024"],
+              need_h=0.06, part="H3-ext", config="a-bf16", ablation="CUDA graphs up to max-num-seqs")
+        R.off(f"cg2048-c-fp8kv-mns2048", LLAMA_FP8, 2048, 4 * 2048, 128, 256,
+              extra=["--kv-cache-dtype", "fp8", "--max-cudagraph-capture-size", "2048"], need_h=0.07, part="H3-ext",
+              config="c-fp8kv", ablation="CUDA graphs up to max-num-seqs")
 
 
 def main() -> None:
@@ -397,6 +405,8 @@ def main() -> None:
     ap.add_argument("--single-proc-max", type=int, default=128)
     ap.add_argument("--req-per-user", type=int, default=4)
     ap.add_argument("--client-check", type=int, default=0)
+    ap.add_argument("--cg-extras", type=int, default=0)
+    ap.add_argument("--serve-mns", type=int, default=2048, help="H5: --max-num-seqs of the server and the offline twin")
     a, _ = ap.parse_known_args()
     st = nb.Stage(a.task)
     fn = {"h0": task_h0, "h1": task_h1, "h2": task_h2, "h3": task_h3, "h4": task_h4, "h5": task_h5}[a.task]

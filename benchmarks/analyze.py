@@ -1120,17 +1120,196 @@ def results_md(price: tuple[float, str] | None) -> str:
     """RESULTS.md = generated T4 headline table + the hand-curated lab table (benchmarks/results/lab_headlines.md)."""
     out = ["## T4 engine results (Kaggle, real GPU)", ""] + headlines(price)[2:]
     lab = REPO / "benchmarks" / "results" / "lab_headlines.md"
-    head = ["# RESULTS", "", "Every number below comes from a recorded run. T4 rows are generated from the raw JSONL; lab rows link "
+    head = ["# RESULTS", "", "Every number below comes from a recorded run. T4 and H100 rows are generated from the raw JSONL; lab rows link "
             "the write-up with the method and raw files. Sections: [T4 engine results](#t4-engine-results-kaggle-real-gpu) · "
-            "[Lab results](#lab-results-k3s--k3d-on-the-workstation).", ""]
-    return "\n".join(head + out + ([lab.read_text().rstrip(), ""] if lab.exists() else [])) + "\n"
+            "[H100 engine results](#h100-engine-results-modal-real-gpu) · [Lab results](#lab-results-k3s--k3d-on-the-workstation).", ""]
+    h1 = h100_results_section() if (H100 / "raw").is_dir() else []
+    return "\n".join(head + out + [""] + h1 + ([lab.read_text().rstrip(), ""] if lab.exists() else [])) + "\n"
+
+
+# ---------------------------------------------------------------- H100 (Modal) build: charts + RESULTS.md rows
+
+H100 = REPO / "benchmarks" / "results" / "h100"
+
+
+def _h100():
+    sys.path.insert(0, str(REPO / "benchmarks" / "modal"))
+    import report_h100
+    return report_h100
+
+
+def h100_sweeps() -> dict[str, list[dict]]:
+    """name -> offline rows of one max-num-seqs sweep, sorted (H2 Qwen incl. the H4 4,096 point, H3 a/b/c)."""
+    R = _h100()
+    out: dict[str, list[dict]] = {}
+    q = [r for r in R.rows("h2") if r.get("kind") == "offline" and r["run_id"] != "20261103-073941_h2"
+         and (r["key"].startswith("sweep-") or r["key"] == "ref-start")]
+    q += [r for r in R.rows("h4") if r.get("kind") == "offline" and r.get("sweep") == "sweep-ext" and r.get("output_tok_s")]
+    out["Qwen2.5-3B BF16"] = sorted(q, key=lambda r: r["max_num_seqs"])
+    for tag, name in (("a-bf16", "Llama-3.1-8B BF16"), ("b-fp8", "Llama-3.1-8B FP8"), ("c-fp8kv", "Llama-3.1-8B FP8 + FP8 KV")):
+        out[name] = sorted((r for r in R.rows("h3") if r.get("kind") == "offline" and r.get("sweep") == tag), key=lambda r: r["max_num_seqs"])
+    return out
+
+
+def decode_roofline(model: str, peak_tflops: float, bw_gb_s: float, batch: list[float], ctx: float = 256.5) -> list[float]:
+    """Decode-only tok/s at batch B: B / max(B x FLOP per token / peak, (weights + B x ctx x KV bytes per token) / BW)
+    (CALCULATED; ctx 256.5 = mean KV length over the 128-in / 256-out request)."""
+    f = _h100().model_flops(model)
+    return [b / max(b * f["flop_per_decode_token"] / (peak_tflops * 1e12),
+                    (f["weight_bytes_bf16"] + b * ctx * f["kv_bytes_per_token_bf16"]) / (bw_gb_s * 1e9)) for b in batch]
+
+
+def h100_charts() -> list[Path]:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    R = _h100()
+    charts = H100 / "charts"
+    charts.mkdir(parents=True, exist_ok=True)
+    paths = []
+    sw = h100_sweeps()
+    micro = R.micro_rows()
+    bw = next(r["gb_s_median"] for r in micro if r["kind"] == "bandwidth" and r["op"] == "copy")
+    bf16 = next(r["tflops_median_after_10s"] for r in micro if r["kind"] == "gemm_sustained" and r["dtype"] == "bfloat16")
+    fig, ax = plt.subplots(figsize=(9, 5.4), facecolor=SURFACE)
+    colors = {"Qwen2.5-3B BF16": SERIES[0], "Llama-3.1-8B BF16": SERIES[1], "Llama-3.1-8B FP8": SERIES[2], "Llama-3.1-8B FP8 + FP8 KV": SERIES[3]}
+    for name, rs in sw.items():
+        rs = [r for r in rs if r.get("output_tok_s")]
+        if rs:
+            ax.plot([r["max_num_seqs"] for r in rs], [r["output_tok_s"] for r in rs], color=colors[name], lw=2, marker="o", ms=5,
+                    label=f"{name} (measured, offline 128 in / 256 out)")
+    xs = [2 ** (i / 4) for i in range(16, 49)]
+    for model, name, c in (("Qwen/Qwen2.5-3B-Instruct", "Qwen2.5-3B", SERIES[0]), ("meta-llama/Llama-3.1-8B-Instruct", "Llama-3.1-8B BF16", SERIES[1])):
+        ax.plot(xs, decode_roofline(model, R.DATASHEET["bf16_tflops"], R.DATASHEET["hbm_gb_s"], xs), color=c, lw=1, ls=":",
+                label=f"{name} decode roofline, DATASHEET 989 TFLOP/s, 3,350 GB/s (CALCULATED)")
+        ax.plot(xs, decode_roofline(model, bf16, bw, xs), color=c, lw=1.2, ls="--",
+                label=f"{name} decode roofline, achievable {bf16:.0f} TFLOP/s, {bw:,.0f} GB/s (H1, CALCULATED)")
+    t4 = sorted((json.loads(l) for l in (T4 / "20261031-082141_ridge/results/ridge/ridge.jsonl").read_text().splitlines()
+                 if l.strip() and json.loads(l).get("kind") == "offline" and json.loads(l)["key"].startswith("offline-mns")),
+                key=lambda r: r["max_num_seqs"])
+    ax.plot([r["max_num_seqs"] for r in t4], [r["output_tok_s"] for r in t4], color=INK, lw=1.5, marker="x", ms=6,
+            label="T4 (Build 14, Kaggle T4, real): Qwen2.5-3B FP16, same workload")
+    ax.set_xscale("log", base=2)
+    ax.set_yscale("log")
+    ticks = [64, 128, 256, 384, 512, 1024, 2048, 4096]
+    ax.set_xticks(ticks, [str(t) for t in ticks])
+    style(ax, "Output tok/s vs max requests per step — one H100 SXM (Modal H100 SXM, real)",
+          "max requests per step (--max-num-seqs)", "output tokens / s (log)")
+    ax.legend(frameon=False, fontsize=7, labelcolor=INK, loc="lower right")
+    fig.tight_layout()
+    paths.append(charts / "h100_throughput_vs_mns.png")
+    fig.savefig(paths[-1], dpi=130)
+    plt.close(fig)
+    http = sorted((r for r in R.rows("h5") if r.get("kind") == "http" and r["client_processes"] == (1 if r["users"] <= 128 else 4)),
+                  key=lambda r: r["users"])
+    if http:
+        fig, axs = plt.subplots(1, 2, figsize=(10, 4.2), facecolor=SURFACE)
+        x = [r["harness_steady_output_tok_s_sum"] for r in http]
+        for ax, (k, lab, thr) in zip(axs, (("ttft_ms", "TTFT", 1000), ("itl_ms", "ITL", 100))):
+            ax.plot(x, [r[f"{k}_p50"] for r in http], color=SERIES[0], marker="o", lw=2, label=f"{lab} p50")
+            ax.plot(x, [r[f"{k}_p95"] for r in http], color=SERIES[1], marker="o", lw=2, label=f"{lab} p95")
+            for r, xv in zip(http, x):
+                ax.annotate(str(r["users"]), (xv, r[f"{k}_p95"]), textcoords="offset points", xytext=(4, 4), fontsize=7, color=MUTED)
+            ax.axhline(thr, color=MUTED, ls="--", lw=1)
+            ax.set_yscale("log")
+            style(ax, f"{lab} vs served output tok/s (labels: users)", "output tokens / s (harness, steady window)", f"{lab} (ms, log)")
+            ax.legend(frameon=False, fontsize=8, labelcolor=INK)
+        fig.suptitle("vllm serve Llama-3.1-8B FP8 on one H100, closed loop 256 in / 128 ± 25 % out (Modal H100 SXM, real)", fontsize=9, x=0.02, ha="left")
+        fig.tight_layout()
+        paths.append(charts / "h100_served_latency.png")
+        fig.savefig(paths[-1], dpi=130)
+        plt.close(fig)
+    for wf in sorted(H100.glob("waterfall-*.json")):
+        w = json.loads(wf.read_text())
+        labels = [c[0] for c in w["chain"]] + ["measured (vllm bench throughput)"]
+        vals = [c[1] for c in w["chain"]] + [w["measured"]]
+        fig, ax = plt.subplots(figsize=(9.5, 5), facecolor=SURFACE)
+        y = list(range(len(vals)))[::-1]
+        ax.barh(y, vals, color=[SERIES[0]] * (len(vals) - 1) + [SERIES[1]], height=0.62)
+        for yi, v in zip(y, vals):
+            ax.text(v * 1.01, yi, f"{v:,.0f}", va="center", fontsize=8, color=INK)
+        ax.set_yticks(y, labels, fontsize=8)
+        style(ax, f"{w['title']} — residual (unexplained) {w['residual_pct']:+.1f} %", "output tokens / s (CALCULATED except the last bar)", "")
+        ax.set_xlim(0, max(vals) * 1.15)
+        fig.tight_layout()
+        paths.append(charts / f"h100_{wf.stem}.png")
+        fig.savefig(paths[-1], dpi=130)
+        plt.close(fig)
+    return paths
+
+
+def h100_rows() -> list[tuple[str, str, str, dict]]:
+    """Headline rows of the H100 build (benchmarks/results/h100/h100.md): result, value, model, row."""
+    R = _h100()
+    out: list[tuple[str, str, str, dict]] = []
+    lab = "Modal H100 SXM, real"
+    clk = lambda r: f"SM {r.get('smi_clocks_sm_mean', 0):,.0f} MHz, {r.get('smi_power_draw_mean', 0):.0f} W"
+    micro = R.micro_rows()
+    for r in micro:
+        if r["kind"] == "bandwidth":
+            out.append((f"{r['op']} bandwidth, 4 GiB fp32, median of 20 ({lab})", f"{r['gb_s_median']:,.1f} GB/s", "", r | {"_src": "h1"}))
+        if r["kind"] == "gemm_sustained":
+            out.append((f"8192³ {r['dtype']} GEMM sustained 60 s, median after 10 s ({lab})",
+                        f"{r['tflops_median_after_10s']:,.1f} TFLOP/s at SM {r['after10s_gpu_clocks_sm_mean']:,.0f} MHz, "
+                        f"{r['after10s_gpu_power_draw_mean']:.0f} W, sw_power_cap {100 * r.get('after10s_gpu_reason_sw_power_cap_frac', 0):.0f} %",
+                        "", r | {"_src": "h1"}))
+    for name, rs in h100_sweeps().items():
+        ok = [r for r in rs if r.get("output_tok_s")]
+        if ok:
+            b = max(ok, key=lambda r: r["output_tok_s"])
+            out.append((f"best offline output tok/s, {name}, 128 in / 256 out, util 0.95, mbt 8,192 ({lab})",
+                        f"{b['output_tok_s']:,.1f} at max-num-seqs {b['max_num_seqs']} ({clk(b)}, KV pool {b.get('gpu_kv_cache_tokens', 0):,} tokens)", b["model"], b))
+    for task in ("h2", "h3", "h4", "h5"):
+        for r in R.rows(task):
+            if r.get("kind") == "offline" and r.get("ablation") and r.get("output_tok_s") and r["run_id"] != "20261103-073941_h2":
+                out.append((f"{r['ablation']}, max-num-seqs {r['max_num_seqs']}, {r['model'].split('/')[-1]} ({lab})",
+                            f"{r['output_tok_s']:,.1f} output tok/s ({clk(r)})", r["model"], r))
+            if r.get("kind") == "offline" and r.get("part", "").startswith("H4.") and r.get("output_tok_s") and not r.get("ablation"):
+                val = (f"{r['total_tok_s'] - r['output_tok_s']:,.1f} prompt tok/s" if r["output_len"] == 1 else f"{r['output_tok_s']:,.1f} output tok/s")
+                out.append((f"{r['key']}: {r['input_len']} in / {r['output_len']} out, max-num-seqs {r['max_num_seqs']} ({lab})",
+                            f"{val} (preemptions {r.get('eng_preemptions_delta')}, {clk(r)})", r["model"], r))
+            if r.get("kind") == "http":
+                out.append((f"served, {r['users']} users ({r['client_processes']} client procs), 256 in / 128 ± 25 % out ({lab})",
+                            f"{r.get('harness_steady_output_tok_s_sum', 0):,.0f} output tok/s; TTFT p95 {r.get('ttft_ms_p95', 0):,.0f} ms; "
+                            f"ITL p95 {r.get('itl_ms_p95', 0):.1f} ms", r["model"], r))
+    for wf in sorted(H100.glob("waterfall-*.json")):
+        w = json.loads(wf.read_text())
+        out.append((f"gap datasheet → measured, {w['title']} (CALCULATED from measured factors)",
+                    " × ".join(f"{k} {v:.3f}" for k, v in w["factors"].items()) + f"; residual {w['residual_pct']:+.1f} %", "", w))
+    return out
+
+
+def h100_results_section() -> list[str]:
+    lines = ["## H100 engine results (Modal, real GPU)", "",
+             "One H100 80GB HBM3 SXM per task on Modal (vLLM 0.31.0, `--dtype bfloat16` unless stated). Method, predictions, "
+             "caveats: [benchmarks/results/h100/h100.md](benchmarks/results/h100/h100.md). Generated by `benchmarks/analyze.py --h100`.", "",
+             "| result | value | model | run / key | raw JSONL |", "|---|---|---|---|---|"]
+    for name, val, model, r in h100_rows():
+        src = r.get("_src")
+        link = f"[{Path(src).parts[1]}](benchmarks/results/h100/{src})" if src and "/" in str(src) else \
+            ("[h1 microbench](benchmarks/results/h100/raw/20261103-072712_h1/h1/micro/microbench.jsonl)" if src == "h1" else
+             f"[{r.get('breakdown', '')}](benchmarks/results/h100/{r.get('breakdown', '')})" if r.get("breakdown") else "")
+        lines.append(f"| {name} | {val} | `{model}` | `{r.get('run_id', r.get('measured_run', ''))}` / `{r.get('key', r.get('measured_key', r.get('dtype', r.get('op', ''))))}` | {link} |")
+    return lines + [""]
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--price-json", type=Path, help="saved Azure price response (benchmarks/cost.py --azure-price-json)")
     ap.add_argument("--p8cpu", action="store_true", help="only P8 on CPU: benchmarks/results/probes/p8_cpu/summary.md + charts")
+    ap.add_argument("--h100", action="store_true", help="only the H100 build: charts in benchmarks/results/h100/charts + RESULTS.md")
     a = ap.parse_args()
+    if a.h100:
+        for pth in h100_charts():
+            print(f"wrote {pth}")
+        price = None
+        if a.price_json:   # the T4 rows' $ / 1M tokens (same file the T4 build used)
+            sys.path.insert(0, str(REPO / "benchmarks"))
+            from cost import azure_price
+            price = azure_price(a.price_json)
+        (REPO / "RESULTS.md").write_text(results_md(price))
+        print(f"wrote {REPO / 'RESULTS.md'}")
+        return
     if a.p8cpu:
         print(section_p8cpu())
         return
