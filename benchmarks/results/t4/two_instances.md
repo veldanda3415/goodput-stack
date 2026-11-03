@@ -430,3 +430,14 @@ Output tok/J = combined tok/s ÷ mean power (CALCULATED).
 - Per MHz is a normalisation (tok/s ÷ mean clock), not a measured clock-scaling law; the clock was not pinned (the power
   cap set it). Why MPS runs at a lower clock at the same power (more concurrent SM activity per watt is the likely reason)
   is not measured: no DCGM / per-SM counters.
+
+### Build 17 rerun — full order S T M M T S (decision written before the rerun)
+
+- Why: the first session (20261103-070741_mpsab) skipped the 6th condition (second S) at the 0.5 GPU-h guard, so S had one
+  run and no repeat spread. With more Kaggle quota available, the whole order is rerun in **one new session** rather than
+  S alone, so all three conditions are again measured within one session (an S-only session would not be matched to the
+  first session's M and T).
+- Same code (stage `mpsab`, unchanged since a6d0112), same defaults (order S,T,M,M,T,S; ramp 5 s; window 90 s; idle 30 s;
+  same prompts seed 17); only `--budget-h` is raised from 0.5 to 0.8 so the guard does not cut the 6th condition.
+- Predictions are those above, unchanged. The first session's numbers stay as they are; the rerun is reported next to them,
+  and the cross-session difference is reported as a session-to-session check, not merged into one mean.
