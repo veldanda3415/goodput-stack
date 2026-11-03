@@ -39,8 +39,9 @@ One Kaggle kernel version per stage (`make t4-run STAGE=<stage>`). Results are i
 | followup | Build 14 follow-up: F1 HTTP at 384 users + old 64-user point replayed ([ridge_http.md](ridge_http.md)), F2 input 3,840 at max-num-seqs 64 ([ridge.md](ridge.md)), F3 MPS ([two_instances.md](two_instances.md)), F4 escalate fresh vs carry + cancel metric ([task_budget.md](task_budget.md)) | **20261031-171557** (F1, F2; F1c and F2 32/48 skipped at the part budgets), **20261031-173838** (F3, F4) |
 | bneck | Part G: where the throughput goes — tools, microbench ceilings, torch-profiler breakdown, engine ablations, variance, waterfall ([bottlenecks.md](bottlenecks.md)) | **20261031-192426** (G0 smoke), **20261031-192649** (P1), **20261031-192658** (P2) |
 | leftover | Part L: F1c ([ridge_http.md](ridge_http.md)), long-context steady state ([ridge.md](ridge.md)), single / time-sharing / MPS in one session ([two_instances.md](two_instances.md)), escalate redesign ([task_budget.md](task_budget.md)) | **20261031-202130** (L1, L2), **20261031-210126** (L3, L4) |
+| mpsab | Build 17: single / time-sharing / MPS in one session, order S T M M T S, fixed 90 s window, tok/s per MHz ([two_instances.md](two_instances.md)) | **20261103-070741** (second S skipped at the 0.5 h guard) |
 
-GPU time: **11.70 GPU-hours** of script session time over 35 Kaggle runs pushed by `run_kaggle.py` (12.40 h push→done
+GPU time: **12.18 GPU-hours** of script session time over 36 Kaggle runs pushed by `run_kaggle.py` (12.90 h push→done
 upper bound; the three nccl runs are 0.355 h, the two p8x2 runs 0.506 + 0.525 h; on 2 × T4 machines that is session time, GPU-device time is twice it); per run in [runs.jsonl](runs.jsonl) and at the end of [summary.md](summary.md). Not in the ledger: two
 versions started from the Kaggle editor on 2026-10-15 (a re-run of the GGUF lm-eval stage, ~24 min, and the
 one-minute smoke that proved the secret works from the editor). Kaggle's output download sometimes saves a 502
