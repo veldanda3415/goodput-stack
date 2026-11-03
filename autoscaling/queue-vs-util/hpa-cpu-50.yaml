@@ -1,0 +1,32 @@
+# Build 17 Task A: standard HPA on CPU utilisation for llamacpp-pool, target 50 % of the pod CPU request (4 CPU).
+# Only one autoscaler may own inf-llamacpp: delete the ScaledObject inf-llamacpp first (its HPA keda-hpa-inf-llamacpp
+# goes with it), apply this, and check `kubectl -n inference get hpa` shows exactly one HPA.
+# min/max and behavior are copied from scaledobject-llamacpp.yaml (= the live keda-hpa-inf-llamacpp .spec.behavior).
+# Fields: kubectl explain hpa.spec --api-version=autoscaling/v2.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inf-llamacpp-cpu
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack, goodput-stack/experiment: queue-vs-util }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: inf-llamacpp }
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 50 }   # % of requests.cpu (4) averaged over Ready pods
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 15 }
+        - { type: Percent, value: 100, periodSeconds: 15 }
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      selectPolicy: Min
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 30 }

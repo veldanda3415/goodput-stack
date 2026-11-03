@@ -124,6 +124,13 @@ Caveats: flow control is labelled experimental in v0.9.0; the margin to the 10 s
 restarted EPP had to be rediscovered by Prometheus), so a slower backend (llama.cpp cold model load, a GPU pod) would
 miss it. Only the scratch pool uses this; sim-pool and llamacpp-pool stay at min 1.
 
+## Queue depth vs CPU utilisation (Build 17)
+
+The same pool under KEDA (this ScaledObject, unchanged) and under a standard CPU-utilisation HPA (50 % / 80 %, same
+min/max and behaviour), light and heavy load, 3 cycles each: [results/queue_vs_util.md](results/queue_vs_util.md).
+Runner and manifests: [queue-vs-util/](queue-vs-util/). `loadgen.py` now also records pod and node CPU, the HPA's
+reading and ITL per request (`--hpa` samples a non-KEDA HPA).
+
 ## Known limits
 
 - One node: max replicas are bounded by its 16 CPUs (llama.cpp max 3).

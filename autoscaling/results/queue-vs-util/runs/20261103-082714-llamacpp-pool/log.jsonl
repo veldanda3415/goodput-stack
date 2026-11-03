@@ -1,0 +1,16 @@
+{"t": "2026-11-03T08:27:14.409-05:00", "rel_s": 0.0, "event": "run_start", "phase": "idle", "pool": "llamacpp-pool", "deploy": "inf-llamacpp", "concurrency": 6, "max_tokens": 64, "idle": 20.0, "high": 150.0}
+{"t": "2026-11-03T08:27:34.430-05:00", "rel_s": 20.02, "event": "load_start", "phase": "high"}
+{"t": "2026-11-03T08:28:15.315-05:00", "rel_s": 60.91, "event": "hpa_desired_change", "phase": "high", "old": 1, "new": 2, "hpa_metric": [{"resource": {"current": {"averageUtilization": 100, "averageValue": "4004m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T08:28:16.294-05:00", "rel_s": 61.89, "event": "pod_created", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-z6wv9", "created": "2026-11-03T13:28:15Z"}
+{"t": "2026-11-03T08:28:19.211-05:00", "rel_s": 64.8, "event": "pod_ready", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-z6wv9"}
+{"t": "2026-11-03T08:28:19.212-05:00", "rel_s": 64.8, "event": "pod_first_served", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-z6wv9"}
+{"t": "2026-11-03T08:29:00.322-05:00", "rel_s": 105.91, "event": "hpa_desired_change", "phase": "high", "old": 2, "new": 3, "hpa_metric": [{"resource": {"current": {"averageUtilization": 98, "averageValue": "3958m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T08:29:00.322-05:00", "rel_s": 105.91, "event": "pod_created", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-995t4", "created": "2026-11-03T13:28:59Z"}
+{"t": "2026-11-03T08:29:04.488-05:00", "rel_s": 110.08, "event": "pod_ready", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-995t4"}
+{"t": "2026-11-03T08:29:04.490-05:00", "rel_s": 110.08, "event": "pod_first_served", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-995t4"}
+{"t": "2026-11-03T08:30:07.201-05:00", "rel_s": 172.79, "event": "load_stop", "phase": "idle2"}
+{"t": "2026-11-03T08:31:30.316-05:00", "rel_s": 255.91, "event": "hpa_desired_change", "phase": "idle2", "old": 3, "new": 2, "hpa_metric": [{"resource": {"current": {"averageUtilization": 0, "averageValue": "10m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T08:31:30.318-05:00", "rel_s": 255.91, "event": "pod_gone", "phase": "idle2", "pod": "inf-llamacpp-5d577dcf66-z6wv9"}
+{"t": "2026-11-03T08:32:00.314-05:00", "rel_s": 285.91, "event": "hpa_desired_change", "phase": "idle2", "old": 2, "new": 1, "hpa_metric": [{"resource": {"current": {"averageUtilization": 0, "averageValue": "10m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T08:32:00.315-05:00", "rel_s": 285.91, "event": "pod_gone", "phase": "idle2", "pod": "inf-llamacpp-5d577dcf66-995t4"}
+{"t": "2026-11-03T08:32:22.334-05:00", "rel_s": 307.93, "event": "run_end", "phase": "idle2", "settled": true}

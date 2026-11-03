@@ -1,0 +1,10 @@
+{"t": "2026-11-03T09:02:11.418-05:00", "rel_s": 0.0, "event": "run_start", "phase": "idle", "pool": "llamacpp-pool", "deploy": "inf-llamacpp", "concurrency": 2, "max_tokens": 64, "idle": 20.0, "high": 150.0}
+{"t": "2026-11-03T09:02:31.438-05:00", "rel_s": 20.02, "event": "load_start", "phase": "high"}
+{"t": "2026-11-03T09:03:04.217-05:00", "rel_s": 52.8, "event": "hpa_desired_change", "phase": "high", "old": 1, "new": 2, "hpa_metric": [{"resource": {"current": {"averageUtilization": 99, "averageValue": "3987m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T09:03:04.218-05:00", "rel_s": 52.8, "event": "pod_created", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-4wpwk", "created": "2026-11-03T14:03:03Z"}
+{"t": "2026-11-03T09:03:08.320-05:00", "rel_s": 56.9, "event": "pod_ready", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-4wpwk"}
+{"t": "2026-11-03T09:03:08.323-05:00", "rel_s": 56.91, "event": "pod_first_served", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-4wpwk"}
+{"t": "2026-11-03T09:05:02.319-05:00", "rel_s": 170.9, "event": "load_stop", "phase": "idle2"}
+{"t": "2026-11-03T09:06:04.314-05:00", "rel_s": 232.9, "event": "hpa_desired_change", "phase": "idle2", "old": 2, "new": 1, "hpa_metric": [{"resource": {"current": {"averageUtilization": 0, "averageValue": "10m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T09:06:04.315-05:00", "rel_s": 232.9, "event": "pod_gone", "phase": "idle2", "pod": "inf-llamacpp-5d577dcf66-4wpwk"}
+{"t": "2026-11-03T09:06:24.397-05:00", "rel_s": 252.98, "event": "run_end", "phase": "idle2", "settled": true}

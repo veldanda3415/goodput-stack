@@ -1,0 +1,4 @@
+{"t": "2026-11-03T09:29:50.445-05:00", "rel_s": 0.0, "event": "run_start", "phase": "idle", "pool": "llamacpp-pool", "deploy": "inf-llamacpp", "concurrency": 2, "max_tokens": 64, "idle": 20.0, "high": 150.0}
+{"t": "2026-11-03T09:30:10.465-05:00", "rel_s": 20.02, "event": "load_start", "phase": "high"}
+{"t": "2026-11-03T09:32:41.365-05:00", "rel_s": 170.92, "event": "load_stop", "phase": "idle2"}
+{"t": "2026-11-03T09:33:01.386-05:00", "rel_s": 190.94, "event": "run_end", "phase": "idle2", "settled": true}

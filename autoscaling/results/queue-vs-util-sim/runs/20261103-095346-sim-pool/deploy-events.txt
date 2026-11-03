@@ -1,0 +1,11 @@
+LAST                   REASON                 MSG
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  ScaledObjectUnpaused   pause annotation removed for ScaledObject
+<nil>                  KEDAScalersStarted     Scaler prometheus is built
+<nil>                  KEDAScalersStarted     Started scalers watch
+<nil>                  ScaledObjectUnpaused   pause annotation removed for ScaledObject
+2026-11-03T14:54:16Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 1 to 3
+2026-11-03T14:54:31Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 3 to 4
+2026-11-03T14:57:31Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 4 to 3
+2026-11-03T14:58:01Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 3 to 2
+2026-11-03T14:58:31Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 2 to 1

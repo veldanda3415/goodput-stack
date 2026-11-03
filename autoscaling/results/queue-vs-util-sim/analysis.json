@@ -1,0 +1,503 @@
+{
+ "window_s": 330.0,
+ "cycles": [
+  {
+   "index": 0,
+   "config": "keda",
+   "profile": "heavy",
+   "run_dir": "autoscaling/results/queue-vs-util-sim/runs/20261103-095346-sim-pool",
+   "start": {
+    "waited_s": 149.3,
+    "idle_hold_s": 60,
+    "spec": 1,
+    "ready": 1,
+    "pod": "inf-vllm-sim-7565c9d79d-p6wgf",
+    "queue": 0.0,
+    "pod_cpu_cores_5s": 0.022,
+    "node_cpu_busy_5s": 0.0652
+   },
+   "requests_ok": 1184,
+   "requests_failed": 0,
+   "ttft_p50_ms": 87.0,
+   "ttft_p95_ms": 1017.1,
+   "ttft_max_ms": 3983.9,
+   "ttft60_p50_ms": 98.4,
+   "ttft60_p95_ms": 1932.9,
+   "ttft60_max_ms": 3983.9,
+   "itl_p50_ms": 16.03,
+   "scale_up_decision_s": 10.8,
+   "scale_up_to": 3,
+   "first_new_pod_ready_s": 13.2,
+   "first_new_pod_serving_s": 13.2,
+   "max_replicas": 4,
+   "reached_max_replicas_s": 25.8,
+   "first_up_hpa_reading": {
+    "averageValue": "8"
+   },
+   "replica_seconds": 990.6,
+   "scale_down_decision_after_stop_s": 55.2,
+   "scale_down_during_load": 0,
+   "back_to_1_after_stop_s": 116.2,
+   "load_s": 150.7,
+   "run_end_after_stop_s": 137.1,
+   "pod_cpu_cores_mean_load": 0.203,
+   "node_cpu_busy_mean_load": 0.17,
+   "queue_mean_load": 7.901,
+   "queue_max_load": 8.0,
+   "hpa_up_metric": [
+    {
+     "external": {
+      "current": {
+       "averageValue": "8"
+      },
+      "metric": {
+       "name": "s0-prometheus",
+       "selector": {
+        "matchLabels": {
+         "scaledobject.keda.sh/name": "inf-vllm-sim"
+        }
+       }
+      }
+     },
+     "type": "External"
+    }
+   ]
+  },
+  {
+   "index": 1,
+   "config": "cpu50",
+   "profile": "heavy",
+   "run_dir": "autoscaling/results/queue-vs-util-sim/runs/20261103-100003-sim-pool",
+   "start": {
+    "waited_s": 66.7,
+    "idle_hold_s": 60,
+    "spec": 1,
+    "ready": 1,
+    "pod": "inf-vllm-sim-7565c9d79d-p6wgf",
+    "queue": 0.0,
+    "pod_cpu_cores_5s": 0.022,
+    "node_cpu_busy_5s": 0.0716
+   },
+   "requests_ok": 924,
+   "requests_failed": 0,
+   "ttft_p50_ms": 264.2,
+   "ttft_p95_ms": 2364.3,
+   "ttft_max_ms": 3774.8,
+   "ttft60_p50_ms": 1074.7,
+   "ttft60_p95_ms": 3331.5,
+   "ttft60_max_ms": 3774.8,
+   "itl_p50_ms": 16.05,
+   "scale_up_decision_s": 34.1,
+   "scale_up_to": 2,
+   "first_new_pod_ready_s": 35.1,
+   "first_new_pod_serving_s": 36.1,
+   "max_replicas": 4,
+   "reached_max_replicas_s": 109.1,
+   "first_up_hpa_reading": {
+    "averageUtilization": 68,
+    "averageValue": "68m"
+   },
+   "replica_seconds": 929.1,
+   "scale_down_decision_after_stop_s": 77.3,
+   "scale_down_during_load": 0,
+   "back_to_1_after_stop_s": 167.3,
+   "load_s": 151.4,
+   "run_end_after_stop_s": 188.2,
+   "pod_cpu_cores_mean_load": 0.159,
+   "node_cpu_busy_mean_load": 0.157,
+   "queue_mean_load": 7.836,
+   "queue_max_load": 8.0,
+   "hpa_up_metric": [
+    {
+     "resource": {
+      "current": {
+       "averageUtilization": 68,
+       "averageValue": "68m"
+      },
+      "name": "cpu"
+     },
+     "type": "Resource"
+    }
+   ]
+  },
+  {
+   "index": 2,
+   "config": "keda",
+   "profile": "heavy",
+   "run_dir": "autoscaling/results/queue-vs-util-sim/runs/20261103-100713-sim-pool",
+   "start": {
+    "waited_s": 67.8,
+    "idle_hold_s": 60,
+    "spec": 1,
+    "ready": 1,
+    "pod": "inf-vllm-sim-7565c9d79d-p6wgf",
+    "queue": 0.0,
+    "pod_cpu_cores_5s": 0.018,
+    "node_cpu_busy_5s": 0.0575
+   },
+   "requests_ok": 1131,
+   "requests_failed": 0,
+   "ttft_p50_ms": 89.2,
+   "ttft_p95_ms": 1095.0,
+   "ttft_max_ms": 3858.0,
+   "ttft60_p50_ms": 114.2,
+   "ttft60_p95_ms": 2408.8,
+   "ttft60_max_ms": 3858.0,
+   "itl_p50_ms": 16.02,
+   "scale_up_decision_s": 16.7,
+   "scale_up_to": 3,
+   "first_new_pod_ready_s": 19.5,
+   "first_new_pod_serving_s": 19.5,
+   "max_replicas": 4,
+   "reached_max_replicas_s": 32.6,
+   "first_up_hpa_reading": {
+    "averageValue": "8"
+   },
+   "replica_seconds": 944.1,
+   "scale_down_decision_after_stop_s": 46.0,
+   "scale_down_during_load": 0,
+   "back_to_1_after_stop_s": 106.0,
+   "load_s": 151.5,
+   "run_end_after_stop_s": 126.1,
+   "pod_cpu_cores_mean_load": 0.19,
+   "node_cpu_busy_mean_load": 0.16,
+   "queue_mean_load": 7.894,
+   "queue_max_load": 8.0,
+   "hpa_up_metric": [
+    {
+     "external": {
+      "current": {
+       "averageValue": "8"
+      },
+      "metric": {
+       "name": "s0-prometheus",
+       "selector": {
+        "matchLabels": {
+         "scaledobject.keda.sh/name": "inf-vllm-sim"
+        }
+       }
+      }
+     },
+     "type": "External"
+    }
+   ]
+  },
+  {
+   "index": 3,
+   "config": "cpu50",
+   "profile": "heavy",
+   "run_dir": "autoscaling/results/queue-vs-util-sim/runs/20261103-101319-sim-pool",
+   "start": {
+    "waited_s": 65.5,
+    "idle_hold_s": 60,
+    "spec": 1,
+    "ready": 1,
+    "pod": "inf-vllm-sim-7565c9d79d-p6wgf",
+    "queue": 0.0,
+    "pod_cpu_cores_5s": 0.019,
+    "node_cpu_busy_5s": 0.0587
+   },
+   "requests_ok": 785,
+   "requests_failed": 0,
+   "ttft_p50_ms": 459.9,
+   "ttft_p95_ms": 2959.1,
+   "ttft_max_ms": 3931.6,
+   "ttft60_p50_ms": 2177.1,
+   "ttft60_p95_ms": 3695.3,
+   "ttft60_max_ms": 3931.6,
+   "itl_p50_ms": 16.03,
+   "scale_up_decision_s": 50.3,
+   "scale_up_to": 2,
+   "first_new_pod_ready_s": 52.3,
+   "first_new_pod_serving_s": 52.3,
+   "max_replicas": 4,
+   "reached_max_replicas_s": 125.0,
+   "first_up_hpa_reading": {
+    "averageUtilization": 62,
+    "averageValue": "62m"
+   },
+   "replica_seconds": 870.6,
+   "scale_down_decision_after_stop_s": 79.0,
+   "scale_down_during_load": 0,
+   "back_to_1_after_stop_s": 169.0,
+   "load_s": 151.3,
+   "run_end_after_stop_s": 189.2,
+   "pod_cpu_cores_mean_load": 0.135,
+   "node_cpu_busy_mean_load": 0.172,
+   "queue_mean_load": 7.874,
+   "queue_max_load": 8.0,
+   "hpa_up_metric": [
+    {
+     "resource": {
+      "current": {
+       "averageUtilization": 62,
+       "averageValue": "62m"
+      },
+      "name": "cpu"
+     },
+     "type": "Resource"
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "cpu50:heavy": {
+   "n": 2,
+   "ttft_p50_ms": {
+    "median": 362.04999999999995,
+    "min": 264.2,
+    "max": 459.9,
+    "n": 2
+   },
+   "ttft_p95_ms": {
+    "median": 2661.7,
+    "min": 2364.3,
+    "max": 2959.1,
+    "n": 2
+   },
+   "ttft_max_ms": {
+    "median": 3853.2,
+    "min": 3774.8,
+    "max": 3931.6,
+    "n": 2
+   },
+   "ttft60_p50_ms": {
+    "median": 1625.9,
+    "min": 1074.7,
+    "max": 2177.1,
+    "n": 2
+   },
+   "ttft60_p95_ms": {
+    "median": 3513.4,
+    "min": 3331.5,
+    "max": 3695.3,
+    "n": 2
+   },
+   "ttft60_max_ms": {
+    "median": 3853.2,
+    "min": 3774.8,
+    "max": 3931.6,
+    "n": 2
+   },
+   "itl_p50_ms": {
+    "median": 16.04,
+    "min": 16.03,
+    "max": 16.05,
+    "n": 2
+   },
+   "requests_ok": {
+    "median": 854.5,
+    "min": 785,
+    "max": 924,
+    "n": 2
+   },
+   "requests_failed": {
+    "median": 0.0,
+    "min": 0,
+    "max": 0,
+    "n": 2
+   },
+   "scale_up_decision_s": {
+    "median": 42.2,
+    "min": 34.1,
+    "max": 50.3,
+    "n": 2
+   },
+   "first_new_pod_ready_s": {
+    "median": 43.7,
+    "min": 35.1,
+    "max": 52.3,
+    "n": 2
+   },
+   "first_new_pod_serving_s": {
+    "median": 44.2,
+    "min": 36.1,
+    "max": 52.3,
+    "n": 2
+   },
+   "max_replicas": {
+    "median": 4.0,
+    "min": 4,
+    "max": 4,
+    "n": 2
+   },
+   "reached_max_replicas_s": {
+    "median": 117.05,
+    "min": 109.1,
+    "max": 125.0,
+    "n": 2
+   },
+   "replica_seconds": {
+    "median": 899.85,
+    "min": 870.6,
+    "max": 929.1,
+    "n": 2
+   },
+   "scale_down_decision_after_stop_s": {
+    "median": 78.15,
+    "min": 77.3,
+    "max": 79.0,
+    "n": 2
+   },
+   "back_to_1_after_stop_s": {
+    "median": 168.15,
+    "min": 167.3,
+    "max": 169.0,
+    "n": 2
+   },
+   "pod_cpu_cores_mean_load": {
+    "median": 0.14700000000000002,
+    "min": 0.135,
+    "max": 0.159,
+    "n": 2
+   },
+   "node_cpu_busy_mean_load": {
+    "median": 0.16449999999999998,
+    "min": 0.157,
+    "max": 0.172,
+    "n": 2
+   },
+   "queue_mean_load": {
+    "median": 7.855,
+    "min": 7.836,
+    "max": 7.874,
+    "n": 2
+   },
+   "queue_max_load": {
+    "median": 8.0,
+    "min": 8.0,
+    "max": 8.0,
+    "n": 2
+   }
+  },
+  "keda:heavy": {
+   "n": 2,
+   "ttft_p50_ms": {
+    "median": 88.1,
+    "min": 87.0,
+    "max": 89.2,
+    "n": 2
+   },
+   "ttft_p95_ms": {
+    "median": 1056.05,
+    "min": 1017.1,
+    "max": 1095.0,
+    "n": 2
+   },
+   "ttft_max_ms": {
+    "median": 3920.95,
+    "min": 3858.0,
+    "max": 3983.9,
+    "n": 2
+   },
+   "ttft60_p50_ms": {
+    "median": 106.30000000000001,
+    "min": 98.4,
+    "max": 114.2,
+    "n": 2
+   },
+   "ttft60_p95_ms": {
+    "median": 2170.8500000000004,
+    "min": 1932.9,
+    "max": 2408.8,
+    "n": 2
+   },
+   "ttft60_max_ms": {
+    "median": 3920.95,
+    "min": 3858.0,
+    "max": 3983.9,
+    "n": 2
+   },
+   "itl_p50_ms": {
+    "median": 16.025,
+    "min": 16.02,
+    "max": 16.03,
+    "n": 2
+   },
+   "requests_ok": {
+    "median": 1157.5,
+    "min": 1131,
+    "max": 1184,
+    "n": 2
+   },
+   "requests_failed": {
+    "median": 0.0,
+    "min": 0,
+    "max": 0,
+    "n": 2
+   },
+   "scale_up_decision_s": {
+    "median": 13.75,
+    "min": 10.8,
+    "max": 16.7,
+    "n": 2
+   },
+   "first_new_pod_ready_s": {
+    "median": 16.35,
+    "min": 13.2,
+    "max": 19.5,
+    "n": 2
+   },
+   "first_new_pod_serving_s": {
+    "median": 16.35,
+    "min": 13.2,
+    "max": 19.5,
+    "n": 2
+   },
+   "max_replicas": {
+    "median": 4.0,
+    "min": 4,
+    "max": 4,
+    "n": 2
+   },
+   "reached_max_replicas_s": {
+    "median": 29.200000000000003,
+    "min": 25.8,
+    "max": 32.6,
+    "n": 2
+   },
+   "replica_seconds": {
+    "median": 967.35,
+    "min": 944.1,
+    "max": 990.6,
+    "n": 2
+   },
+   "scale_down_decision_after_stop_s": {
+    "median": 50.6,
+    "min": 46.0,
+    "max": 55.2,
+    "n": 2
+   },
+   "back_to_1_after_stop_s": {
+    "median": 111.1,
+    "min": 106.0,
+    "max": 116.2,
+    "n": 2
+   },
+   "pod_cpu_cores_mean_load": {
+    "median": 0.1965,
+    "min": 0.19,
+    "max": 0.203,
+    "n": 2
+   },
+   "node_cpu_busy_mean_load": {
+    "median": 0.165,
+    "min": 0.16,
+    "max": 0.17,
+    "n": 2
+   },
+   "queue_mean_load": {
+    "median": 7.8975,
+    "min": 7.894,
+    "max": 7.901,
+    "n": 2
+   },
+   "queue_max_load": {
+    "median": 8.0,
+    "min": 8.0,
+    "max": 8.0,
+    "n": 2
+   }
+  }
+ }
+}

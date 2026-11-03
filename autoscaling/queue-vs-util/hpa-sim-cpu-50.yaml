@@ -1,0 +1,32 @@
+# Build 17 Task A: standard HPA on CPU utilisation for sim-pool (SIMULATED), target 50 % of the pod CPU request (100m).
+# Only one autoscaler may own inf-vllm-sim: delete the ScaledObject inf-vllm-sim first (its HPA keda-hpa-inf-vllm-sim
+# goes with it), apply this, and check `kubectl -n inference get hpa` shows exactly one HPA.
+# min/max and behavior are copied from scaledobject-vllm-sim.yaml.
+# Fields: kubectl explain hpa.spec --api-version=autoscaling/v2.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inf-vllm-sim-cpu
+  namespace: inference
+  labels: { app.kubernetes.io/part-of: goodput-stack, goodput-stack/experiment: queue-vs-util }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: inf-vllm-sim }
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 50 }   # % of requests.cpu (100m) averaged over Ready pods
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 15 }
+        - { type: Percent, value: 100, periodSeconds: 15 }
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      selectPolicy: Min
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 30 }
