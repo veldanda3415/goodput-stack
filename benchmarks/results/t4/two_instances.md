@@ -329,3 +329,104 @@ Order S T M M T S in one session; same measured window for every condition.
   85 s single / 150 s pair / 175 s cold, + idle left + 25 + 5 + 90 + 10 s) fits; otherwise it and all later ones are
   skipped and recorded. Estimate for all six: ~0.53 h, so the last S may be cut.
 - **Per MHz** = output tok/s ÷ mean SM clock (`clocks.sm` from nvidia-smi, 1 Hz, same 90 s window); CALCULATED offline.
+
+### Run (20261103-070741_mpsab, Kaggle T4, real)
+
+- Command: `.venv/bin/python -m benchmarks.kaggle.run_kaggle --stage mpsab --kernel goodput-t4-b17k` (stage defaults:
+  order `S,T,M,M,T,S`, ramp 5 s, window 90 s, idle 30 s, budget 0.5 h). Git `a6d0112` (clean at push).
+- Session: script **1,734.8 s = 0.482 GPU-h** (push→done 29.9 min = 0.498 h upper bound). uv install 260.9 s; model
+  prefetch next to it 17.8 s (rc 0). `vllm serve --help=all` listed every flag used (`missing: []`).
+- Tesla T4, **GPU index 0, UUID `GPU-f8017916-967f-a4ba-73f0-217d761c65e3`**, bus 00000000:00:04.0, driver 580.178.04,
+  CUDA 13.0 (driver), power limit / enforced / default **70.00 W**. VM: 2 × T4 (only GPU 0 used), 4 vCPUs. vLLM 0.31.0,
+  torch 2.13.0+cu130. Model `Qwen/Qwen2.5-3B-Instruct-AWQ` @ `3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd`.
+- Serve flags: `--dtype half --no-enable-prefix-caching --revision 3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd
+  --gpu-memory-utilization {0.9 | 0.45}` (plus `--port 8000/8001 --served-model-name <model>`), everything else default.
+- Client per instance: `/v1/completions` streamed, prompt 128 / max_tokens 256, ignore_eos, temperature 0, max_tokens jitter
+  0, start jitter 1 s, closed loop with 32 (S) or 16 + 16 (T, M) users, ramp 5 s, **measured window 90.0 s in every run**,
+  then in-flight requests cancelled. Every completed request returned `usage.completion_tokens` = 256; **0 errors and 0
+  preemptions** in every run.
+- **The 6th condition (second S) did not run:** row `cond-6S`, `budget: session 0.482 h + estimate 242 s > 0.5 h`. So S has
+  one run; T and M have two each.
+- MPS state, from the saved `nvidia-smi` and `pgrep -fa nvidia-cuda-mps` with the engines up (`logs/nvidia-smi-<run>-up.txt`,
+  `logs/pgrep-mps-<run>.txt`):
+  - 3M: `908 M+C VLLM::EngineCore 6798MiB`, `1059 M+C VLLM::EngineCore 6798MiB`; processes `850 nvidia-cuda-mps-control -d`,
+    `927 nvidia-cuda-mps-server`.
+  - 4M: `1278 M+C …EngineCore 6798MiB`, `1429 M+C …EngineCore 6798MiB`; `1220 nvidia-cuda-mps-control -d`, `1297 nvidia-cuda-mps-server`.
+  - 1S, 2T, 5T: no `M+C` row (5T: `1626 C VLLM::EngineCore`, `1770 C VLLM::EngineCore`), `pgrep` rc 1 (no MPS process).
+  - Daemon start rc 0 both times (compute mode `Default`); `echo quit | nvidia-cuda-mps-control` rc 0, nothing left.
+- KV pools as in L3: 287,072 tokens (S), 109,168 per instance (T), 109,120 per instance (M). Instance 2 was launched 64–69 s
+  after instance 1 (at instance 1's `Available KV cache memory` line); startups 171.0 s (S, cold), 114.8 / 84.2 s (2T),
+  79.8 / 79.7 (3M), 83.9 / 83.9 (4M), 83.8 / 83.9 (5T).
+- Raw: rows `cond-*`, `cond-*-state`, `startup-*` in [mpsab.jsonl](20261103-070741_mpsab/results/mpsab/mpsab.jsonl);
+  per run `cond-<n><X>/` with `gpu.csv` (1 Hz NVML + nvidia-smi clocks / power / limits / throttle reasons), `cpu.csv`,
+  `requests-i*.jsonl.gz` (every request with its token-chunk times), `compute-apps.txt`; tables by
+  `python -m benchmarks.kaggle.report_mpsab benchmarks/results/t4/20261103-070741_mpsab`
+  ([report.md](20261103-070741_mpsab/results/mpsab/report.md), [analysis.json](20261103-070741_mpsab/results/mpsab/analysis.json)).
+
+#### Per run (Kaggle T4, real; per MHz CALCULATED)
+
+All numbers over the 90 s window. Output tok/s = client-side token chunks in the window ÷ 90 s; "server ctr" = the
+`generation_tokens_total` rate over the same window. TTFT / ITL pooled over both instances. SM clock = nvidia-smi
+`clocks.sm`, 90 samples per run. Temperature: at the end of the idle before the condition / mean in the window.
+
+| # | cond | rep | timestamp (UTC, row) | combined tok/s | per instance | server ctr | tok/s per MHz | TTFT p50 / p95 ms | ITL p50 / p95 ms | SM clock mean (min–max) MHz | power W (limit) | temp °C start / window | throttle reasons (% of samples) | KV usage peak |
+|---|---|---|---|---:|---|---:|---:|---|---|---|---|---|---|---|
+| 1 | S | 1 | 12:17:13 | **1,008.7** | 1,008.7 | 1,006.8 | 0.8312 | 430 / 649 | 27.0 / 31.3 | 1,214 (1,005–1,335) | 68.3 (70.0) | 39 / 72.4 | sw_power_cap 100, others 0 | 0.043 |
+| 2 | T | 1 | 12:22:01 | **694.8** | 347.3 / 347.5 | 694.9 | 0.5699 | 577 / 1,008 | 40.5 / 45.6 | 1,219 (1,050–1,290) | 67.4 (70.0) | 64 / 77.4 | sw_power_cap 100, others 0 | 0.056 / 0.056 |
+| 3 | M | 1 | 12:26:44 | **783.1** | 392.2 / 390.9 | 788.5 | 0.7170 | 451 / 689 | 35.7 / 41.7 | 1,092 (945–1,200) | 67.5 (70.0) | 64 / 77.4 | sw_power_cap 100, others 0 | 0.056 / 0.056 |
+| 4 | M | 2 | 12:31:39 | **782.8** | 391.8 / 391.0 | 789.3 | 0.7184 | 472 / 709 | 35.7 / 41.5 | 1,090 (975–1,230) | 67.7 (70.0) | 63 / 77.4 | sw_power_cap 100, others 0 | 0.056 / 0.056 |
+| 5 | T | 2 | 12:36:33 | **695.5** | 347.7 / 347.8 | 696.0 | 0.5672 | 738 / 994 | 40.6 / 45.7 | 1,226 (1,065–1,290) | 67.8 (70.0) | 63 / 77.5 | sw_power_cap 100, others 0 | 0.056 / 0.056 |
+| 6 | S | 2 | — | not run (budget guard) | | | | | | | | | | |
+
+"Others" = hw_slowdown, hw_thermal_slowdown, sw_thermal_slowdown, hw_power_brake_slowdown, gpu_idle,
+applications_clocks_setting (all 0 % of samples). NVML's throttle-reason **counters** (`nvidia-smi -q -d PERFORMANCE`)
+moved by 0 µs in every run, as in earlier builds; the per-sample reason flag is the evidence used here. util.gpu 100 % in
+every run; VM CPU 15–19 % busy.
+
+#### Per condition (mean of the runs; spread = (max − min) ÷ mean; CALCULATED)
+
+| cond | runs | combined tok/s (spread) | tok/s per MHz (spread) | ITL p50 ms (spread) | ITL p95 ms | TTFT p50 ms | SM clock mean MHz (spread) | power W | throttle reasons | output tok/J |
+|---|---|---|---|---|---:|---:|---|---:|---|---:|
+| **S** | 1 (1S) | **1,008.7** (n/a) | **0.8312** (n/a) | 27.05 (n/a) | 31.26 | 430 | 1,214 (n/a) | 68.3 | sw_power_cap 100 % | 14.77 |
+| **T** | 2 (2T, 5T) | **695.2** (0.09 %) | **0.5685** (0.47 %) | 40.52 (0.27 %) | 45.68 | 657 | 1,223 (0.56 %) | 67.6 | sw_power_cap 100 % | 10.28 |
+| **M** | 2 (3M, 4M) | **783.0** (0.04 %) | **0.7177** (0.20 %) | 35.71 (0.17 %) | 41.58 | 462 | 1,091 (0.23 %) | 67.6 | sw_power_cap 100 % | 11.58 |
+
+Output tok/J = combined tok/s ÷ mean power (CALCULATED).
+
+- **M vs T: +12.6 % raw tok/s, +26.2 % per MHz** (0.7177 vs 0.5685), at a **10.8 % lower SM clock** (1,091 vs 1,223 MHz)
+  and the same power (67.6 W, at the 70 W cap in every sample). ITL p50 −11.9 % (35.7 vs 40.5 ms), p95 −9.0 %.
+- **Verdict: yes — the M vs T per-MHz difference (+26.2 %) is ~56 times the larger within-condition spread (T 0.47 %, M
+  0.20 %), so in this session MPS does more work per MHz than plain time-sharing, well beyond repeat-to-repeat noise.**
+- vs S (one run): T −31.1 % and M −22.4 % in raw tok/s; per MHz T −31.6 %, M −13.7 %. S ran at about T's clock (1,214 vs
+  1,223 MHz, −0.8 %, within T's own 0.56 % spread plus S's lack of a repeat).
+- **Order:** repeat 2 vs repeat 1 moved T by +0.09 % (tok/s) / −0.47 % (per MHz) and M by −0.04 % / +0.20 %; clock
+  1,219 → 1,226 (T) and 1,092 → 1,090 (M); start temperatures 64 → 63 °C both. Order does not move the numbers beyond
+  ~0.5 %. **S is not order-controlled:** its only run came first, started from 39 °C (after the install) and ran at 72.4 °C
+  mean vs 77.4 °C for every other run.
+- TTFT p50 varied within T (577 vs 738 ms) more than any other metric; closed-loop requests with identical lengths
+  arrive in waves, so TTFT depends on where the window cuts the waves. tok/s and ITL did not.
+- Against L3 (one run each, request-count windows of 21–34 s): L3 had 1,084.2 / 720.4 / 798.0 tok/s at 1,271 / 1,242 /
+  1,061 MHz. Same direction and similar M/T clock gap; the absolute numbers differ (different window definition, different
+  session and clock).
+
+#### Predicted vs measured (Build 17)
+
+| Prediction (verbatim) | Measured | Verdict |
+|---|---|---|
+| Combined output tok/s: S > M > T. | 1,008.7 > 783.0 > 695.2 | **as predicted** (S from one run) |
+| Per MHz: M > T by a measurable margin (> 5 %); the raw-tok/s gap may be smaller or larger than per-MHz because MPS may change the clock. | per MHz **+26.2 %** (spreads 0.2–0.5 %); raw +12.6 %, smaller, because M ran at a 10.8 % lower clock | **as predicted**; the raw gap is the smaller one |
+| sw_power_cap active most of the time in all three; | 100 % of the samples in every run of S, T and M; no other reason active | **as predicted** (all of the time) |
+| clock differs between conditions by more than run-to-run noise within a condition. | M vs T −10.8 % vs within spreads 0.23 % / 0.56 %: **yes**. S vs T −0.8 %, inside T's 0.56 % spread plus an unrepeated S: **no** | **partly**: true for M vs S/T, not for S vs T |
+| ITL p50: M ≤ T. | 35.7 vs 40.5 ms | **as predicted** |
+
+#### Does NOT show (Build 17)
+
+- One T4 type (Kaggle, 70 W cap), one session, one GPU (index 0) of that VM.
+- AWQ INT4 only (Qwen2.5-3B-Instruct-AWQ), one workload (128 in / 256 out, equal lengths), two instances only, equal
+  16 + 16 load; no uneven loads, no `CUDA_MPS_ACTIVE_THREAD_PERCENTAGE`, no MPS memory / fault isolation.
+- S has a single run (the 0.5 h guard cut the second), so S's spread and order effect are unmeasured, and S ran cooler.
+- No Kubernetes time-slicing configuration (NVIDIA device plugin `sharing.timeSlicing`) and no device-plugin MPS mode: the
+  processes ran directly in one VM. No MIG (T4 has none).
+- Per MHz is a normalisation (tok/s ÷ mean clock), not a measured clock-scaling law; the clock was not pinned (the power
+  cap set it). Why MPS runs at a lower clock at the same power (more concurrent SM activity per watt is the likely reason)
+  is not measured: no DCGM / per-SM counters.
