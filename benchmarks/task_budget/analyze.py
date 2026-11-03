@@ -2,7 +2,8 @@
 
     python -m benchmarks.task_budget.analyze benchmarks/results/t4/<run>_taskbudget [--price-per-h 0.526]
 
-Reads results/taskbudget/{tasks.jsonl, taskbudget.jsonl, metrics.jsonl}. Writes analysis.json and
+Reads results/taskbudget/{tasks.jsonl, taskbudget.jsonl, metrics.jsonl}. The /metrics scrape file is the first that
+exists of --metrics, metrics.jsonl, <phase>-metrics.jsonl (the L4 stage writes l4-metrics.jsonl). Writes analysis.json and
 cost_per_success.png next to them and prints markdown tables. Only the `policies` phase (all four policies, random
 order per batch) enters the policy table; the `calibration` baseline only sets the budget and is reported as a
 repeat-run check.
@@ -87,6 +88,47 @@ def tokens_after(r: dict, step: int) -> int:
     return s["tokens_cum"] if s else r["tokens"]
 
 
+def find_metrics(d: Path, phase: str, override: Path | None = None) -> Path | None:
+    """The /metrics scrape file of a stage dir: --metrics, else metrics.jsonl, else <phase>-metrics.jsonl."""
+    for p in ([override] if override else []) + [d / "metrics.jsonl", d / f"{phase}-metrics.jsonl"]:
+        if p.exists():
+            return p
+    return None
+
+
+def busy_intervals(metrics: list[dict], pool: str, t0: float, t1: float) -> list[tuple[float, float]]:
+    """Scrape intervals in [t0, t1] in which the pool had >= 1 running request or generated tokens."""
+    ms = [m for m in metrics if m.get("server") == pool and "metrics" in m and t0 <= m["t_unix"] <= t1]
+    out = []
+    for a, b in zip(ms, ms[1:]):
+        dg = b["metrics"].get("generation_tokens_total", 0) - a["metrics"].get("generation_tokens_total", 0)
+        if a["metrics"].get("num_requests_running", 0) > 0 or b["metrics"].get("num_requests_running", 0) > 0 or dg > 0:
+            out.append((a["t_unix"], b["t_unix"]))
+    return out
+
+
+def union_s(intervals: list[tuple[float, float]]) -> float:
+    total, end = 0.0, None
+    for a, b in sorted(intervals):
+        if end is None or a > end:
+            total += b - a
+            end = b
+        elif b > end:
+            total += b - end
+            end = b
+    return total
+
+
+def gpu_time(metrics: list[dict], t0: float, t1: float) -> dict:
+    """Both pools share one GPU. GPU-time = union of the pools' busy intervals; overlap = sum of busy - union."""
+    iv = {p: busy_intervals(metrics, p, t0, t1) for p in ("strong", "cheap")}
+    busy = {p: union_s(v) for p, v in iv.items()}
+    union = union_s(iv["strong"] + iv["cheap"])
+    return {"busy_s": {p: round(v, 1) for p, v in busy.items()}, "union_busy_s": round(union, 1),
+            "overlap_s": round(sum(busy.values()) - union, 1),
+            "split_factor": round(union / sum(busy.values()), 4) if sum(busy.values()) else None}
+
+
 def pool_rates(metrics: list[dict], t0: float, t1: float) -> dict:
     """Per pool: output tokens per second of the time that pool had >= 1 running request, in [t0, t1]."""
     out = {}
@@ -109,7 +151,10 @@ def escalated(step: dict) -> bool:
     return any(a == "cheap" and b == "strong" for a, b in zip(step["pools"], step["pools"][1:]))
 
 
-def policy_table(rows: list[dict], rates: dict, price_h: float) -> list[dict]:
+def policy_table(rows: list[dict], rates: dict, price_h: float, split_factor: float | None = None) -> list[dict]:
+    """$ per success: GPU-s per pool = completion tokens / pool output tok/s while busy (Build 14 method; the overlap of
+    the two pools on one GPU is charged twice). The _split columns scale every pool's GPU-s by split_factor = union busy /
+    (strong busy + cheap busy), so the GPU-time of the phase is charged once and split by each pool's share."""
     table = []
     for pol in POLICIES:
         rs = [r for r in rows if r["policy"] == pol]
@@ -146,6 +191,8 @@ def policy_table(rows: list[dict], rates: dict, price_h: float) -> list[dict]:
             "gpu_s_attributed_CALCULATED": {p: round(v, 2) if v else v for p, v in gpu_s.items()},
             "usd_per_success_CALCULATED": round(dollars / len(succ), 6) if dollars is not None and succ else None,
             "usd_per_attempted_CALCULATED": round(dollars / len(rs), 6) if dollars is not None else None,
+            "usd_per_success_split_CALCULATED": round(dollars * split_factor / len(succ), 6)
+            if dollars is not None and split_factor and succ else None,
         })
     return table
 
@@ -236,24 +283,28 @@ def main() -> None:
     ap.add_argument("--price-per-h", type=float, default=0.526)
     ap.add_argument("--stage-dir", default="taskbudget", help="results/<stage-dir>/ (followup for the F4 run)")
     ap.add_argument("--phase", default="policies", help="tasks.jsonl phase that enters the policy table (f4 for the F4 run)")
+    ap.add_argument("--metrics", type=Path, help="/metrics scrape file (default: metrics.jsonl, else <phase>-metrics.jsonl)")
     a = ap.parse_args()
     d = a.run_dir / "results" / a.stage_dir
     tasks = read_jsonl(d / "tasks.jsonl")
     meta = {r["key"]: r for r in read_jsonl(d / f"{a.stage_dir}.jsonl")}
-    metrics = read_jsonl(d / "metrics.jsonl")
+    mpath = find_metrics(d, a.phase, a.metrics)
+    metrics = read_jsonl(mpath) if mpath else []
     pol_rows = [r for r in tasks if r.get("phase") == a.phase]
     cal_rows = [r for r in tasks if r.get("phase") == "calibration"]
     pw = meta.get(a.phase, {}).get("window_unix") or [min(r["t_start_unix"] for r in pol_rows), max(r["t_start_unix"] + r["wall_s"] for r in pol_rows)]
     rates = pool_rates(metrics, *pw)
+    gt = gpu_time(metrics, *pw)
     budget = meta.get("calibration", {}).get("budget_tokens") or meta.get(a.phase, {}).get("budget_tokens")
-    table = policy_table(pol_rows, rates, a.price_per_h)
+    table = policy_table(pol_rows, rates, a.price_per_h, gt["split_factor"])
     base = [r for r in pol_rows if r["policy"] == "baseline"]
     cal_by = {r["task_id"]: r["success"] for r in cal_rows}
     repeat = {"calibration_success": sum(cal_by.values()), "policies_baseline_success": sum(r["success"] for r in base),
               "same_outcome": sum(1 for r in base if cal_by.get(r["task_id"]) == r["success"]), "n": len(base)}
     early = {"baseline": early_signal(base), **({"baseline_calibration": early_signal(cal_rows)} if cal_rows else {})}
     pairs = example_pairs(base)
-    out = {"budget_tokens": budget, "pool_rates": rates, "policy_table": table, "repeat_check": repeat,
+    out = {"budget_tokens": budget, "metrics_file": mpath.name if mpath else None, "pool_rates": rates, "gpu_time": gt,
+           "policy_table": table, "repeat_check": repeat,
            "early_signal": early, "example_pairs": pairs, "price_per_h": a.price_per_h}
     out["phase"] = a.phase
     (d / ("analysis.json" if a.phase == "policies" else f"analysis-{a.phase}.json")).write_text(json.dumps(out, indent=1, default=str) + "\n")

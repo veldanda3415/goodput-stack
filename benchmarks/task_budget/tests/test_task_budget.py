@@ -382,3 +382,28 @@ def test_per_step_budget_cap_counts_earlier_attempts_and_aborts_only_at_total(se
     assert s1["pools"][0] == "cheap" and s1["attempts"][0]["check_reason"] != "cancelled at step share"
     assert s1["pools"][1] == "strong" and s1["attempts"][1]["cancelled"] and not s1["attempts"][1]["step_cut"]
     assert r["aborted"] and r["tokens"] == 200
+
+
+def _scrape(t, server, running, gen):
+    return {"t_unix": t, "server": server, "metrics": {"num_requests_running": running, "generation_tokens_total": gen}}
+
+
+def test_find_metrics_accepts_phase_prefixed_name(tmp_path):
+    from benchmarks.task_budget import analyze
+    assert analyze.find_metrics(tmp_path, "l4") is None
+    (tmp_path / "l4-metrics.jsonl").write_text("")
+    assert analyze.find_metrics(tmp_path, "l4").name == "l4-metrics.jsonl"
+    (tmp_path / "metrics.jsonl").write_text("")   # the old name still wins when present
+    assert analyze.find_metrics(tmp_path, "l4").name == "metrics.jsonl"
+    assert analyze.find_metrics(tmp_path, "l4", tmp_path / "l4-metrics.jsonl").name == "l4-metrics.jsonl"
+
+
+def test_pool_rates_and_gpu_time_split():
+    from benchmarks.task_budget import analyze
+    m = [_scrape(0, "strong", 1, 0), _scrape(10, "strong", 1, 1000), _scrape(20, "strong", 0, 2000), _scrape(30, "strong", 0, 2000),
+         _scrape(0, "cheap", 0, 0), _scrape(15, "cheap", 1, 0), _scrape(25, "cheap", 0, 600), _scrape(30, "cheap", 0, 600)]
+    r = analyze.pool_rates(m, 0, 30)
+    assert r["strong"]["busy_s"] == 20 and r["strong"]["output_tok_s_while_busy"] == 100
+    assert r["cheap"]["busy_s"] == 25 and r["cheap"]["output_tok_s_while_busy"] == 24   # 0-15 counts: running at 15
+    g = analyze.gpu_time(m, 0, 30)
+    assert g["union_busy_s"] == 25 and g["overlap_s"] == 20 and g["split_factor"] == round(25 / 45, 4)

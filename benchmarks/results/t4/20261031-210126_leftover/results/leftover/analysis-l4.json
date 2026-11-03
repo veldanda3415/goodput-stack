@@ -1,18 +1,28 @@
 {
  "budget_tokens": 951,
+ "metrics_file": "l4-metrics.jsonl",
  "pool_rates": {
   "strong": {
-   "busy_s": 0.0,
-   "generation_tokens": 0.0,
-   "output_tok_s_while_busy": null,
+   "busy_s": 479.7,
+   "generation_tokens": 85640.0,
+   "output_tok_s_while_busy": 178.52,
    "window_s": 480.5
   },
   "cheap": {
-   "busy_s": 0.0,
-   "generation_tokens": 0.0,
-   "output_tok_s_while_busy": null,
+   "busy_s": 297.6,
+   "generation_tokens": 61817.0,
+   "output_tok_s_while_busy": 207.74,
    "window_s": 480.5
   }
+ },
+ "gpu_time": {
+  "busy_s": {
+   "strong": 479.7,
+   "cheap": 297.6
+  },
+  "union_busy_s": 479.7,
+  "overlap_s": 297.6,
+  "split_factor": 0.6172
  },
  "policy_table": [
   {
@@ -47,11 +57,12 @@
    "wall_p50_s": 6.05,
    "wall_p95_s": 8.36,
    "gpu_s_attributed_CALCULATED": {
-    "strong": null,
-    "cheap": null
+    "strong": 263.6,
+    "cheap": 0.0
    },
-   "usd_per_success_CALCULATED": null,
-   "usd_per_attempted_CALCULATED": null
+   "usd_per_success_CALCULATED": 0.000405,
+   "usd_per_attempted_CALCULATED": 0.000257,
+   "usd_per_success_split_CALCULATED": 0.00025
   },
   {
    "policy": "escalate_fresh",
@@ -85,11 +96,12 @@
    "wall_p50_s": 4.15,
    "wall_p95_s": 5.57,
    "gpu_s_attributed_CALCULATED": {
-    "strong": null,
-    "cheap": null
+    "strong": 46.39,
+    "cheap": 122.71
    },
-   "usd_per_success_CALCULATED": null,
-   "usd_per_attempted_CALCULATED": null
+   "usd_per_success_CALCULATED": 0.002471,
+   "usd_per_attempted_CALCULATED": 0.000165,
+   "usd_per_success_split_CALCULATED": 0.001525
   },
   {
    "policy": "escalate_fresh_strong_final",
@@ -123,11 +135,12 @@
    "wall_p50_s": 5.03,
    "wall_p95_s": 6.7,
    "gpu_s_attributed_CALCULATED": {
-    "strong": null,
-    "cheap": null
+    "strong": 121.34,
+    "cheap": 69.57
    },
-   "usd_per_success_CALCULATED": null,
-   "usd_per_attempted_CALCULATED": null
+   "usd_per_success_CALCULATED": 0.001268,
+   "usd_per_attempted_CALCULATED": 0.000186,
+   "usd_per_success_split_CALCULATED": 0.000783
   },
   {
    "policy": "per_step_budget",
@@ -161,11 +174,12 @@
    "wall_p50_s": 4.04,
    "wall_p95_s": 4.97,
    "gpu_s_attributed_CALCULATED": {
-    "strong": null,
-    "cheap": null
+    "strong": 47.98,
+    "cheap": 106.46
    },
-   "usd_per_success_CALCULATED": null,
-   "usd_per_attempted_CALCULATED": null
+   "usd_per_success_CALCULATED": 0.002257,
+   "usd_per_attempted_CALCULATED": 0.00015,
+   "usd_per_success_split_CALCULATED": 0.001393
   }
  ],
  "repeat_check": {

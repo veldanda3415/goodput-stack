@@ -987,10 +987,28 @@ def leftover_rows() -> list[tuple[str, str, str, dict]]:
                              f"ITL p50 {r['inst_i1']['itl_ms_p50']:.1f} ms)", r["model"], r))
         an = REPO / Path(next(iter(rs.values()))["_src"]).parent / "analysis-l4.json"
         if an.exists() and (r := rs.get("l4")):
-            for t in json.loads(an.read_text())["policy_table"]:
+            a = json.loads(an.read_text())
+            for t in a["policy_table"]:
                 rows.append((f"tokens per successful GSM8K task, policy {t['policy']}, budget 951 (L4, Kaggle T4, real; policy in client)",
                              f"{t['tokens_per_success']:,.0f} tokens (success {t['successes']}/{t['tasks']}, aborted {t['aborted']})",
                              r["strong"]["model"], r))
+            rows += task_budget_cost_rows(a, "L4", r["strong"]["model"], r)
+    return rows
+
+
+def task_budget_cost_rows(a: dict, part: str, model: str, r: dict) -> list[tuple]:
+    """Pool output tok/s while busy and CALCULATED $ per successful task from a task_budget analysis JSON."""
+    pr, gt = a.get("pool_rates") or {}, a.get("gpu_time") or {}
+    if not all((pr.get(p) or {}).get("output_tok_s_while_busy") for p in ("strong", "cheap")):
+        return []
+    rows = [(f"pool output tok/s while busy, strong / cheap, task-budget phase ({part}, Kaggle T4, real; both pools on one GPU)",
+             f"{pr['strong']['output_tok_s_while_busy']:,.1f} / {pr['cheap']['output_tok_s_while_busy']:,.1f} tok/s "
+             f"(busy {pr['strong']['busy_s']:,.0f} / {pr['cheap']['busy_s']:,.0f} s, overlap {gt.get('overlap_s', 0):,.0f} s)", model, r)]
+    for t in a.get("policy_table", []):
+        if t.get("usd_per_success_CALCULATED") is not None:
+            rows.append((f"$ per successful GSM8K task CALCULATED, policy {t['policy']} ({part}, $0.526/h; completion tokens ÷ pool tok/s)",
+                         f"${t['usd_per_success_split_CALCULATED']:.6f} GPU-time split by pool share "
+                         f"(${t['usd_per_success_CALCULATED']:.6f} with overlap charged twice)", model, r))
     return rows
 
 
@@ -1107,6 +1125,7 @@ def followup_rows() -> list[tuple[str, str, str, dict]]:
                          f"{t['tokens_per_success']:,.0f} tokens (success {t['successes']}/{t['tasks']}, aborted {t['aborted']}, "
                          f"{t['share_steps_escalated']:.0%} of steps escalated)" if t.get("tokens_per_success") else
                          f"no successes ({t['tasks']} tasks, aborted {t['aborted']})", strong, pol))
+        rows += task_budget_cost_rows(an, "F4", strong, pol)
     if (r := fu.get("f4-cancel-metric")) is not None:
         names = r.get("names_changed_on_cancel_not_on_control") or []
         rows.append(("vLLM 0.31.0 /metrics series that count one client-cancelled stream (Kaggle T4, real)",
