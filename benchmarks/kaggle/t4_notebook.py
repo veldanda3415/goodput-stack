@@ -7,6 +7,7 @@
     python -m benchmarks.kaggle.t4_notebook --stage ridge               # Part A: offline ceiling vs max-num-seqs, HTTP at 384
     python -m benchmarks.kaggle.t4_notebook --stage twoinst             # Part B: two vLLM instances on one T4, time-sharing vs MPS
     python -m benchmarks.kaggle.t4_notebook --stage taskbudget --strong-util U --cheap-util U   # Part C: cost per completed task
+    python -m benchmarks.kaggle.t4_notebook --stage mpsab               # Build 17: single / time-sharing / MPS, order S T M M T S
 
 Every stage writes /kaggle/working/results/<stage>/ (override: GOODPUT_RESULTS):
     <stage>.jsonl   result rows; each carries provenance (time, git sha, GPU/driver/CUDA, vLLM version,
@@ -3563,11 +3564,388 @@ STAGE_ARGS["leftover"] = [
     lambda p: p.add_argument("--l4-seed", type=int, default=15),
 ]
 
+# ---------------------------------------------------------------- mpsab (Build 17): S / T / M in the order S T M M T S, one session
+# S = one instance @0.90, 32 users; T = two @0.45, time-sharing, 16 + 16; M = the same two under MPS. Every condition is
+# measured over the same fixed window (closed-loop clients run ramp_s + window_s, then are cancelled); SM clock, power and
+# throttle reasons are summarised over exactly that window, so tok/s per MHz can be computed offline.
+
+MPSAB_CONDS = {"S": ([0.90], [32]), "T": ([0.45, 0.45], [16, 16]), "M": ([0.45, 0.45], [16, 16])}
+
+
+def gpu_identity(gpu: int = 0) -> dict:
+    """index, UUID, name, driver, bus id and power limits of one GPU (nvidia-smi --query-gpu)."""
+    fields = "index,uuid,name,driver_version,pci.bus_id,power.limit,enforced.power.limit,power.default_limit"
+    rc, out = sh(["nvidia-smi", "-i", str(gpu), f"--query-gpu={fields}", "--format=csv,noheader"], timeout=60)
+    vals = [x.strip() for x in out.strip().split(",")]
+    return dict(zip(fields.split(","), vals)) if rc == 0 and len(vals) == len(fields.split(",")) else {"rc": rc, "raw": out[-300:]}
+
+
+def gpu_now(gpu: int = 0) -> dict:
+    """Temperature, SM clock, power, pstate, memory and util of one GPU right now."""
+    fields = "temperature.gpu,clocks.sm,power.draw,pstate,memory.used,utilization.gpu"
+    rc, out = sh(["nvidia-smi", "-i", str(gpu), f"--query-gpu={fields}", "--format=csv,noheader,nounits"], timeout=60)
+    vals = [x.strip() for x in out.strip().split(",")]
+    row = dict(zip(fields.split(","), vals)) if rc == 0 and len(vals) == len(fields.split(",")) else {"rc": rc, "raw": out[-300:]}
+    return {"t_unix": round(time.time(), 3), **row}
+
+
+def window_stats(records: list[dict], w0: float, w1: float) -> dict:
+    """Client-side numbers for one instance over [w0, w1) (unix s): output tokens whose chunk arrived in the window,
+    ITL gaps with both chunks inside it, TTFT of requests sent inside it, and request / error counts."""
+    from benchmarks.harness import stats
+    tt = [r.get("token_t") or [] for r in records]
+    toks = sum(1 for ts in tt for t in ts if w0 <= t < w1)
+    itl = [(b - a) * 1e3 for ts in tt for a, b in zip(ts, ts[1:]) if w0 <= a and b < w1]
+    ttft = [(r["token_t"][0] - r["t_send"]) * 1e3 for r in records if r.get("token_t") and w0 <= r.get("t_send", -1) < w1]
+    errors = [r for r in records if r.get("error") or r.get("status") not in (None, 200)]
+    done = [r for r in records if r.get("ok")]
+    out = {"window_s": round(w1 - w0, 3), "output_tokens_in_window": toks, "output_tok_s": round(toks / (w1 - w0), 2),
+           "requests_sent": len(records), "requests_sent_in_window": sum(1 for r in records if w0 <= r.get("t_send", -1) < w1),
+           "requests_completed": len(done), "requests_cancelled_at_window_end": sum(1 for r in records if r.get("cancelled_at_window_end")),
+           "errors": len(errors), "error_examples": [str(r.get("error") or r.get("status"))[:200] for r in errors[:3]],
+           "usage_completion_tokens_completed": sorted({(r.get("usage") or {}).get("completion_tokens") for r in done}, key=str)[:5]}
+    return out | stats.dist("ttft_ms", ttft) | stats.dist("itl_ms", itl)
+
+
+async def _timed_request(hc, c: dict, prompt: str, rec: dict) -> None:
+    """One streamed /v1/completions request; chunk arrival times (unix s) go into rec as they come, so a request cancelled
+    at the window end still counts the tokens it streamed. Body and token rule as benchmarks/harness/client.one_request."""
+    from benchmarks.harness import client
+    tt = rec["token_t"] = []
+    rec["t_send"] = time.time()
+    async with hc.stream("POST", c["endpoint"], json=client.request_body(c, prompt, c["max_tokens"]), timeout=c["timeout_s"]) as resp:
+        rec["status"] = resp.status_code
+        if resp.status_code != 200:
+            rec["error"] = (await resp.aread()).decode(errors="replace")[:300]
+            return
+        async for line in resp.aiter_lines():
+            if not line.startswith("data: "):
+                continue
+            if line == "data: [DONE]":
+                break
+            now_t = time.time()
+            chunk = json.loads(line[6:])
+            if chunk.get("usage"):
+                rec["usage"] = chunk["usage"]
+            for ch in chunk.get("choices") or []:
+                if ch.get("text") or ch.get("finish_reason") is None:
+                    tt.append(now_t)
+                if ch.get("finish_reason"):
+                    rec["finish_reason"] = ch["finish_reason"]
+    rec["ok"] = bool(tt)
+
+
+def timed_client(base_url: str, c: dict, prompts: list[str], ready, go, t0v, out_path: str) -> None:
+    """Spawned client process: `concurrency` closed-loop workers from t0v (set by the parent) until t0 + ramp_s + window_s,
+    then every in-flight request is cancelled. Each worker starts after a seeded random delay in [0, start_jitter_s]."""
+    import asyncio
+    import itertools
+    import random
+    import httpx
+
+    async def main() -> dict:
+        recs: list[dict] = []
+        users = c["concurrency"]
+        async with httpx.AsyncClient(base_url=base_url, limits=httpx.Limits(max_connections=users + 4), timeout=c["timeout_s"]) as hc:
+            ready.set()
+            while not go.is_set():
+                await asyncio.sleep(0.005)
+            t0 = t0v.value
+            t_end = t0 + c["ramp_s"] + c["window_s"]
+            rng = random.Random(2)
+            delays = [rng.uniform(0, c["start_jitter_s"]) for _ in range(users)]
+            nxt = itertools.count()
+
+            async def worker(w: int) -> None:
+                await asyncio.sleep(max(0.0, t0 + delays[w] - time.time()))
+                while time.time() < t_end:
+                    i = next(nxt)
+                    rec = {"id": i, "worker": w, "ok": False, "prompt_index": i % len(prompts)}
+                    recs.append(rec)
+                    try:
+                        await _timed_request(hc, c, prompts[i % len(prompts)], rec)
+                    except asyncio.CancelledError:
+                        rec["cancelled_at_window_end"] = True
+                        raise
+                    except (httpx.HTTPError, json.JSONDecodeError) as exc:
+                        rec["error"] = f"{type(exc).__name__}: {exc}"[:300]
+
+            tasks = [asyncio.create_task(worker(w)) for w in range(users)]
+            await asyncio.sleep(max(0.0, t_end - time.time()))
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        return {"t_load0": t0, "t_end": t_end, "delays": delays, "prompts": len(prompts), "records": recs}
+
+    res = asyncio.run(main())
+    with open(out_path, "w") as f:
+        f.write(json.dumps(res) + "\n")
+
+
+def mpsab_state(st: Stage, tag: str, n_inst: int, want_mps: bool) -> dict:
+    """nvidia-smi process table + MPS processes with the engines up. M: every EngineCore must be an MPS client (M+C);
+    S / T: no process may be an MPS client and no nvidia-cuda-mps process may run."""
+    rc, smi = sh(["nvidia-smi"], timeout=60, out=st.logs / f"nvidia-smi-{tag}-up.txt")
+    rc2, ps = sh(["pgrep", "-fa", "nvidia-cuda-mps"], timeout=10, out=st.logs / f"pgrep-mps-{tag}.txt")
+    procs, clients = smi_process_lines(smi), mps_clients(smi)
+    cores = [l for l in procs if "EngineCore" in l]
+    core_clients = [l for l in clients if "EngineCore" in l]
+    ok = (len(core_clients) == n_inst) if want_mps else (not clients and "nvidia-cuda-mps" not in ps)
+    return {"nvidia_smi_process_lines": procs, "mps_client_lines": clients, "engine_cores": len(cores),
+            "engine_cores_as_mps_clients": len(core_clients), "mps_processes": ps.strip()[-400:],
+            "mps_env_in_server_env": bool(os.environ.get("CUDA_MPS_PIPE_DIRECTORY")), "want_mps": want_mps, "state_ok": ok,
+            "evidence_file": f"logs/nvidia-smi-{tag}-up.txt"}
+
+
+def mpsab_load(st: Stage, key: str, servers: dict, users: dict, prompts: list[str], a, prov: dict) -> dict:
+    """All loaded servers at once, one spawned timed_client per server, a shared start time; numbers over the fixed
+    window [t0 + ramp_s, t0 + ramp_s + window_s)."""
+    import multiprocessing as mp
+    from benchmarks.gpu_sampler import GpuSampler
+    d = st.dir / key
+    d.mkdir(parents=True, exist_ok=True)
+    names = list(servers)
+    split = {n: prompts[i::len(names)] for i, n in enumerate(names)}
+    cfgs = {n: {"api": "openai", "model": a.awq_model, "endpoint": "/v1/completions", "prompt_tokens": a.input_len,
+                "max_tokens": a.output_len, "max_tokens_jitter": 0, "ignore_eos": True, "temperature": 0.0, "concurrency": users[n],
+                "start_jitter_s": 1.0, "timeout_s": 600, "ramp_s": a.ramp_s, "window_s": a.window_s} for n in names}
+    ctx = mp.get_context("spawn")
+    go, t0v = ctx.Event(), ctx.Value("d", 0.0)
+    ready = {n: ctx.Event() for n in names}
+    procs = {n: ctx.Process(target=timed_client, args=(servers[n].base_url, cfgs[n], split[n], ready[n], go, t0v,
+                                                       str(d / f"client-{n}.json"))) for n in names}
+    groups = {"client": lambda: [p.pid for p in procs.values() if p.pid]}
+    groups |= {f"srv_{n}": (lambda s=s: [s.proc.pid]) for n, s in servers.items()}
+    th0 = throttle_counters()
+    with GpuSampler(d / "gpu.csv", 1.0, 0), MetricsScraper(d / "metrics.jsonl", {n: s.base_url for n, s in servers.items()}) as scr, \
+            CpuSampler(d / "cpu.csv", groups):
+        for p in procs.values():
+            p.start()
+        for n in names:
+            ready[n].wait(120)
+        gpu_load0 = gpu_now()
+        t0 = time.time() + 0.5
+        t0v.value = t0
+        go.set()
+        w0, w1 = t0 + a.ramp_s, t0 + a.ramp_s + a.window_s
+        time.sleep(max(0.0, w0 + 20 - time.time()))
+        apps = compute_apps(d / "compute-apps.txt")
+        for p in procs.values():
+            p.join(a.ramp_s + a.window_s + 120)
+        time.sleep(1.5)
+    th1 = throttle_counters()
+    row: dict = {"kind": "condition", "users": users, "servers": {n: s.base_url for n, s in servers.items()},
+                 "client_tool": "t4_notebook.timed_client: one spawned process per instance, closed loop, /v1/completions streamed "
+                                "(body = benchmarks/harness client.request_body), temperature 0, ignore_eos, start jitter 1 s, "
+                                "cancelled at the window end",
+                 "client_cfg": cfgs, "prompts_per_instance": {n: len(split[n]) for n in names},
+                 "load_t0_unix": round(t0, 3), "window_unix": [round(w0, 3), round(w1, 3)], "ramp_s": a.ramp_s, "window_s": a.window_s,
+                 "gpu_at_load_start": gpu_load0, "compute_apps_mid_run": apps,
+                 "throttle_us_delta": {k: th1[k] - th0.get(k, 0) for k in th1}}
+    combined = 0.0
+    for n in names:
+        f = d / f"client-{n}.json"
+        part = json.loads(f.read_text()) if f.exists() else {"records": []}
+        per = {"users": users[n], **window_stats(part["records"], w0, w1), **metrics_window(scr.rows, w0, w1, server=n),
+               "prompt_cycles": round(len(part["records"]) / max(1, len(split[n])), 2)}
+        row[f"inst_{n}"] = per
+        combined += per["output_tok_s"]
+        with open(d / f"requests-{n}.jsonl", "w") as fh:
+            for r in part["records"]:
+                fh.write(json.dumps(r) + "\n")
+    row["combined_output_tok_s"] = round(combined, 2)
+    row["combined_output_tok_s_server_counters"] = round(sum(row[f"inst_{n}"].get("srv_generation_tokens_per_s", 0) for n in names), 2)
+    row |= csv_window(d / "gpu.csv", w0, w1, GPU_COLS, prefix="gpu_")
+    row |= smi_window(d / "gpu.csv", w0, w1)
+    row |= csv_window(d / "cpu.csv", w0, w1, ["sys_pct", "client_pct"] + [f"srv_{n}_pct" for n in names], prefix="cpu_")
+    return st.write(key, row, **prov)
+
+
+def stage_mpsab(a) -> None:
+    import threading
+    st = Stage("mpsab")
+    sysinfo = system_info(st.logs)
+    gid = gpu_identity(0)
+    st.write("system", {"kind": "system", **sysinfo, "env": st.env, "gpu0": gid, "order": a.order})
+    done = st.done()
+    rev = full_revision(a.awq_model, a.awq_revision)
+    # the model download runs next to the install (cold start of L3's first server: 25 s of 190 s was the download)
+    pre: dict = {}
+
+    def prefetch() -> None:
+        t = time.time()
+        rc, out = sh([sys.executable, "-c", "import sys; from huggingface_hub import snapshot_download as s; print(s(sys.argv[1], revision=sys.argv[2]))",
+                      a.awq_model, rev or a.awq_revision], timeout=900, out=st.logs / "prefetch-model.txt")
+        pre.update(rc=rc, s=round(time.time() - t, 1), tail=out.strip()[-300:])
+    th = threading.Thread(target=prefetch, daemon=True)
+    th.start()
+    inst = install_pinned(st, a.vllm_version, a.installer)
+    th.join(900)
+    st.write("install", {"kind": "install", **inst, "prefetch": pre, "session_h": round(session_elapsed_h(), 4)})
+    help_serve = serve_help(st.logs, a.vllm_version)
+    missing = require_flags(help_serve, ["--dtype", "--gpu-memory-utilization", "--no-enable-prefix-caching", "--revision", "--port",
+                                         "--served-model-name"])
+    st.write("flags", {"kind": "flags", "missing": missing})
+    if missing:
+        raise RuntimeError(f"vllm serve --help=all does not list {missing}")
+    prov = awq_prov(a, inst, sysinfo, rev, "Kaggle T4, real; one GPU (index 0), one or two vLLM processes")
+    prov |= {"gpu0_uuid": gid.get("uuid"), "gpu0_index": gid.get("index"), "gpu0_power_limit": gid.get("power.limit"),
+             "workload": {"prompt_tokens": a.input_len, "output_tokens": a.output_len, "ignore_eos": True, "temperature": 0,
+                          "max_tokens_jitter": 0, "start_jitter_s": 1.0, "ramp_s": a.ramp_s, "window_s": a.window_s}}
+    base = ["--dtype", "half", "--no-enable-prefix-caching", "--revision", rev or a.awq_revision]
+    flags = lambda u: base + ["--gpu-memory-utilization", str(u)]
+    srvs: list[VllmServer] = []
+    prompts_path = st.dir / "prompts.json"
+    prompts: list[str] = json.loads(prompts_path.read_text()) if prompts_path.exists() else []
+
+    def stop_all() -> float:
+        """Stop every engine; returns when the last one exited (VllmServer.stop sleeps 3 s after the exit)."""
+        had = bool(srvs)
+        for s in srvs:
+            s.stop()
+        srvs.clear()
+        return time.time() - (3.0 if had else 0.0)
+
+    def start_engines(tag: str, utils: list[float]) -> tuple[list[VllmServer], list[dict]]:
+        """Instance 1, then instance 2 as soon as instance 1 logs its KV cache size (it has profiled and is about to
+        allocate; instance 2's own memory check comes ~40 s after its launch, after instance 1 is done)."""
+        ss = [VllmServer(a.awq_model, flags(u), st.logs / f"server-{tag}-i{k + 1}.log", port=8000 + k, gpu="0") for k, u in enumerate(utils)]
+        srvs.extend(ss)
+        res: dict = {}
+        t0 = time.time()
+        if len(ss) == 1:
+            res[0] = ss[0].start(timeout_s=600)
+        else:
+            t1 = threading.Thread(target=lambda: res.__setitem__(0, ss[0].start(timeout_s=600)), daemon=True)
+            t1.start()
+            while t1.is_alive() and "Available KV cache memory" not in ss[0].log_text():
+                time.sleep(1)
+            res["i2_launch_after_s"] = round(time.time() - t0, 1)
+            res[1] = ss[1].start(timeout_s=600) if t1.is_alive() or res.get(0, {}).get("started") else {"started": False, "skipped": "i1 failed"}
+            t1.join(600)
+        rows = []
+        for k, s in enumerate(ss):
+            rows.append(startup_row(st, f"startup-{tag}-i{k + 1}", s, res.get(k, {"started": False}), help_serve, prov, util=utils[k],
+                                    serving_flags=flags(utils[k]), i2_launch_after_s=res.get("i2_launch_after_s"),
+                                    wall_since_first_launch_s=round(time.time() - t0, 1)))
+        return ss, rows
+
+    est = {"S": a.est_single_s, "T": a.est_pair_s, "M": a.est_pair_s}
+    order = a.order.split(",")
+    try:
+        t_stopped = st.t0   # no engine has run in this session before the first condition
+        for idx, cond in enumerate(order, 1):
+            tag = f"{idx}{cond}"
+            key = f"cond-{tag}"
+            if key in done:
+                continue
+            utils, users = MPSAB_CONDS[cond]
+            first = not any(r.get("kind") == "startup" for r in st.rows())
+            need_s = ((a.est_cold_s if first else est[cond]) + max(0.0, a.idle_s - (time.time() - t_stopped)) + 25
+                      + a.ramp_s + a.window_s + 10)
+            if session_elapsed_h() * 3600 + need_s > a.budget_h * 3600:
+                st.write(key, {"kind": "skipped", "condition": cond, "reason": f"budget: session {session_elapsed_h():.3f} h + "
+                                                                              f"estimate {need_s:.0f} s > {a.budget_h} h"}, **prov)
+                break
+            try:
+                mark(st, f"{key}-begin", condition=cond)
+                # MPS state for this condition: a fresh daemon for M, none (and no CUDA_MPS_* in the environment) otherwise
+                if cond == "M":
+                    ms = mps_start(st.logs)
+                    ms["start_cmd"] = ("CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe CUDA_MPS_LOG_DIRECTORY=/tmp/goodput-mps/log "
+                                       "CUDA_VISIBLE_DEVICES=0 nvidia-cuda-mps-control -d")
+                    st.write(f"{key}-mps-start", {"kind": "mps", **ms}, **prov)
+                    if not (ms["start_rc"] == 0 and ms["daemon_running"]):
+                        st.write(key, {"kind": "skipped", "condition": cond, "reason": "MPS control daemon did not start"}, **prov)
+                        continue
+                    os.environ.update(mps_env())
+                else:
+                    for k in mps_env():
+                        os.environ.pop(k, None)
+                # GPU idle: no engine since t_stopped
+                time.sleep(max(0.0, a.idle_s - (time.time() - t_stopped)))
+                g0 = gpu_now()
+                idle_s = round(time.time() - t_stopped, 1)
+                ss, starts = start_engines(tag, utils)
+                if not all(r.get("started") for r in starts):
+                    st.write(key, {"kind": "failed", "condition": cond, "reason": "engine start failed",
+                                   "startups": [{k: r.get(k) for k in ("started", "exit_code", "startup_s", "error_lines")} for r in starts]}, **prov)
+                    t_stopped = stop_all()
+                    if cond == "M":
+                        st.write(f"{key}-mps-stop", {"kind": "mps", **mps_stop(st.logs)}, **prov)
+                    continue
+                state = mpsab_state(st, tag, len(ss), cond == "M")
+                if cond == "M":
+                    state |= mps_check(st.logs, tag)
+                st.write(f"{key}-state", {"kind": "state", "condition": cond, **state}, **prov)
+                if not prompts:
+                    import asyncio
+                    import httpx
+                    from benchmarks.harness import client as hclient
+
+                    async def mk() -> list[str]:
+                        async with httpx.AsyncClient(base_url=ss[0].base_url, timeout=60) as hc:
+                            return await hclient.make_prompts(hc, 32 * a.prompts_per_user, {"api": "openai", "model": a.awq_model,
+                                                                                           "prompt_tokens": a.input_len}, seed=17)
+                    prompts = asyncio.run(mk())
+                    prompts_path.write_text(json.dumps(prompts))
+                for s in ss:
+                    warm(s, a.awq_model, a.input_len)
+                names = [f"i{k + 1}" for k in range(len(ss))]
+                mpsab_load(st, key, dict(zip(names, ss)), dict(zip(names, users)), prompts, a,
+                           prov | {"condition": cond, "order_index": idx, "repeat": order[:idx].count(cond),
+                                   "serving_flags": {n: flags(u) for n, u in zip(names, utils)},
+                                   "gpu_at_condition_start": g0, "idle_before_s": idle_s, "mps_state_ok": state["state_ok"],
+                                   "kv_pool_tokens": {n: r.get("gpu_kv_cache_tokens") for n, r in zip(names, starts)},
+                                   "startup_s": {n: r.get("startup_s") for n, r in zip(names, starts)}})
+                for k, s in enumerate(ss):
+                    (st.logs / f"metrics-end-{tag}-i{k + 1}.txt").write_text(metrics_text(s.base_url))
+                t_stopped = stop_all()
+                if cond == "M":
+                    st.write(f"{key}-mps-stop", {"kind": "mps", **mps_stop(st.logs)}, **prov)
+                    for k in mps_env():
+                        os.environ.pop(k, None)
+                    t_stopped = time.time()
+                mark(st, f"{key}-end", condition=cond)
+            except Exception as exc:
+                st.write(f"{key}-error", {"kind": "error", "condition": cond, "error": f"{type(exc).__name__}: {exc}"[:600],
+                                          "traceback": traceback.format_exc()[-2000:]}, **prov)
+                t_stopped = stop_all()
+                if os.environ.get("CUDA_MPS_PIPE_DIRECTORY"):
+                    st.write(f"{key}-mps-stop", {"kind": "mps", **mps_stop(st.logs)}, **prov)
+                    for k in mps_env():
+                        os.environ.pop(k, None)
+                    t_stopped = time.time()
+    finally:
+        stop_all()
+        if os.environ.get("CUDA_MPS_PIPE_DIRECTORY"):
+            st.write("mps-stop-finally", {"kind": "mps", **mps_stop(st.logs)})
+        st.write("session", {"kind": "session", "session_h": round(session_elapsed_h(), 4)})
+
+
+STAGE_ARGS["mpsab"] = [
+    lambda p: p.add_argument("--order", default="S,T,M,M,T,S"),
+    lambda p: p.add_argument("--vllm-version", default="0.31.0"),
+    lambda p: p.add_argument("--installer", choices=["pip", "uv"], default="uv"),
+    lambda p: p.add_argument("--awq-model", default="Qwen/Qwen2.5-3B-Instruct-AWQ"),
+    lambda p: p.add_argument("--awq-revision", default="3559b226"),
+    lambda p: p.add_argument("--input-len", type=int, default=128),
+    lambda p: p.add_argument("--output-len", type=int, default=256),
+    lambda p: p.add_argument("--prompts-per-user", type=int, default=16, help="prompts made once (32 users x this), reused in every condition"),
+    lambda p: p.add_argument("--ramp-s", type=float, default=5.0, help="load runs this long before the measured window"),
+    lambda p: p.add_argument("--window-s", type=float, default=90.0, help="measured window, the same in every condition"),
+    lambda p: p.add_argument("--idle-s", type=float, default=30.0, help="GPU idle (no engine) before each condition"),
+    lambda p: p.add_argument("--budget-h", type=float, default=0.5, help="no condition starts unless its estimate fits"),
+    lambda p: p.add_argument("--est-cold-s", type=float, default=175, help="first engine start (compile cache cold, model prefetched)"),
+    lambda p: p.add_argument("--est-single-s", type=float, default=85, help="L3: 81.6 s per warm start"),
+    lambda p: p.add_argument("--est-pair-s", type=float, default=150, help="instance 2 launched at instance 1's KV log line"),
+]
+
 STAGES = {"smoke": stage_smoke, "baseline": stage_baseline, "kvgrid": stage_kvgrid, "sweep": stage_sweep,
           "quant": stage_quant, "nccl": stage_nccl, "p8x2": stage_p8x2,
           "ridge": stage_ridge, "twoinst": stage_twoinst,
           "taskbudget": stage_taskbudget, "followup": stage_followup, "bneck": stage_bneck,
-          "leftover": stage_leftover}
+          "leftover": stage_leftover, "mpsab": stage_mpsab}
 
 
 def main() -> None:
