@@ -147,6 +147,28 @@ class Runner:
                                             "rep_bytes": Path(f"{rep}.nsys-rep").stat().st_size}, **provenance(self.st, model))
         return r
 
+    def nsys_window(self, key: str, model: str, mns: int, delay_s: int, duration_s: int = 6, extra: list[str] | None = None,
+                    dtype: str = DTYPE, **kw) -> dict | None:
+        """An unprofiled-config run (no --profile) under Nsight Systems with a time window: -t cuda only (kernels, memcpy,
+        CUDA API), graph nodes traced, no CPU sampling, --trace-fork-before-exec=true (vLLM forks the EngineCore; the
+        H4 capture-range runs got "No reports were generated" without it), capture from launch + delay_s for duration_s,
+        chosen to fall inside the timed decode phase (start-up 60-75 s measured in H2 / H3)."""
+        rep = self.st.dir / f"{key}"
+        prefix = ["nsys", "profile", "-t", "cuda", "--cuda-graph-trace=node", "--sample=none", "--cpuctxsw=none",
+                  "--trace-fork-before-exec=true", "--delay", str(delay_s), "--duration", str(duration_s), "-f", "true", "-o", str(rep)]
+        r = self.off(key, model, mns, 4 * mns, 128, 256, 32, list(extra or []), dtype=dtype, cmd_prefix=prefix, max_s=600,
+                     nsys_cmd=shlex.join(prefix), nsys_window_s=[delay_s, delay_s + duration_s],
+                     profiler_note="speed row under nsys (time window, no vLLM profiler)", **kw)
+        if r is not None and Path(f"{rep}.nsys-rep").exists():
+            rc, text = nb.sh(["nsys", "export", "--type", "sqlite", "--force-overwrite", "true", "--output", f"{rep}.sqlite", f"{rep}.nsys-rep"],
+                             timeout=900, out=self.st.logs / f"{key}.nsys-export.txt")
+            self.st.write(f"{key}-export", {"kind": "nsys_export", "rc": rc, "sqlite_bytes": Path(f"{rep}.sqlite").stat().st_size
+                                            if Path(f"{rep}.sqlite").exists() else None,
+                                            "rep_bytes": Path(f"{rep}.nsys-rep").stat().st_size}, **provenance(self.st, model))
+        elif r is not None:
+            self.st.write(f"{key}-export", {"kind": "nsys_export", "rc": "no .nsys-rep written"}, **provenance(self.st, model))
+        return r
+
     def sweep(self, tag: str, model: str, extra: list[str] | None = None, mns_list: list[int] = SWEEP, need_h: float = 0.06,
               reserve_h: float = 0.0, skip_mns: dict | None = None, **kw) -> dict:
         """Climb max-num-seqs; stop once output tok/s falls twice in a row. skip_mns: mns -> an existing row to reuse."""
@@ -302,6 +324,10 @@ def task_h3(st: nb.Stage, a) -> None:
 
 def task_h4(st: nb.Stage, a) -> None:
     R = Runner(st, a)
+    if a.nsys_only:   # H4 follow-up: Nsight Systems time windows of the two best points (H2 Qwen, H3 Llama BF16)
+        R.nsys_window(f"nsysw-qwen-mns{a.qwen_best}", QWEN, a.qwen_best, delay_s=80, part="H2-ext")
+        R.nsys_window(f"nsysw-a-bf16-mns{a.best_bf16}", LLAMA, a.best_bf16, delay_s=95, part="H3-ext", config="a-bf16")
+        return
     kv = {"a-bf16": (LLAMA, [], a.kv_bf16, a.best_bf16), "c-fp8kv": (LLAMA_FP8, ["--kv-cache-dtype", "fp8"], a.kv_fp8kv, a.best_fp8kv)}
     # 1. long context at the best max-num-seqs, or the largest that fits the KV pool without preemption
     for in_len in (2048, 8192):
@@ -398,6 +424,7 @@ def main() -> None:
     ap.add_argument("--kv-fp8kv", type=int, default=0)
     ap.add_argument("--pre-prompts", type=int, default=512)
     ap.add_argument("--qwen-best", type=int, default=2048)
+    ap.add_argument("--nsys-only", type=int, default=0)
     ap.add_argument("--prefix-args", default="")
     ap.add_argument("--fp8kv", type=int, default=0)
     ap.add_argument("--users", default="16,64,128,256,512,1024")

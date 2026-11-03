@@ -267,6 +267,73 @@ def nsys_events(db: Path) -> dict:
     return {"traceEvents": evs}
 
 
+def nsys_window_breakdown(db: Path, model: dict) -> dict:
+    """Time-window nsys capture without NVTX: shares of the window [first, last device event] by category
+    (trace_breakdown.category), idle = window - union of device intervals, and per-step numbers with steps delimited by
+    successive `_gumbel_sample_kernel` starts (one sampler launch per engine step in every vLLM trace of this build).
+    A step's GEMM FLOPs are not known without the step's token count, so only times are reported."""
+    import statistics as st_
+    sys.path.insert(0, str(REPO))
+    from benchmarks.kaggle import trace_breakdown as tb
+    ev = [e for e in nsys_events(db)["traceEvents"] if e["cat"] in ("kernel", "gpu_memcpy", "gpu_memset")]
+    ev.sort(key=lambda e: e["ts"])
+    if not ev:
+        return {"error": "no device events"}
+    w0, w1 = ev[0]["ts"], max(e["ts"] + e["dur"] for e in ev)
+    cat = {}
+    for e in ev:
+        c, _ = tb.category(e, None)
+        cat[c] = cat.get(c, 0.0) + e["dur"]
+    busy = tb.union_length([(e["ts"], e["ts"] + e["dur"]) for e in ev])
+    span = w1 - w0
+    shares = {c: round(100 * v / span, 2) for c, v in cat.items()} | {"idle": round(100 * (span - busy) / span, 2)}
+    marks = [e["ts"] for e in ev if "_gumbel_sample_kernel" in e["name"]]
+    steps = []
+    import bisect
+    starts = [e["ts"] for e in ev]
+    for a, b in zip(marks, marks[1:]):
+        lo, hi = bisect.bisect_left(starts, a), bisect.bisect_left(starts, b)
+        seg = ev[lo:hi]
+        iv = [(e["ts"], min(e["ts"] + e["dur"], b)) for e in seg]
+        g = sum(e["dur"] for e in seg if tb.category(e, None)[0] == "gemm")
+        at = sum(e["dur"] for e in seg if tb.category(e, None)[0] == "attention")
+        steps.append({"period_us": b - a, "busy_us": tb.union_length(iv), "gemm_us": g, "attn_us": at})
+    out = {"window_us": round(span, 1), "device_events": len(ev), "busy_us": round(busy, 1), "share_pct_of_window": shares,
+           "category_us": {k: round(v, 1) for k, v in cat.items()}, "gap_us": tb._dist(tb.gaps([(e["ts"], e["ts"] + e["dur"]) for e in ev])),
+           "top_kernels": tb._top([{"name": e["name"], "dur": e["dur"], "cat": tb.category(e, None)[0], "sub": tb.category(e, None)[1]} for e in ev], 15),
+           "steps_by_sampler_kernel": len(steps)}
+    if steps:
+        per = sorted(x["period_us"] for x in steps)
+        med = st_.median(per)
+        dec = [x for x in steps if x["period_us"] <= 1.5 * med]   # long steps = prefill-mixed (chunked prefill of 8,192 tokens)
+        tot = lambda k, xs: sum(x[k] for x in xs)
+        out["steps"] = {"all": {"n": len(steps), "period_ms_p50": round(med / 1e3, 3), "period_ms_mean": round(st_.fmean(per) / 1e3, 3),
+                                "busy_pct": round(100 * tot("busy_us", steps) / tot("period_us", steps), 2)},
+                        "short (<= 1.5 x median: decode)": {"n": len(dec), "period_ms_mean": round(tot("period_us", dec) / len(dec) / 1e3, 3),
+                                                            "busy_pct": round(100 * tot("busy_us", dec) / tot("period_us", dec), 2),
+                                                            "idle_pct": round(100 * (1 - tot("busy_us", dec) / tot("period_us", dec)), 2),
+                                                            "gemm_pct": round(100 * tot("gemm_us", dec) / tot("period_us", dec), 2),
+                                                            "attn_pct": round(100 * tot("attn_us", dec) / tot("period_us", dec), 2)}}
+    return out
+
+
+def nsys_windows(force: bool = False) -> None:
+    for r in rows("h4"):
+        if r.get("kind") != "offline" or not r.get("nsys_window_s"):
+            continue
+        d = RAW.parent / Path(r["_src"]).parent
+        db, out = d / f"{r['key']}.sqlite", d / f"{r['key']}.nsys-breakdown.json"
+        if not db.exists() or (out.exists() and not force):
+            print(f"{r['key']}: {'no sqlite' if not db.exists() else 'done'}")
+            continue
+        sys.path.insert(0, str(REPO))
+        from benchmarks.kaggle import trace_breakdown as tb
+        res = nsys_window_breakdown(db, tb.model_from_config(config_for(r["model"])))
+        res["source"] = f"{db.name} (nsys SQLite export, window {r['nsys_window_s']} s after launch)"
+        out.write_text(json.dumps(res, indent=1) + "\n")
+        print(r["key"], res.get("share_pct_of_window"), res.get("steps"))
+
+
 def nsys(force: bool = False) -> None:
     """trace_breakdown.analyze over every downloaded nsys SQLite export; <key>.nsys-breakdown.json next to the row."""
     sys.path.insert(0, str(REPO))

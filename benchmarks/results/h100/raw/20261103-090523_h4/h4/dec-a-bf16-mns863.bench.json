@@ -1,0 +1,8 @@
+{
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "elapsed_time": 37.13585759700004,
+    "num_requests": 1726,
+    "total_num_tokens": 911328,
+    "requests_per_second": 46.47798951435639,
+    "tokens_per_second": 24540.378463580175
+}
