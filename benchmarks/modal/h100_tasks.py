@@ -233,6 +233,9 @@ def task_h2(st: nb.Stage, a) -> None:
     R.off(f"half-mns{best}", QWEN, best, 4 * best, 128, 256, dtype="half", reserve_h=END, part="H2", ablation="dtype half")
     R.off(f"eager-mns{best}", QWEN, best, 4 * best, 128, 256, extra=["--enforce-eager"], reserve_h=END, part="H2",
           ablation="enforce-eager")
+    if best > 512:   # default capture sizes end at 512 (vllm bench throughput --help=all, --max-cudagraph-capture-size)
+        R.off(f"cg{best}-mns{best}", QWEN, best, 4 * best, 128, 256, extra=["--max-cudagraph-capture-size", str(best)],
+              reserve_h=END, part="H2", ablation="CUDA graphs up to max-num-seqs")
     for mns in sorted({64, 384, best}):
         R.profile(f"prof-mns{mns}", QWEN, mns, reserve_h=END, need_h=0.07, part="H2")
     R.off("ref-end", QWEN, 384, 4 * 384, 128, 256, ref_tag="end", part="H2", need_h=0.0)

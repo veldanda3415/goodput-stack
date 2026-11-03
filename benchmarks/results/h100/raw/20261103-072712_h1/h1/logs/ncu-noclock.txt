@@ -1,0 +1,40 @@
+$ ncu --clock-control none --metrics sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed -c 3 /usr/local/bin/python -c 'import torch; a = torch.randn(2048, 2048, device='"'"'cuda'"'"', dtype=torch.float16); [a @ a for _ in range(5)]; torch.cuda.synchronize(); print('"'"'ok'"'"')'
+# rc=0
+==WARNING== Note: Running with unmodified GPU clocks. If not controlled otherwise, profiling results may be inconsistent.
+==PROF== Connected to process 64 (/usr/local/bin/python)
+==PROF== Profiling "distribution_elementwise_grid..." - 0 (1/3): 0%....50%....100% - 9 passes
+==PROF== Profiling "nvjet_sm90_hsh_256x128_64x4_1..." - 1 (2/3): 0%....50%....100% - 9 passes
+==PROF== Profiling "nvjet_sm90_hsh_256x128_64x4_1..." - 2 (3/3): 0%....50%....100% - 9 passes
+ok
+==PROF== Disconnected from process 64
+[64] python@127.0.0.1
+  void at::<unnamed>::distribution_elementwise_grid_stride_kernel<float, 4, void at::normal_and_transform<c10::Half, float, at::CUDAGeneratorImpl *, void at::normal_kernel<at::CUDAGeneratorImpl *>(const at::TensorBase &, double, double, T1)::[lambda() (instance 1)]::operator ()() const::[lambda() (instance 3)]::operator ()() const::[lambda(float) (instance 1)]>(at::TensorIteratorBase &, T3, T4)::[lambda(curandStatePhilox4_32_10 *) (instance 2)], void at::<unnamed>::distribution_nullary_kernel<c10::Half, float, float4, at::CUDAGeneratorImpl *, void at::normal_and_transform<c10::Half, float, at::CUDAGeneratorImpl *, void at::normal_kernel<at::CUDAGeneratorImpl *>(const at::TensorBase &, double, double, T1)::[lambda() (instance 1)]::operator ()() const::[lambda() (instance 3)]::operator ()() const::[lambda(float) (instance 1)]>(at::TensorIteratorBase &, T3, T4)::[lambda(curandStatePhilox4_32_10 *) (instance 2)], void at::normal_kernel<at::CUDAGeneratorImpl *>(const at::TensorBase &, double, double, T1)::[lambda() (instance 1)]::operator ()() const::[lambda() (instance 3)]::operator ()() const::[lambda(float) (instance 1)]>(at::TensorIteratorBase &, T4, const T5 &, T6)::[lambda(int, float) (instance 1)]>(long, at::PhiloxCudaState, T3, T4) (1056, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Warning: Data collection happened without fixed GPU frequencies. Profiling results may be inconsistent.
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    dram__throughput.avg.pct_of_peak_sustained_elapsed           %         0.03
+    sm__throughput.avg.pct_of_peak_sustained_elapsed             %        62.31
+    -------------------------------------------------- ----------- ------------
+
+  nvjet_sm90_hsh_256x128_64x4_1x2_h_bz_coopA_NNT (2, 64, 1)x(384, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Warning: Data collection happened without fixed GPU frequencies. Profiling results may be inconsistent.
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    dram__throughput.avg.pct_of_peak_sustained_elapsed           %         9.44
+    sm__throughput.avg.pct_of_peak_sustained_elapsed             %        70.80
+    -------------------------------------------------- ----------- ------------
+
+  nvjet_sm90_hsh_256x128_64x4_1x2_h_bz_coopA_NNT (2, 64, 1)x(384, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Warning: Data collection happened without fixed GPU frequencies. Profiling results may be inconsistent.
+    Section: Command line profiler metrics
+    -------------------------------------------------- ----------- ------------
+    Metric Name                                        Metric Unit Metric Value
+    -------------------------------------------------- ----------- ------------
+    dram__throughput.avg.pct_of_peak_sustained_elapsed           %         9.39
+    sm__throughput.avg.pct_of_peak_sustained_elapsed             %        70.30
+    -------------------------------------------------- ----------- ------------
+

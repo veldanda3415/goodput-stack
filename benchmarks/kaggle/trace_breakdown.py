@@ -39,7 +39,7 @@ import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
 
-GEMM_RE = re.compile(r"gemm|gemv|xmma|s1688|h1688|s884|h884|splitKreduce|cublas|cutlass", re.I)
+GEMM_RE = re.compile(r"gemm|gemv|xmma|nvjet|s1688|h1688|s884|h884|splitKreduce|cublas|cutlass", re.I)
 DEQUANT_RE = re.compile(r"dequant", re.I)
 ATTN_RE = re.compile(r"attention|attn|flash|paged|reshape_and_cache|unified_|reduce_segments|fmha|flex", re.I)
 # checked before GEMM_RE: FlashAttention-3 (sm_90) kernels are cutlass templates, e.g. "cutlass::device_kernel<flash::...>"

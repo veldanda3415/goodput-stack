@@ -1,0 +1,40 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/veldanda3415/main/ap-240LOU5bUwiFBrfJ8oQPnw
+✓ Created objects.
+├── ✓ Uploaded 
+│   /home/veldanda3415/workspace/goodput-stack-h100/benchmarks/modal/h100_app.py
+├── ✓ Uploaded /home/veldanda3415/workspace/goodput-stack-h100/benchmarks
+├── ✓ Created Function h0.
+├── ✓ Created Function h1.
+├── ✓ Created Function h2.
+├── ✓ Created Function h3.
+├── ✓ Created Function h4.
+├── ✓ Created Function h5.
+└── ✓ Created Function download.
+run_id=20261103-072712_h1 git=2cb63c2 app=goodput-h100
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.0.2
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+$ python -m benchmarks.modal.h100_tasks --task h1 --budget-h 0.26
+[12:27:18] row start: {"kind": "start", "budget_h": 0.26}
+[12:27:25] row ncu-noclock: {"kind": "tool_probe", "cmd": "ncu --clock-control none --metrics sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed -c 3 /usr/local/bin/python -c 'import torch; a = torch.randn(2048, 2048, device='\"'\"'cuda'\"'\"', dtype=torch.float16); [a @ a for _ in range(5)]; torch.cuda.synchronize(); print('\"'\"'ok'\"'\"')'", "rc": 0, "tail": "--------------
+[12:27:31] row nsys-gpu-metrics: {"kind": "tool_probe", "cmd": "nsys profile -f true -o /tmp/nsys-gm --gpu-metrics-devices=0 /usr/local/bin/python -c 'import torch; a = torch.randn(2048, 2048, device='\"'\"'cuda'\"'\"', dtype=torch.float16); [a @ a for _ in range(5)]; torch.cuda.synchronize(); print('\"'\"'ok'\"'\"')'", "rc": 0, "tail": "ok\nGPU 0: General Metrics for NVIDIA GH100\nCollecting data...\nGenerating '/tmp/nsys-root/n
+[12:35:45] row micro: {"kind": "micro", "rc": 0, "cmd": "/usr/local/bin/python -m benchmarks.microbench.gpu_ceilings --nvml-index 0 --out /results/20261103-072712_h1/h1/micro --label 'Modal H100 SXM, real' --bw-gib 4 --bw-repeats 20 --dtypes bfloat16,fp8 --gemm-dtypes bfloat16,fp8,fp8fast,float16 --sustain-s 60 --m-list 1,16,64,256,512,1024,2048,8192 --shape-min-s 1.5 --interval 0.25 --model-config llama3.1-8b=/hf/hub/
+[12:35:45] row session: {"kind": "session", "session_h": 0.1416}
+{'run_id': '20261103-072712_h1', 'rc': 0, 'fn_wall_s': 511.8}
+[modal-client] 2026-11-03T07:35:57-0500 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/veldanda3415/main/ap-240LOU5bUwiFBrfJ8oQPnw
