@@ -17,7 +17,7 @@ EPP routes size-blind, and enabling and tuning llm-d's own `token-load-scorer` f
 
 > **Status:** backends, Helm chart, Gateway API inference routing (with probes P1–P9), Prometheus/Grafana observability
 > and KEDA queue-depth autoscaling run on a single-node k3s lab. vLLM runs on a free Kaggle T4 (engine benchmarks,
-> quantization, cost). GPU scheduling (device plugin, DRA, Kueue, node health) runs on a separate k3d cluster with
+> quantization, cost) and, for one build, on one paid Modal H100 SXM ([benchmarks/results/h100/h100.md](benchmarks/results/h100/h100.md)). GPU scheduling (device plugin, DRA, Kueue, node health) runs on a separate k3d cluster with
 > **simulated** GPUs. An AI-cluster fabric (leaf-spine, eBGP, ECMP, BFD, EVPN-VXLAN tenants) runs as an **EMULATED**
 > FRR/containerlab lab rendered from one intent file, with Soft-RoCE endpoints, collective-shaped traffic, failure drills,
 > an NX-OS render checked offline by Batfish, and a CALCULATED design for 256 / 2,048 GPUs. Lossless RoCE (PFC, DCQCN,

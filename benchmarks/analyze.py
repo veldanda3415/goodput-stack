@@ -1214,7 +1214,7 @@ def h100_charts() -> list[Path]:
             ax.set_yscale("log")
             style(ax, f"{lab} vs served output tok/s (labels: users)", "output tokens / s (harness, steady window)", f"{lab} (ms, log)")
             ax.legend(frameon=False, fontsize=8, labelcolor=INK)
-        fig.suptitle("vllm serve Llama-3.1-8B FP8 on one H100, closed loop 256 in / 128 ± 25 % out (Modal H100 SXM, real)", fontsize=9, x=0.02, ha="left")
+        fig.suptitle("vllm serve Llama-3.1-8B FP8 + FP8 KV (max-num-seqs 2,048) on one H100, closed loop 256 in / 128 ± 25 % out; dashed: knee thresholds (Modal H100 SXM, real)", fontsize=9, x=0.02, ha="left")
         fig.tight_layout()
         paths.append(charts / "h100_served_latency.png")
         fig.savefig(paths[-1], dpi=130)
@@ -1229,9 +1229,11 @@ def h100_charts() -> list[Path]:
         for yi, v in zip(y, vals):
             ax.text(v * 1.01, yi, f"{v:,.0f}", va="center", fontsize=8, color=INK)
         ax.set_yticks(y, labels, fontsize=8)
-        style(ax, f"{w['title']} — residual (unexplained) {w['residual_pct']:+.1f} %", "output tokens / s (CALCULATED except the last bar)", "")
+        style(ax, "", "output tokens / s (CALCULATED except the last bar)", "")
+        fig.suptitle(f"{w['title']}\nfrom the datasheet ceiling to the measured rate; residual (unexplained) {w['residual_pct']:+.1f} %",
+                     fontsize=9.5, color=INK, x=0.02, ha="left")
         ax.set_xlim(0, max(vals) * 1.15)
-        fig.tight_layout()
+        fig.tight_layout(rect=(0, 0, 1, 0.92))
         paths.append(charts / f"h100_{wf.stem}.png")
         fig.savefig(paths[-1], dpi=130)
         plt.close(fig)

@@ -241,6 +241,14 @@ def nsys_events(db: Path) -> dict:
     NVTX ranges -> user_annotation, CUDA runtime / driver API calls -> cuda_runtime (with correlation), kernels ->
     kernel, memcpy / memset -> gpu_memcpy / gpu_memset. Column names are read from the file (PRAGMA table_info)."""
     import sqlite3
+    if db.suffix == ".gz":   # committed compressed (report_h100 reads it back through a temp file)
+        import gzip
+        import shutil
+        import tempfile
+        tmp = Path(tempfile.mkdtemp()) / db.stem
+        with gzip.open(db, "rb") as fi, open(tmp, "wb") as fo:
+            shutil.copyfileobj(fi, fo)
+        db = tmp
     con = sqlite3.connect(str(db))
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     cols = lambda t: {r[1] for r in con.execute(f"PRAGMA table_info({t})")}
@@ -326,6 +334,8 @@ def nsys_windows(force: bool = False) -> None:
             continue
         d = RAW.parent / Path(r["_src"]).parent
         db, out = d / f"{r['key']}.sqlite", d / f"{r['key']}.nsys-breakdown.json"
+        # committed: a token-free subset (kernel / memcpy / runtime tables); the full export held the process environment
+        db = next((x for x in (db, d / f"{r['key']}.sqlite.gz", d / f"{r['key']}.kernels.sqlite.gz") if x.exists()), db)
         if not db.exists() or (out.exists() and not force):
             print(f"{r['key']}: {'no sqlite' if not db.exists() else 'done'}")
             continue
@@ -394,6 +404,85 @@ def waterfall(breakdown: Path, measured: dict, model: str, peak_tflops: float = 
     return {"breakdown": str(breakdown.relative_to(RAW.parent)), "profile_clock_mhz": clk, "factors": factors, "chain": chain,
             "predicted": v, "measured": measured["output_tok_s"], "measured_key": measured["key"], "measured_run": measured["run_id"],
             "residual_pct": 100 * (measured["output_tok_s"] / v - 1), "inputs": {**f, "decode": dec, "all": allst}}
+
+
+def engine_steps(row: dict) -> dict:
+    """Unprofiled engine steps in a row's timed window, from vLLM's own `vllm:iteration_tokens_total` histogram
+    (count = engine iterations, sum = scheduled tokens) sampled at 1 Hz by offline_throughput.py; also the mean
+    inter-token latency. CALCULATED: mean step period = window / steps."""
+    d = RAW.parent / Path(row["_src"]).parent
+    em = json.loads((d / f"{row['key']}.engine-metrics.json").read_text())
+    t0, t1 = row["timed_window_unix"]
+    ss = [x for x in em["samples"] if "metrics" in x and t0 <= x["t_unix"] <= t1]
+    a, b = ss[0], ss[-1]
+    m = lambda x, k: x["metrics"].get(k, 0)
+    dt = b["t_unix"] - a["t_unix"]
+    n = m(b, "vllm:iteration_tokens_total_count") - m(a, "vllm:iteration_tokens_total_count")
+    itl = (m(b, "vllm:inter_token_latency_seconds_sum") - m(a, "vllm:inter_token_latency_seconds_sum")) / \
+          max(1, m(b, "vllm:inter_token_latency_seconds_count") - m(a, "vllm:inter_token_latency_seconds_count"))
+    return {"window_s": dt, "steps": n, "step_ms": 1e3 * dt / n, "tokens_per_step": (m(b, "vllm:iteration_tokens_total_sum") -
+            m(a, "vllm:iteration_tokens_total_sum")) / n, "itl_ms": 1e3 * itl, "samples": len(ss)}
+
+
+def waterfall2(breakdown: Path, measured: dict, model: str, prof: dict, title: str,
+               peak_tflops: float = DATASHEET["bf16_tflops"], peak_mhz: float = DATASHEET["max_sm_mhz_measured"]) -> dict:
+    """The Build 16 G5 chain with two inputs taken where the profiler cannot distort them (H100 decision):
+    - GPU idle: 1 - (kernel busy time per step from the trace, GEMM part rescaled from the profiled to the measured run's
+      clock) / (the measured run's own mean step period from vLLM's iteration counter); capped at 0 idle.
+    - prompt share: decode tokens per second of *kernel busy time*, all steps ÷ decode-only steps (trace).
+    GEMM efficiency per clock, attention and other-kernel shares: decode-only steps of the trace, as in Build 16."""
+    b = json.loads(breakdown.read_text())
+    dec, allst = b["steps"]["decode_only"], b["steps"]["all"]
+    busy, gemm, attn = dec["busy_pct"], dec["gemm_pct"], dec["attn_pct"]
+    other = busy - gemm - attn
+    clk_p, clk_m = prof["smi_clocks_sm_mean"], measured["smi_clocks_sm_mean"]
+    eta = (dec["gemm_tflops_calculated"] / (clk_p / 1000)) / (peak_tflops / (peak_mhz / 1000))
+    f = model_flops(model)
+    d0 = peak_tflops * 1e12 / f["flop_per_decode_token"]
+    es = engine_steps(measured)
+    busy_ms = allst["gpu_period_ms_mean"] * allst["busy_pct"] / 100
+    gemm_ms = allst["gpu_period_ms_mean"] * allst["gemm_pct"] / 100
+    busy_ms_at_measured_clock = busy_ms - gemm_ms + gemm_ms * clk_p / clk_m
+    busy_frac = busy_ms_at_measured_clock / es["step_ms"]
+    prompt = (allst["gen_tokens_per_s_calculated"] / (allst["busy_pct"] / 100)) / (dec["gen_tokens_per_s_calculated"] / (dec["busy_pct"] / 100))
+    factors = {"clock": clk_m / peak_mhz, "gemm_efficiency": eta, "attention": (gemm + other) / busy,
+               "other_kernels": gemm / (gemm + other), "idle": min(1.0, busy_frac), "prompt_share": prompt}
+    labels = {"clock": f"× SM clock {clk_m:,.0f} / {peak_mhz:,.0f} MHz", "gemm_efficiency": "× GEMM efficiency per clock (vLLM decode steps)",
+              "attention": "− attention kernel time", "other_kernels": "− norm / activation / sampling / memcpy time",
+              "idle": "− GPU idle (unprofiled step period vs kernel time)", "prompt_share": "− prompt (prefill) work"}
+    chain, v = [(f"datasheet decode ceiling ({peak_tflops:.0f} TFLOP/s ÷ {f['flop_per_decode_token'] / 1e9:.2f} GFLOP per token)", d0)], d0
+    for k in labels:
+        v *= factors[k]
+        chain.append((labels[k], v))
+    return {"title": title, "breakdown": str(breakdown.relative_to(RAW.parent)), "profile_clock_mhz": clk_p, "measured_clock_mhz": clk_m,
+            "factors": factors, "chain": chain, "predicted": v, "measured": measured["output_tok_s"], "measured_key": measured["key"],
+            "measured_run": measured["run_id"], "residual_pct": 100 * (measured["output_tok_s"] / v - 1),
+            "inputs": {**f, "engine_steps_unprofiled": es, "trace_busy_ms_per_step": busy_ms, "trace_gemm_ms_per_step": gemm_ms,
+                       "busy_ms_per_step_at_measured_clock": busy_ms_at_measured_clock, "busy_over_period_uncapped": busy_frac,
+                       "trace_decode": dec, "trace_all": allst}}
+
+
+def h6() -> None:
+    """Waterfalls for the two best points; written to benchmarks/results/h100/waterfall-*.json (charts: analyze.py --h100)."""
+    h2 = {r["key"]: r for r in rows("h2") if r.get("kind") == "offline" and r["run_id"] == "20261103-074323_h2"}
+    h3 = {r["key"]: r for r in rows("h3") if r.get("kind") == "offline"}
+    d2, d3 = RAW / "20261103-074323_h2/h2", RAW / "20261103-081737_h3/h3"
+    for name, bf, meas, prof, model, title in (
+            ("qwen", d2 / "prof-mns2048.breakdown.json", h2["sweep-mns2048"], h2["prof-mns2048"], "Qwen/Qwen2.5-3B-Instruct",
+             "Qwen2.5-3B BF16, max-num-seqs 2,048, one H100 (Modal H100 SXM, real)"),
+            ("qwen384", d2 / "prof-mns384.breakdown.json", h2["ref-start"], h2["prof-mns384"], "Qwen/Qwen2.5-3B-Instruct",
+             "Qwen2.5-3B BF16, max-num-seqs 384 (the T4's point), one H100 (Modal H100 SXM, real)"),
+            ("llama-bf16", d3 / "prof-a-bf16-mns1024.breakdown.json", h3["a-bf16-mns1024"], h3["prof-a-bf16-mns1024"],
+             "meta-llama/Llama-3.1-8B-Instruct", "Llama-3.1-8B BF16, max-num-seqs 1,024, one H100 (Modal H100 SXM, real)")):
+        w = waterfall2(bf, meas, model, prof, title)
+        (RAW.parent / f"waterfall-{name}.json").write_text(json.dumps(w, indent=1, default=str) + "\n")
+        print(f"\n{title}\n")
+        print_waterfall(w)
+        i = w["inputs"]
+        print(f"\nunprofiled step {i['engine_steps_unprofiled']['step_ms']:.2f} ms ({i['engine_steps_unprofiled']['steps']} steps, "
+              f"{i['engine_steps_unprofiled']['tokens_per_step']:.0f} tokens/step, ITL {i['engine_steps_unprofiled']['itl_ms']:.2f} ms); trace busy "
+              f"{i['trace_busy_ms_per_step']:.2f} ms/step at {w['profile_clock_mhz']:,.0f} MHz -> {i['busy_ms_per_step_at_measured_clock']:.2f} ms at "
+              f"{w['measured_clock_mhz']:,.0f} MHz; busy/period {i['busy_over_period_uncapped']:.3f}")
 
 
 def print_waterfall(w: dict) -> None:

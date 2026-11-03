@@ -156,7 +156,10 @@ class Runner:
         rep = self.st.dir / f"{key}"
         prefix = ["nsys", "profile", "-t", "cuda", "--cuda-graph-trace=node", "--sample=none", "--cpuctxsw=none",
                   "--trace-fork-before-exec=true", "--delay", str(delay_s), "--duration", str(duration_s), "-f", "true", "-o", str(rep)]
+        # nsys stores the profiled process's environment in the report: drop the HF token from it (the weights are
+        # cached on the volume at a pinned revision, so the hub is not needed); the 20261103-095405_h4 reports had it
         r = self.off(key, model, mns, 4 * mns, 128, 256, 32, list(extra or []), dtype=dtype, cmd_prefix=prefix, max_s=600,
+                     env={"HF_TOKEN": "", "HF_HUB_OFFLINE": "1"},
                      nsys_cmd=shlex.join(prefix), nsys_window_s=[delay_s, delay_s + duration_s],
                      profiler_note="speed row under nsys (time window, no vLLM profiler)", **kw)
         if r is not None and Path(f"{rep}.nsys-rep").exists():

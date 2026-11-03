@@ -1,0 +1,153 @@
+{
+ "window_us": 5991605.9,
+ "device_events": 49478,
+ "busy_us": 4601050.5,
+ "share_pct_of_window": {
+  "memcpy": 0.13,
+  "gemm": 39.77,
+  "elementwise": 3.98,
+  "attention": 31.61,
+  "sampling": 1.34,
+  "idle": 23.21
+ },
+ "category_us": {
+  "memcpy": 7806.8,
+  "gemm": 2382750.0,
+  "elementwise": 238473.5,
+  "attention": 1893872.6,
+  "sampling": 80584.1
+ },
+ "gap_us": {
+  "n": 49357,
+  "sum": 1390555.4,
+  "p50": 1.76,
+  "p90": 3.01,
+  "p99": 257.73,
+  "max": 26016.26
+ },
+ "top_kernels": [
+  {
+   "name": "nvjet_sm90_tst_256x128_64x4_1x2_h_bz_coopA_TNT",
+   "category": "gemm/linear",
+   "us": 1946639.4,
+   "count": 11530,
+   "pct_of_device_time": 42.29
+  },
+  {
+   "name": "void cutlass::device_kernel<flash::enable_sm90_or_later<flash::FlashAttnFwdSm90<flash::CollectiveMainloopFwdSm90<(int)2, cute::tuple<cute::C<(int)1>, cute::C<(i",
+   "category": "attention/attention",
+   "us": 1866094.3,
+   "count": 3843,
+   "pct_of_device_time": 40.54
+  },
+  {
+   "name": "nvjet_sm90_tst_192x128_64x5_1x2_h_bz_coopB_TNT",
+   "category": "gemm/linear",
+   "us": 268000.3,
+   "count": 3843,
+   "pct_of_device_time": 5.82
+  },
+  {
+   "name": "nvjet_sm90_tst_320x128_64x3_1x2_h_bz_coopB_TNT",
+   "category": "gemm/linear",
+   "us": 168110.3,
+   "count": 120,
+   "pct_of_device_time": 3.65
+  },
+  {
+   "name": "triton_poi_fused_mul_silu_slice_1",
+   "category": "elementwise/activation",
+   "us": 100355.0,
+   "count": 3843,
+   "pct_of_device_time": 2.18
+  },
+  {
+   "name": "_gumbel_sample_kernel",
+   "category": "sampling/by_name",
+   "us": 77664.4,
+   "count": 120,
+   "pct_of_device_time": 1.69
+  },
+  {
+   "name": "triton_red_fused_fused_add_rms_norm_2",
+   "category": "elementwise/norm",
+   "us": 46832.1,
+   "count": 3843,
+   "pct_of_device_time": 1.02
+  },
+  {
+   "name": "triton_poi_fused_3",
+   "category": "elementwise/other",
+   "us": 35567.6,
+   "count": 3723,
+   "pct_of_device_time": 0.77
+  },
+  {
+   "name": "triton_red_fused_fused_add_rms_norm_0",
+   "category": "elementwise/norm",
+   "us": 29395.4,
+   "count": 3843,
+   "pct_of_device_time": 0.64
+  },
+  {
+   "name": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(const T1 *, const T1 *, T2 *, T2 *, const long *, long, lon",
+   "category": "attention/kv_write",
+   "us": 27515.2,
+   "count": 3843,
+   "pct_of_device_time": 0.6
+  },
+  {
+   "name": "_post_update_kernel",
+   "category": "elementwise/other",
+   "us": 13397.8,
+   "count": 120,
+   "pct_of_device_time": 0.29
+  },
+  {
+   "name": "gpu_memset",
+   "category": "memcpy/gpu_memset",
+   "us": 4261.1,
+   "count": 3964,
+   "pct_of_device_time": 0.09
+  },
+  {
+   "name": "void at::native::vectorized_elementwise_kernel<(int)4, at::native::FillFunctor<int>, std::array<char *, (unsigned long)1>>(int, T2, T3)",
+   "category": "elementwise/other",
+   "us": 4256.7,
+   "count": 4083,
+   "pct_of_device_time": 0.09
+  },
+  {
+   "name": "gpu_memcpy",
+   "category": "memcpy/gpu_memcpy",
+   "us": 3545.7,
+   "count": 720,
+   "pct_of_device_time": 0.08
+  },
+  {
+   "name": "_gather_block_tables_kernel",
+   "category": "elementwise/input_prep",
+   "us": 1451.7,
+   "count": 120,
+   "pct_of_device_time": 0.03
+  }
+ ],
+ "steps_by_sampler_kernel": 119,
+ "steps": {
+  "all": {
+   "n": 119,
+   "period_ms_p50": 49.558,
+   "period_ms_mean": 49.923,
+   "busy_pct": 76.77
+  },
+  "short (<= 1.5 x median: decode)": {
+   "n": 119,
+   "period_ms_mean": 49.923,
+   "busy_pct": 76.77,
+   "idle_pct": 23.23,
+   "gemm_pct": 39.74,
+   "attn_pct": 31.62
+  }
+ },
+ "source": "nsysw-a-bf16-mns1024.kernels.sqlite.gz (nsys SQLite export, window [95, 101] s after launch)"
+}

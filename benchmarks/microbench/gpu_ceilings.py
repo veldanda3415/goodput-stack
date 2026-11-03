@@ -3,7 +3,7 @@
     CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=0 python -m benchmarks.microbench.gpu_ceilings --nvml-index 0 --out DIR
     ... --quick                       # smoke: short runs, fewer shapes
     ... --dtypes bfloat16,fp8 --bw-gib 4 --model-config llama8b=/path/config.json --model-config qwen3b=/path/config.json \
-        --label "Modal H100 SXM, real"                                    # H100 (Build 17)
+        --label "Modal H100 SXM, real"                                    # H100 (H100 build)
 
 Defaults are the T4 run's (Build 16): FP16 only, Qwen2.5-3B shapes, 1 GiB bandwidth tensors.
 dtypes: float16 / bfloat16 use torch.matmul; fp8 uses torch._scaled_mm on float8_e4m3fn operands with per-tensor

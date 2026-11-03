@@ -129,3 +129,35 @@ def test_analyze_mixed_step_and_too_few_steps():
 def test_qwen_params():
     assert tb.linear_params() == 36 * (2048 * 2560 + 2048 * 2048 + 2048 * 22016 + 11008 * 2048)
     assert tb.lm_head_params() == 2048 * 151936
+
+
+def test_h100_kernel_names():
+    """H100 (H100 build): cuBLAS nvjet kernels are GEMM; FlashAttention-3 cutlass templates are attention, not GEMM."""
+    from benchmarks.kaggle.trace_breakdown import category
+    assert category({"cat": "kernel", "name": "nvjet_sm90_tst_192x192_64x4_2x1_v_bz_coopB_TNN"}, None)[0] == "gemm"
+    fa3 = "void cutlass::device_kernel<flash::enable_sm90_or_later<flash::FlashAttnFwdSm90<flash::CollectiveMainloopFwdSm90>>>"
+    assert category({"cat": "kernel", "name": fa3}, None) == ("attention", "attention")
+    fp8 = "void cutlass::device_kernel<vllm::cutlass_3x_gemm_sm90_fp8<cutlass::float_e4m3_t, cutlass::bfloat16_t>>"
+    assert category({"cat": "kernel", "name": fp8}, None)[0] == "gemm"
+
+
+def test_model_from_config_llama8b():
+    from benchmarks.kaggle.trace_breakdown import QWEN3B, linear_params, model_from_config
+    llama = {"hidden_size": 4096, "num_attention_heads": 32, "num_key_value_heads": 8, "intermediate_size": 14336,
+             "num_hidden_layers": 32, "vocab_size": 128256}
+    m = model_from_config(llama)
+    assert m["shapes"][0] == ("qkv", 4096, 6144) and m["lm_head"] == (4096, 128256)
+    assert m["kv_bytes_per_token"] == 131072 and model_from_config(llama, 1)["kv_bytes_per_token"] == 65536
+    assert linear_params(m) == 6979321856
+    qwen = {"hidden_size": 2048, "num_attention_heads": 16, "num_key_value_heads": 2, "intermediate_size": 11008,
+            "num_hidden_layers": 36, "vocab_size": 151936}
+    q = model_from_config(qwen)
+    assert q["shapes"] == QWEN3B["shapes"] and q["kv_bytes_per_token"] == QWEN3B["kv_bytes_per_token"]
+
+
+def test_microbench_shapes_from_config():
+    from benchmarks.microbench.gpu_ceilings import QWEN3B_SHAPES, gemm_min_bytes, shapes_from_config
+    qwen = {"hidden_size": 2048, "num_attention_heads": 16, "num_key_value_heads": 2, "intermediate_size": 11008,
+            "vocab_size": 151936}
+    assert shapes_from_config(qwen) == QWEN3B_SHAPES
+    assert gemm_min_bytes(1, 2, 3) == 2 * (3 + 6) + 2 * 2 and gemm_min_bytes(1, 2, 3, 1, 2) == (3 + 6) + 2 * 2
