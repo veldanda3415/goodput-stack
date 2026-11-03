@@ -1,0 +1,20 @@
+$ /usr/local/bin/nsys profile -f true -o /tmp/nsys-probe /usr/local/bin/python -c 'import torch; a = torch.randn(2048, 2048, device='"'"'cuda'"'"', dtype=torch.float16); [a @ a for _ in range(5)]; torch.cuda.synchronize(); print('"'"'ok'"'"')'
+# rc=0
+ok
+Collecting data...
+Generating '/tmp/nsys-root/nsys-report-b106.qdstrm'
+
+[1/1] [0%                          ] nsys-probe.nsys-rep
+[1/1] [0%                          ] nsys-probe.nsys-rep
+[1/1] [1%                          ] nsys-probe.nsys-rep
+[1/1] [2%                          ] nsys-probe.nsys-rep
+[1/1] [5%                          ] nsys-probe.nsys-rep
+[1/1] [==19%                       ] nsys-probe.nsys-rep
+[1/1] [==20%                       ] nsys-probe.nsys-rep
+[1/1] [=======================93%  ] nsys-probe.nsys-rep
+[1/1] [=======================96%  ] nsys-probe.nsys-rep
+[1/1] [========================98% ] nsys-probe.nsys-rep
+[1/1] [========================100%] nsys-probe.nsys-rep
+[1/1] [========================100%] nsys-probe.nsys-rep
+Generated:
+	/tmp/nsys-probe.nsys-rep

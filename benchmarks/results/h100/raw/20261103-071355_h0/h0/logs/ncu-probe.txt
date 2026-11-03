@@ -1,0 +1,9 @@
+$ /usr/local/cuda/bin/ncu --metrics sm__throughput.avg.pct_of_peak_sustained_elapsed -c 1 /usr/local/bin/python -c 'import torch; a = torch.randn(2048, 2048, device='"'"'cuda'"'"', dtype=torch.float16); [a @ a for _ in range(5)]; torch.cuda.synchronize(); print('"'"'ok'"'"')'
+# rc=9
+==PROF== Connected to process 335 (/usr/local/bin/python)
+==PROF== Profiling "distribution_elementwise_grid..." - 0 (1/1): 0%.
+==ERROR== An error was reported by the driver:
+==ERROR== Failed to lock GPU clock frequencies! Try locking the clocks externally (e.g. using 'nvidia-smi --lock-gpu-clocks=tdp,tdp') or profile without fixed frequencies (see '--clock-control').
+==ERROR== Failed to profile "distribution_elementwise_grid..." in process 335
+==PROF== Trying to shutdown target application
+==ERROR== The application returned an error code (9).

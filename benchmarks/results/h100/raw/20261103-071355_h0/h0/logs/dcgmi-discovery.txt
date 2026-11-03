@@ -1,0 +1,4 @@
+$ /usr/bin/dcgmi discovery -l
+# rc=235
+Error: unable to establish a connection to the specified host: localhost
+Error: Unable to connect to host engine. Host engine connection invalid/disconnected.

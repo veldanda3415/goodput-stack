@@ -1880,12 +1880,14 @@ RIDGE_LABEL = "Kaggle T4, real"
 
 def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts: int, in_len: int, out_len: int,
                   util: float, warmups: int, timeout_s: float, prov: dict, extra_args: list[str] | None = None,
-                  gpu: int = 0, gpu_interval_s: float = 1.0, env_extra: dict | None = None, row_extra: dict | None = None) -> dict:
+                  gpu: int = 0, gpu_interval_s: float = 1.0, env_extra: dict | None = None, row_extra: dict | None = None,
+                  dtype: str = "half", label: str | None = None) -> dict:
     """One `vllm bench throughput` run (benchmarks/kaggle/offline_throughput.py) with NVML, CPU and engine-metric sampling.
-    gpu: physical index (CUDA_VISIBLE_DEVICES, nvidia-smi -i); nvidia-smi -q snapshots before and after."""
+    gpu: physical index (CUDA_VISIBLE_DEVICES, nvidia-smi -i); nvidia-smi -q snapshots before and after.
+    CPU groups: `bench` = the bench process and all its children; `engine` = the EngineCore process(es) alone."""
     from benchmarks.gpu_sampler import GpuSampler, smi_snapshot, summarize as gpu_summary
     bench_json, mfile = st.dir / f"{key}.bench.json", st.dir / f"{key}.engine-metrics.json"
-    bench_args = ["--backend", "vllm", "--model", model, "--revision", rev, "--dtype", "half",
+    bench_args = ["--backend", "vllm", "--model", model, "--revision", rev, "--dtype", dtype,
                   "--gpu-memory-utilization", str(util), "--no-enable-prefix-caching", "--max-num-seqs", str(mns),
                   "--dataset-name", "random", "--random-input-len", str(in_len), "--random-output-len", str(out_len),
                   "--random-range-ratio", "0.0", "--num-prompts", str(n_prompts), "--num-warmups", str(warmups),
@@ -1901,7 +1903,8 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
         proc = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT,
                                 env=dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), **env_extra), start_new_session=True)
         with GpuSampler(st.dir / f"{key}.gpu.csv", gpu_interval_s, gpu), \
-                CpuSampler(st.dir / f"{key}.cpu.csv", {"bench": lambda: [proc.pid]}):
+                CpuSampler(st.dir / f"{key}.cpu.csv", {"bench": lambda: [proc.pid], "engine": lambda: engine_core_pids(proc.pid)},
+                           flat=("engine",)):
             try:
                 rc = proc.wait(timeout_s)
             except subprocess.TimeoutExpired:
@@ -1911,7 +1914,7 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
     t_th1 = throttle_counters(gpu)
     smi_snapshot(st.logs / f"{key}.nvidia-smi-q-after.txt", gpu)
     text = log_path.read_text(errors="replace")
-    row: dict = {"kind": "offline", "label": RIDGE_LABEL, "max_num_seqs": mns, "num_prompts": n_prompts, "num_warmups": warmups,
+    row: dict = {"kind": "offline", "label": label or RIDGE_LABEL, "dtype": dtype, "max_num_seqs": mns, "num_prompts": n_prompts, "num_warmups": warmups,
                  "input_len": in_len, "output_len": out_len, "gpu_memory_utilization": util, "rc": rc, "gpu_index": gpu,
                  "env_extra": env_extra, **(row_extra or {}),
                  "bench_cmd": "vllm bench throughput " + shlex.join(bench_args),
@@ -1944,12 +1947,30 @@ def offline_point(st: Stage, key: str, model: str, rev: str, mns: int, n_prompts
         row["eng_preemptions_total_incl_warmup"] = (em.get("final") or {}).get("vllm:num_preemptions")
         row["eng_metric_samples_total"] = len(samples)
         row |= csv_window(st.dir / f"{key}.gpu.csv", t0, t1, GPU_COLS, prefix="gpu_")
-        row |= csv_window(st.dir / f"{key}.cpu.csv", t0, t1, ["sys_pct", "sys_max_core_pct", "bench_pct", "load1"], prefix="cpu_")
+        row |= csv_window(st.dir / f"{key}.cpu.csv", t0, t1, ["sys_pct", "sys_max_core_pct", "bench_pct", "engine_pct", "load1"],
+                          prefix="cpu_")
         try:   # nvidia-smi clocks / power / limits / throttle-reason fractions in the same window
             row |= {k: v for k, v in gpu_summary(st.dir / f"{key}.gpu.csv", t0, t1, prefix="smi_").items() if k != "smi_samples"}
         except Exception as exc:
             row["smi_summary_error"] = repr(exc)[:200]
     return st.write(key, row, **prov)
+
+
+def engine_core_pids(root: int) -> list[int]:
+    """Descendants of `root` whose process title / name says EngineCore (vLLM V1 sets "VLLM::EngineCore")."""
+    import psutil
+    try:
+        kids = psutil.Process(root).children(recursive=True)
+    except psutil.Error:
+        return []
+    out = []
+    for k in kids:
+        try:
+            if "EngineCore" in k.name() or any("EngineCore" in c for c in k.cmdline()[:1]):
+                out.append(k.pid)
+        except psutil.Error:
+            pass
+    return out
 
 
 def mp_client(base_url: str, cfg: dict, out_path: str) -> None:
@@ -1962,7 +1983,7 @@ def mp_client(base_url: str, cfg: dict, out_path: str) -> None:
 
 
 def http_run(st: Stage, key: str, srv: VllmServer, model: str, users: int, n_procs: int, in_len: int, out_len: int,
-             requests_per_user: int, prov: dict) -> dict:
+             requests_per_user: int, prov: dict, max_tokens_jitter: float = 0.0, label: str | None = None) -> dict:
     """Closed-loop streaming harness at `users` concurrent streams, in 1 or n_procs client processes."""
     import multiprocessing as mp
     from benchmarks.gpu_sampler import GpuSampler
@@ -1971,7 +1992,7 @@ def http_run(st: Stage, key: str, srv: VllmServer, model: str, users: int, n_pro
     d.mkdir(parents=True, exist_ok=True)
     per = users // n_procs
     cfgs = [client_cfg(model, per, per * requests_per_user, prompt_tokens=in_len, max_tokens=out_len, warmup=2 if i == 0 else 0)
-            | {"max_tokens_jitter": 0, "start_jitter_s": 1.0} for i in range(n_procs)]
+            | {"max_tokens_jitter": max_tokens_jitter, "start_jitter_s": 1.0, "arrival_seed": 7 + i} for i in range(n_procs)]
     procs: list = []
     t_th0 = throttle_counters()
     with GpuSampler(d / "gpu.csv", 1.0, 0), MetricsScraper(d / "metrics.jsonl", {"srv": srv.base_url}) as scr, \
@@ -2000,7 +2021,7 @@ def http_run(st: Stage, key: str, srv: VllmServer, model: str, users: int, n_pro
         for r in recs:
             f.write(json.dumps(r) + "\n")
     ok = [r for r in recs if r.get("ok")]
-    row: dict = {"kind": "http", "label": RIDGE_LABEL, "users": users, "client_processes": n_procs, "users_per_process": per,
+    row: dict = {"kind": "http", "label": label or RIDGE_LABEL, "max_tokens_jitter": max_tokens_jitter, "users": users, "client_processes": n_procs, "users_per_process": per,
                  "requests": len(recs), "requests_ok": len(ok), "errors": len(recs) - len(ok),
                  "error_examples": [r.get("error") for r in recs if not r.get("ok")][:3],
                  "client_tool": "benchmarks/harness client.run_load (closed loop, /v1/completions streamed, temperature 0)",
@@ -2664,7 +2685,7 @@ def http_load(st: Stage, key: str, srv: VllmServer, cfgs: list[dict], prov: dict
         for r in recs:
             f.write(json.dumps(r) + "\n")
     ok = [r for r in recs if r.get("ok")]
-    row: dict = {"kind": "http", "label": RIDGE_LABEL, "users": users, "client_processes": len(cfgs),
+    row: dict = {"kind": "http", "label": label or RIDGE_LABEL, "max_tokens_jitter": max_tokens_jitter, "users": users, "client_processes": len(cfgs),
                  "users_per_process": [c["concurrency"] for c in cfgs], "client_cfgs": cfgs,
                  "requests": len(recs), "requests_ok": len(ok), "errors": len(recs) - len(ok),
                  "error_examples": [r.get("error") for r in recs if not r.get("ok")][:3],
