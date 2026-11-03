@@ -288,6 +288,52 @@ def nsys(force: bool = False) -> None:
             print(f"{r['key']}: {res.get('share_pct_of_window')} {(res.get('steps') or {}).get('decode_only')}")
 
 
+def model_flops(model: str) -> dict:
+    """Linear + lm_head parameters per token from config.json (CALCULATED), FLOP per decode token = 2 x params."""
+    cfg = config_for(model)
+    sys.path.insert(0, str(REPO))
+    from benchmarks.kaggle import trace_breakdown as tb
+    t = tb.model_from_config(cfg)
+    p_lin, p_lm = tb.linear_params(t), tb.lm_head_params(t)
+    return {"p_lin": p_lin, "p_lm": p_lm, "flop_per_decode_token": 2 * (p_lin + p_lm), "kv_bytes_per_token_bf16": t["kv_bytes_per_token"],
+            "weight_bytes_bf16": 2 * (p_lin + p_lm)}
+
+
+def waterfall(breakdown: Path, measured: dict, model: str, peak_tflops: float = DATASHEET["bf16_tflops"],
+              peak_mhz: float = DATASHEET["max_sm_mhz_measured"], prof_clk: float | None = None) -> dict:
+    """Build 16 G5 chain for one measured row, factors from one breakdown (decode-only steps, `all` steps).
+    GEMM efficiency is per GHz of the profiled run's clock (assumed clock-independent, as in Build 16)."""
+    b = json.loads(breakdown.read_text())
+    dec, allst = b["steps"]["decode_only"], b["steps"]["all"]
+    busy, gemm, attn = dec["busy_pct"], dec["gemm_pct"], dec["attn_pct"]
+    other = busy - gemm - attn
+    clk = prof_clk
+    eta = (dec["gemm_tflops_calculated"] / (clk / 1000)) / (peak_tflops / (peak_mhz / 1000))
+    f = model_flops(model)
+    d0 = peak_tflops * 1e12 / f["flop_per_decode_token"]
+    factors = {"clock": measured["smi_clocks_sm_mean"] / peak_mhz, "gemm_efficiency": eta, "attention": (gemm + other) / busy,
+               "other_kernels": gemm / (gemm + other), "idle": busy / 100, "prompt_share": allst["gen_tokens_per_s_calculated"] / dec["gen_tokens_per_s_calculated"]}
+    labels = {"clock": f"× SM clock {measured['smi_clocks_sm_mean']:,.0f} / {peak_mhz:,.0f} MHz",
+              "gemm_efficiency": "× GEMM efficiency per clock (in vLLM, decode steps)", "attention": "− attention kernel time",
+              "other_kernels": "− norm / activation / sampling / memcpy time", "idle": "− GPU idle between kernels",
+              "prompt_share": "− prompt (prefill) steps"}
+    chain, v = [(f"datasheet decode ceiling ({peak_tflops:.0f} TFLOP/s ÷ {f['flop_per_decode_token'] / 1e9:.2f} GFLOP per token)", d0)], d0
+    for k in labels:
+        v *= factors[k]
+        chain.append((labels[k], v))
+    return {"breakdown": str(breakdown.relative_to(RAW.parent)), "profile_clock_mhz": clk, "factors": factors, "chain": chain,
+            "predicted": v, "measured": measured["output_tok_s"], "measured_key": measured["key"], "measured_run": measured["run_id"],
+            "residual_pct": 100 * (measured["output_tok_s"] / v - 1), "inputs": {**f, "decode": dec, "all": allst}}
+
+
+def print_waterfall(w: dict) -> None:
+    print(f"| step | factor | tok/s after |\n|---|---:|---:|\n| {w['chain'][0][0]} | — | {w['chain'][0][1]:,.0f} |")
+    for (lab, v), k in zip(w["chain"][1:], w["factors"]):
+        print(f"| {lab} | {w['factors'][k]:.3f} | {v:,.0f} |")
+    print(f"| **measured** (`{w['measured_key']}`, {w['measured_run']}) | | **{w['measured']:,.1f}** |")
+    print(f"| **residual (unexplained)** | **{w['residual_pct']:+.1f} %** | |")
+
+
 if __name__ == "__main__":
     for sec in sys.argv[1:]:
         globals()[sec]()
