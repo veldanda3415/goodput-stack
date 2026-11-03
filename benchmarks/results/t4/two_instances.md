@@ -441,3 +441,80 @@ Output tok/J = combined tok/s ÷ mean power (CALCULATED).
   same prompts seed 17); only `--budget-h` is raised from 0.5 to 0.8 so the guard does not cut the 6th condition.
 - Predictions are those above, unchanged. The first session's numbers stay as they are; the rerun is reported next to them,
   and the cross-session difference is reported as a session-to-session check, not merged into one mean.
+
+### Rerun (20261103-090230_mpsab, Kaggle T4, real) — all six conditions
+
+- Kernel `raviveldanda/goodput-t4-b17k` version 2, git `c094332` (stage code identical to `a6d0112`), args `--budget-h 0.8`,
+  status complete. Script session 1,796.7 s = **0.499 GPU-h** (push→done 30.9 min = 0.515 h upper bound).
+- **Different physical GPU** from the first session: GPU 0 UUID `GPU-6fd67248-f4aa-08f4-852c-2fe8ff3591d7` (first session
+  `GPU-f8017916-967f-a4ba-73f0-217d761c65e3`); same driver 580.178.04, CUDA 13.0, 70 W limit, vLLM 0.31.0.
+- Every run: 90.0 s window, 0 errors, 0 preemptions, every completed request 256 completion tokens, sw_power_cap active in
+  100 % of 1 Hz samples and no other throttle reason. MPS check: 3M and 4M have both EngineCores as `M+C` clients; 1S, 2T, 5T,
+  6S have none. KV pools: S 287,072 (1S) and **300,048 (6S**, "Available KV cache memory" 10.3 GiB vs 9.86 GiB in 1S — logged
+  as is, not explained here; KV peak use was ≤ 5.6 % in every run so the pool never bound), T 109,168, M 109,120 — the same as the first session.
+- Report: `results/mpsab/report.md` (`python -m benchmarks.kaggle.report_mpsab benchmarks/results/t4/20261103-090230_mpsab`).
+
+#### Per run (Kaggle T4, real; per MHz CALCULATED)
+
+| # | cond | tok/s | per instance | tok/s per MHz | TTFT p50/p95 ms | ITL p50/p95 ms | SM clock mean (min–max) MHz | power W | temp °C start / window |
+|---|---|---:|---|---:|---|---|---|---:|---|
+| 1 | S | 950.0 | — | 0.8374 | 472 / 632 | 28.4 / 33.5 | 1,134 (900–1,290) | 67.0 | 39 / 71.3 |
+| 2 | T | 643.2 | 321.6 / 321.6 | 0.5841 | 833 / 1,046 | 43.7 / 49.2 | 1,101 (990–1,170) | 65.9 | 64 / 77.4 |
+| 3 | M | 730.1 | 365.1 / 365.0 | 0.7541 | 616 / 1,018 | 38.5 / 42.4 | 968 (840–1,050) | 65.9 | 64 / 77.5 |
+| 4 | M | 729.5 | 364.8 / 364.7 | 0.7549 | 607 / 893 | 38.2 / 42.1 | 966 (810–1,065) | 66.0 | 63 / 77.3 |
+| 5 | T | 645.3 | 320.2 / 325.2 | 0.5855 | 779 / 1,023 | 43.7 / 50.7 | 1,102 (1,020–1,170) | 66.2 | 63 / 77.4 |
+| 6 | S | 919.0 | — | 0.8603 | 510 / 777 | 29.6 / 34.2 | 1,068 (915–1,185) | 66.0 | 64 / 76.9 |
+
+#### Per condition (mean of 2 runs; spread = (max − min) ÷ mean; CALCULATED)
+
+| cond | tok/s (spread) | per MHz (spread) | ITL p50 ms (spread) | ITL p95 ms | TTFT p50 ms | SM clock MHz (spread) | power W | output tok/J |
+|---|---|---|---|---:|---:|---|---:|---:|
+| S | 934.5 (3.32 %) | 0.8488 (2.70 %) | 29.01 (4.31 %) | 33.9 | 491 | 1,101 (6.02 %) | 66.5 | 14.06 |
+| T | 644.3 (0.33 %) | 0.5848 (0.24 %) | 43.68 (0.00 %) | 49.9 | 806 | 1,102 (0.09 %) | 66.0 | 9.76 |
+| M | 729.8 (0.09 %) | 0.7545 (0.11 %) | 38.35 (0.72 %) | 42.3 | 612 | 967 (0.19 %) | 66.0 | 11.07 |
+
+- M vs T: raw tok/s **+13.3 %**, per MHz **+29.0 %** (121× the larger within-condition spread, 0.24 %), clock −12.2 %, ITL p50 −12.2 %.
+- S vs T: raw +45.0 %, per MHz +45.1 %, clock −0.0 %. S vs M per MHz +12.5 %.
+- Order: T +0.33 % and M −0.09 % tok/s between repeats. **S is the only condition with an order effect**: 6S (started at
+  64 °C) vs 1S (started at 39 °C) −3.3 % tok/s at −5.8 % clock, while per MHz went **up** 2.7 %.
+
+#### Both sessions side by side (CALCULATED from the two per-condition tables)
+
+| | session 1 (070741, GPU-f801…) | session 2 (090230, GPU-6fd6…) | s2 vs s1 |
+|---|---|---|---|
+| S tok/s (runs) | 1,008.7 (1) | 934.5 (2) | −7.4 % |
+| T tok/s | 695.2 | 644.3 | −7.3 % |
+| M tok/s | 783.0 | 729.8 | −6.8 % |
+| T / M SM clock MHz | 1,223 / 1,091 | 1,102 / 967 | −9.9 % / −11.3 % |
+| T / M per MHz | 0.5685 / 0.7177 | 0.5848 / 0.7545 | +2.9 % / +5.1 % |
+| M vs T raw tok/s | +12.6 % | +13.3 % | |
+| M vs T per MHz | +26.2 % | +29.0 % | |
+| M vs T ITL p50 | −11.9 % | −12.2 % | |
+| M vs T clock | −10.8 % | −12.2 % | |
+
+#### Verdict (both sessions)
+
+**MPS beats time-sharing on this T4 in both sessions, on two different physical GPUs: +12.6 % / +13.3 % raw output tok/s and
++26.2 % / +29.0 % per MHz, with ITL p50 about 12 % lower, while running 11–12 % lower SM clock at the same power.**
+
+Caveat on per MHz, from this rerun's own data: per MHz is not clock-invariant. The two S runs differ by 5.8 % in clock and
+per MHz rose 2.7 % at the lower clock; across sessions, a ~10 % lower clock gave +2–5 % per MHz. So part of M's per-MHz
+lead (M always runs at the lower clock) is the normalisation, not MPS. The raw tok/s gap (+12.6 % / +13.3 %, measured at the
+**lower** clock for M) does not depend on the normalisation and is the conservative number to quote.
+
+#### Predicted vs measured (rerun)
+
+| Prediction | Measured (session 2) | Verdict |
+|---|---|---|
+| S > M > T | 934.5 > 729.8 > 644.3 tok/s, both S runs > every M run | as predicted |
+| M > T per MHz by > 5 % | +29.0 % (raw +13.3 %) | as predicted |
+| sw_power_cap most of the time | 100 % of samples, every run | as predicted |
+| clock differs between conditions beyond noise | M vs T −12.2 % yes; S vs T −0.0 % no (S's own spread 6.0 %) | partly (same as session 1) |
+| ITL p50 M ≤ T | 38.35 vs 43.68 ms | as predicted |
+
+#### Does NOT show (rerun)
+
+- Why 6S got a larger KV pool than 1S (10.3 vs 9.86 GiB available); it did not limit anything here.
+- A clock-invariant efficiency measure: per MHz moves with the clock (see caveat); clocks were not locked in this build
+  (locking with `nvidia-smi -lgc` was not attempted, so whether Kaggle allows it is untested).
+- Why the second session's GPU ran ~10 % lower clocks at the same 70 W cap (different physical card; one session each).
