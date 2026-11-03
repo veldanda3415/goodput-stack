@@ -2,7 +2,7 @@
 
     python -m benchmarks.kaggle.report_mpsab benchmarks/results/t4/<run-id>_mpsab [--json out.json]
 
-Reads <run>/results/mpsab/mpsab.jsonl (rows cond-*, cond-*-state, startup-*) and the raw requests-i*.jsonl of each
+Reads <run>/results/mpsab/mpsab.jsonl (rows cond-*, cond-*-state, startup-*) and the raw requests-i*.jsonl(.gz) of each
 condition (pooled ITL / TTFT over both instances, same window as the row). Prints markdown tables.
 
 CALCULATED here (not measured by a tool): tok/s per MHz = combined output tok/s / mean SM clock (nvidia-smi clocks.sm,
@@ -13,6 +13,7 @@ throttle-reason % = share of 1 Hz samples in the window with the reason Active.
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import statistics
 from pathlib import Path
@@ -35,8 +36,9 @@ def run_row(d: Path, r: dict, by_key: dict) -> dict:
     recs = []
     for n in inst:
         f = d / r["key"] / f"requests-{n}.jsonl"
-        if f.exists():
-            recs += [json.loads(l) for l in f.read_text().splitlines() if l.strip()]
+        gz = f.with_name(f.name + ".gz")   # committed gzipped (token timestamps make them ~0.75 MB each)
+        text = f.read_text() if f.exists() else gzip.decompress(gz.read_bytes()).decode() if gz.exists() else ""
+        recs += [json.loads(l) for l in text.splitlines() if l.strip()]
     w0, w1 = r["window_unix"]
     pooled = window_stats(recs, w0, w1) if recs else {}
     clk = r.get("smi_clocks_sm_mean")
