@@ -87,6 +87,7 @@ def _run(name: str, args: str, git_sha: str, run_id: str, t_call: float) -> dict
         while not stop.wait(60):
             try:
                 res_vol.commit()
+                hf_vol.commit()   # compile / FlashInfer JIT caches survive a stopped container
             except Exception as exc:   # a failed background commit is retried next minute; the final one is checked
                 print(f"volume commit failed: {exc!r}", flush=True)
 

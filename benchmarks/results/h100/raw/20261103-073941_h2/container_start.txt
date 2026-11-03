@@ -1,0 +1,11 @@
+t_local_call_unix=1793709581.849
+t_container_fn_start_unix=1793709586.927
+call_to_fn_start_s=5.1
+MODAL_CLOUD_PROVIDER=CLOUD_PROVIDER_GCP
+MODAL_CONTAINER_ARGUMENTS_PATH=/__modal/.container-arguments/data.bin
+MODAL_ENVIRONMENT=main
+MODAL_IMAGE_ID=im-N7N5evb2emY5HR8ocyimN5
+MODAL_IS_REMOTE=1
+MODAL_REGION=ap-northeast
+MODAL_SERVER_URL=unix:/run/modal.sock
+MODAL_TASK_ID=ta-01M6GPR9WHACQBJZ59DTYBXC4R

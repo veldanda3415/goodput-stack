@@ -95,6 +95,10 @@ class Runner:
             return None
         t0 = time.time()
         extra = list(extra or [])
+        # vLLM 0.31.0 picks max_num_batched_tokens 16,384 for the offline LLM class on this 80 GB GPU (log: "Chunked
+        # prefill is enabled with max_num_batched_tokens=16384"); the T4 workload is 8,192, so it is always explicit
+        if "--max-num-batched-tokens" not in extra:
+            extra = ["--max-num-batched-tokens", "8192"] + extra
         r = nb.offline_point(self.st, key, model, rev(model), mns, n_prompts, in_len, out_len, util, warmups,
                              max(300.0, (left - reserve_h) * 3600), provenance(self.st, model), extra_args=extra, gpu=0,
                              gpu_interval_s=0.5, env_extra=env, dtype=dtype, label=LABEL,

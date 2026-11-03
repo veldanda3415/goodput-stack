@@ -1,6 +1,6 @@
 # Modal spend (this build)
 
-Source: `modal billing report --for today -r h --show-resources --json` (UTC 2026-11-03), read 2026-11-03T12:39:09+00:00; attributed by app id (description `goodput-h100`). GPU-seconds CALCULATED = H100 cost ÷ $3.95/h. Modal bills the H100 from container start to stop, so it includes the image load / container boot before the function runs.
+Source: `modal billing report --for today -r h --show-resources --json` (UTC 2026-11-03), read 2026-11-03T12:40:08+00:00; attributed by app id (description `goodput-h100`). GPU-seconds CALCULATED = H100 cost ÷ $3.95/h. Modal bills the H100 from container start to stop, so it includes the image load / container boot before the function runs.
 
 | run | task | app | H100 $ | CPU $ | memory $ | other $ | total $ | H100 GPU-s (CALCULATED) | note |
 |---|---|---|---:|---:|---:|---:|---:|---:|---|
@@ -9,4 +9,5 @@ Source: `modal billing report --for today -r h --show-resources --json` (UTC 202
 | download-3 | download | `ap-SCaKSYXOE8LuTKyrZV2W4O` | 0.0000 | 0.0127 | 0.0032 | 0.0320 | **0.0479** | 0 | CPU-only weight download, 3 models |
 | 20261103-071355_h0 | h0 | `ap-GEP4aKMRj18Zgy1CP6pk4h` | 0.4916 | 0.0471 | 0.0319 | 0.0000 | **0.5705** | 448 | H0 (git a4ea482-dirty: the H0 commit's code) |
 | 20261103-072712_h1 | h1 | `ap-240LOU5bUwiFBrfJ8oQPnw` | 0.6671 | 0.0639 | 0.0432 | 0.0000 | **0.7743** | 608 | H1 microbench (git 2cb63c2) |
+| 20261103-073941_h2 | h2 | `ap-i6C10Wk8sNAjQeceiiFw4y` | 0.0000 | 0.0000 | 0.0000 | 0.0000 | **0.0000** | 0 | H2 Qwen2.5-3B sweep (git b7791bf) |
 | **total** | | | 1.1587 | 0.1314 | 0.0787 | 0.0325 | **1.4012** | 1056 (0.293 GPU-h) | |

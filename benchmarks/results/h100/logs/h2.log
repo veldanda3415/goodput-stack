@@ -1,0 +1,79 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/veldanda3415/main/ap-i6C10Wk8sNAjQeceiiFw4y
+✓ Created objects.
+├── ✓ Uploaded 
+│   /home/veldanda3415/workspace/goodput-stack-h100/benchmarks/modal/h100_app.py
+├── ✓ Uploaded /home/veldanda3415/workspace/goodput-stack-h100/benchmarks
+├── ✓ Created Function h0.
+├── ✓ Created Function h1.
+├── ✓ Created Function h2.
+├── ✓ Created Function h3.
+├── ✓ Created Function h4.
+├── ✓ Created Function h5.
+└── ✓ Created Function download.
+run_id=20261103-073941_h2 git=b7791bf app=goodput-h100
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.0.2
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+$ python -m benchmarks.modal.h100_tasks --task h2 --budget-h 0.96
+[12:39:49] row start: {"kind": "start", "budget_h": 0.96}
+[12:42:20] row ref-start: {"kind": "offline", "label": "Modal H100 SXM, real", "dtype": "bfloat16", "max_num_seqs": 384, "num_prompts": 1536, "num_warmups": 32, "input_len": 128, "output_len": 256, "gpu_memory_utilization": 0.95, "rc": 0, "gpu_index": 0, "ref_tag": "start", "part": "H2", "bench_cmd": "vllm bench throughput --backend vllm --model Qwen/Qwen2.5-3B-Instruct --revision aa8e72537993ba99e69dfaafa59ed015b17504d1 -
+[12:42:20] row ref-start-wall: {"kind": "wall", "of": "ref-start", "proc_wall_s": 150.5, "bench_elapsed_s": 10.589772223000011, "start_and_teardown_s": 139.9, "attention_backend": "FLASH_ATTN"}
+Stopping app - user stopped from CLI.
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /home/veldanda3415/workspace/goodput-stack-h100/benchmarks/modal/h100_app.py │
+│ :179 in task                                                                 │
+│                                                                              │
+│   178 │   print(f"run_id={run_id} git={_git_sha()} app={APP_NAME}", flush=Tr │
+│ ❱ 179 │   print(fn.remote(args, _git_sha(), run_id, time.time()), flush=True │
+│   180                                                                        │
+│                                                                              │
+│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
+│ s/modal/_object.py:49 in wrapped                                             │
+│                                                                              │
+│    48 │   │   await self.hydrate()                                           │
+│ ❱  49 │   │   return await method(self, *args, **kwargs)                     │
+│    50                                                                        │
+│                                                                              │
+│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
+│ s/modal/_functions.py:2081 in remote                                         │
+│                                                                              │
+│   2080 │   │                                                                 │
+│ ❱ 2081 │   │   return await self._call_function(args, kwargs)                │
+│   2082                                                                       │
+│                                                                              │
+│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
+│ s/modal/_functions.py:2018 in _call_function                                 │
+│                                                                              │
+│   2017 │   │                                                                 │
+│ ❱ 2018 │   │   return await invocation.run_function()                        │
+│   2019                                                                       │
+│                                                                              │
+│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
+│ s/modal/_functions.py:498 in run_function                                    │
+│                                                                              │
+│    497 │   │   │   if await_response.output.result.status in TERMINAL_STATUS │
+│ ❱  498 │   │   │   │   return await _process_result(                         │
+│    499 │   │   │   │   │   await_response.output.result, await_response.outp │
+│                                                                              │
+│ /home/veldanda3415/workspace/goodput-stack/.venv/lib/python3.14/site-package │
+│ s/modal/_utils/function_utils.py:574 in _process_result                      │
+│                                                                              │
+│   573 │   │                                                                  │
+│ ❱ 574 │   │   raise RemoteError(result.exception)                            │
+│   575                                                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+RemoteError
