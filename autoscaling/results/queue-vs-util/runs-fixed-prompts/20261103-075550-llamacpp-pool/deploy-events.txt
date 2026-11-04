@@ -1,0 +1,23 @@
+LAST                   REASON                MSG
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  KEDAScalersStopped    Stopped scalers watch
+<nil>                  ScaledObjectDeleted   ScaledObject was deleted
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  KEDAScalersStarted    Started scalers watch
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  KEDAScalersStarted    Scaler prometheus is built
+<nil>                  KEDAScalersStarted    Started scalers watch
+<nil>                  KEDAScalersStarted    Scaler prometheus is built
+<nil>                  KEDAScalersStopped    Stopped scalers watch
+<nil>                  ScaledObjectDeleted   ScaledObject was deleted
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+2026-11-03T12:50:33Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 1 to 2
+2026-11-03T12:50:48Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 2 to 3
+2026-11-03T12:56:34Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 1 to 3
+2026-11-03T12:59:49Z   ScalingReplicaSet     Scaled down replica set inf-llamacpp-5d577dcf66 from 3 to 2
+2026-11-03T13:00:19Z   ScalingReplicaSet     Scaled down replica set inf-llamacpp-5d577dcf66 from 2 to 1

@@ -1,0 +1,165 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "26"
+    meta.helm.sh/release-name: inf
+    meta.helm.sh/release-namespace: inference
+  creationTimestamp: "2026-10-02T01:08:07Z"
+  generation: 42
+  labels:
+    app.kubernetes.io/instance: inf
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: llamacpp
+    app.kubernetes.io/part-of: goodput-stack
+    goodput-stack/pool: cpu
+    helm.sh/chart: inference-0.1.0
+  name: inf-llamacpp
+  namespace: inference
+  resourceVersion: "3235759"
+  uid: 9950fd1d-a812-4549-b011-3edf8e20fbf7
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: inf
+      app.kubernetes.io/name: llamacpp
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        goodput-stack/server-config: 2027f022b2d0
+        kubectl.kubernetes.io/restartedAt: "2026-10-05T15:45:49-04:00"
+      labels:
+        app.kubernetes.io/instance: inf
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: llamacpp
+        app.kubernetes.io/part-of: goodput-stack
+        goodput-stack/pool: cpu
+        helm.sh/chart: inference-0.1.0
+        llm-d.ai/engine-type: llamacpp
+    spec:
+      containers:
+      - args:
+        - -m
+        - /models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+        - --alias
+        - qwen2.5-0.5b-instruct
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8080"
+        - -c
+        - "4096"
+        - --parallel
+        - "2"
+        - --threads
+        - "4"
+        - --metrics
+        image: localhost/llama-server:b11146
+        imagePullPolicy: Never
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: 5
+        livenessProbe:
+          failureThreshold: 6
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: http
+          timeoutSeconds: 3
+        name: llama-server
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 2
+        resources:
+          limits:
+            memory: 2Gi
+          requests:
+            cpu: "4"
+            memory: 1Gi
+        startupProbe:
+          failureThreshold: 300
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 1
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /models
+          name: models
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: false
+      initContainers:
+      - args:
+        - |
+          set -eu
+          f="/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+          if [ -s "$f" ]; then echo "model present: $(ls -l "$f")"; exit 0; fi
+          tmp="$f.part.$HOSTNAME"
+          echo "downloading https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+          curl -fL --retry 5 --retry-delay 3 -o "$tmp" "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+          mv "$tmp" "$f"
+          ls -l "$f"
+        command:
+        - /bin/sh
+        - -c
+        image: curlimages/curl:8.10.1
+        imagePullPolicy: IfNotPresent
+        name: fetch-model
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /models
+          name: models
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: inf-llamacpp-models
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-10-23T13:41:15Z"
+    lastUpdateTime: "2026-10-23T13:41:15Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-10-02T01:08:07Z"
+    lastUpdateTime: "2026-10-23T15:16:52Z"
+    message: ReplicaSet "inf-llamacpp-5d577dcf66" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 42
+  readyReplicas: 1
+  replicas: 1
+  terminatingReplicas: 0
+  updatedReplicas: 1

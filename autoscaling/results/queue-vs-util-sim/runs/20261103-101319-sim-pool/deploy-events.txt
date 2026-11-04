@@ -1,0 +1,25 @@
+LAST                   REASON                 MSG
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  ScaledObjectReady      ScaledObject is ready for scaling
+<nil>                  KEDAScalersStarted     Scaler prometheus is built
+<nil>                  KEDAScalersStarted     Started scalers watch
+<nil>                  ScaledObjectUnpaused   pause annotation removed for ScaledObject
+<nil>                  ScaledObjectDeleted    ScaledObject was deleted
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalersStopped     Stopped scalers watch
+<nil>                  ScaledObjectUnpaused   pause annotation removed for ScaledObject
+<nil>                  KEDAScalersStopped     Stopped scalers watch
+<nil>                  KEDAScalersStarted     Scaler prometheus is built
+<nil>                  ScaledObjectDeleted    ScaledObject was deleted
+<nil>                  ScaledObjectReady      ScaledObject is ready for scaling
+<nil>                  KEDAScalersStarted     Started scalers watch
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+2026-11-03T15:07:49Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 1 to 3
+2026-11-03T15:14:27Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 1 to 2
+2026-11-03T15:15:12Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 2 to 3
+2026-11-03T15:15:42Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 3 to 4
+2026-11-03T15:17:28Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 4 to 3
+2026-11-03T15:17:58Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 3 to 2
+2026-11-03T15:18:58Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 2 to 1

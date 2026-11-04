@@ -1,0 +1,27 @@
+FIRST                  LAST                   COUNT   REASON              MSG
+2026-11-03T13:13:13Z   2026-11-03T13:13:13Z   1       SuccessfulRescale   New size: 2; reason: All metrics below target
+2026-11-03T13:13:43Z   2026-11-03T13:13:43Z   1       SuccessfulRescale   New size: 1; reason: All metrics below target
+2026-11-03T13:15:58Z   2026-11-03T13:15:58Z   1       SuccessfulRescale   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:16:43Z   2026-11-03T13:16:43Z   1       SuccessfulRescale   New size: 3; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:19:28Z   2026-11-03T13:19:28Z   1       SuccessfulRescale   New size: 2; reason: All metrics below target
+2026-11-03T13:19:58Z   2026-11-03T13:19:58Z   1       SuccessfulRescale   New size: 1; reason: All metrics below target
+2026-11-03T13:22:29Z   2026-11-03T13:22:29Z   1       SuccessfulRescale   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:25:44Z   2026-11-03T13:25:44Z   1       SuccessfulRescale   New size: 1; reason: All metrics below target
+2026-11-03T13:28:14Z   2026-11-03T13:28:14Z   1       SuccessfulRescale   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:28:59Z   2026-11-03T13:28:59Z   1       SuccessfulRescale   New size: 3; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:31:29Z   2026-11-03T13:31:29Z   1       SuccessfulRescale   New size: 2; reason: All metrics below target
+2026-11-03T13:31:59Z   2026-11-03T13:31:59Z   1       SuccessfulRescale   New size: 1; reason: All metrics below target
+2026-11-03T13:34:44Z   2026-11-03T13:34:44Z   1       SuccessfulRescale   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:35:29Z   2026-11-03T13:35:29Z   1       SuccessfulRescale   New size: 3; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:37:44Z   2026-11-03T13:37:44Z   1       SuccessfulRescale   New size: 2; reason: All metrics below target
+2026-11-03T13:38:14Z   2026-11-03T13:38:14Z   1       SuccessfulRescale   New size: 1; reason: All metrics below target
+2026-11-03T13:45:01Z   2026-11-03T13:45:01Z   1       SuccessfulRescale   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:45:46Z   2026-11-03T13:45:46Z   1       SuccessfulRescale   New size: 3; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T13:48:16Z   2026-11-03T13:48:16Z   1       SuccessfulRescale   New size: 2; reason: All metrics below target
+2026-11-03T13:48:46Z   2026-11-03T13:48:46Z   1       SuccessfulRescale   New size: 1; reason: All metrics below target
+2026-11-03T14:03:03Z   2026-11-03T14:03:03Z   1       SuccessfulRescale   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T14:06:03Z   2026-11-03T14:06:03Z   1       SuccessfulRescale   New size: 1; reason: All metrics below target
+2026-11-03T14:08:18Z   2026-11-03T14:08:18Z   1       SuccessfulRescale   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T14:08:48Z   2026-11-03T14:08:48Z   1       SuccessfulRescale   New size: 3; reason: cpu resource utilization (percentage of request) above target
+2026-11-03T14:11:34Z   2026-11-03T14:11:34Z   1       SuccessfulRescale   New size: 2; reason: All metrics below target
+2026-11-03T14:12:04Z   2026-11-03T14:12:04Z   1       SuccessfulRescale   New size: 1; reason: All metrics below target

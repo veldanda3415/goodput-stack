@@ -422,7 +422,7 @@ Two policies in [driver.py](../../task_budget/driver.py), unit-tested in
   [analysis-l4.json](20261031-210126_leftover/results/leftover/analysis-l4.json) (`python -m benchmarks.task_budget.analyze
   benchmarks/results/t4/20261031-210126_leftover --stage-dir leftover --phase l4`), `logs/l4-metrics-{before,end}-*.txt`.
   The pool-rate and $ columns of the analysis are empty: the stage wrote `l4-metrics.jsonl`, the analyser reads
-  `metrics.jsonl`.
+  `metrics.jsonl`. (Fixed in Build 17: see [C2](#c2--pool-rates-and--per-solved-task-for-f4-and-l4-build-17-no-gpu).)
 
 | policy | success | aborted | tokens per success | tokens per attempted task | wasted on aborted tasks | tokens in failed attempts | share of steps escalated | steps cut at their share | strong-pool tokens | cheap-pool tokens | wall p95 s |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -467,3 +467,71 @@ Two policies in [driver.py](../../task_budget/driver.py), unit-tested in
 - One run per policy, one session, 150 tasks, two small models on one T4, budget fixed at 951.
 - No variant with a budget larger than ~2 × baseline's step-1 cost, or with the cheap pool skipped for step 1. The data
   say step 1 is where the cheap pool fails (77 % of tasks); that design was not run.
+
+## C2 — pool rates and $ per solved task for F4 and L4 (Build 17, no GPU)
+
+**Fix.** [analyze.py](../../task_budget/analyze.py) reads the /metrics scrape file from `--metrics`, else
+`metrics.jsonl` (old name, still first), else `<phase>-metrics.jsonl` (what the L4 stage writes, `l4-metrics.jsonl`).
+Unit tests `test_find_metrics_accepts_phase_prefixed_name` and `test_pool_rates_and_gpu_time_split` in
+[test_task_budget.py](../../task_budget/tests/test_task_budget.py) (`.venv/bin/python -m pytest -q
+benchmarks/task_budget/tests` → 71 passed).
+
+**Commands** (no GPU; analysis of the recorded runs):
+
+```
+.venv/bin/python -m benchmarks.task_budget.analyze benchmarks/results/t4/20261031-210126_leftover --stage-dir leftover --phase l4
+.venv/bin/python -m benchmarks.task_budget.analyze benchmarks/results/t4/20261031-173838_followup --stage-dir followup --phase f4
+```
+
+The F4 `metrics.jsonl` is git-ignored (`benchmarks/results/**/metrics.jsonl`); it was copied from the main checkout's
+untracked copy (sha256 `c48b4848…07def`, 792 lines). The F4 pool rates below are identical to those already in the
+committed `analysis-f4.json`; only the GPU-time split is new for F4. L4 rates are new.
+
+### Decisions made
+
+- **Method (Build 14, unchanged):** GPU-s of a policy on a pool = its **completion** tokens on that pool ÷ the pool's
+  output tok/s while it had ≥ 1 running request (deltas of `vllm:generation_tokens_total`, scraped by the stage;
+  field names from the scrape file). Prompt tokens are not charged separately (prefill is inside the measured busy
+  time). $ = GPU-s × $0.526/h ÷ successes.
+- **GPU-time cannot be attributed cleanly per pool.** Both pools are vLLM processes on one T4 and were busy at the same
+  time: L4 overlap 297.6 s of 479.7 s GPU-busy (the cheap pool was never busy alone); F4 218.5 s of 401.3 s. Each
+  pool's tok/s was measured while sharing the GPU, so "strong GPU-s + cheap GPU-s" counts the overlap twice. Two numbers
+  are reported:
+  - **charged twice** (the Build 14 column): each pool's GPU-s at full price — an upper bound.
+  - **split by pool share** (new): every pool's GPU-s × (union busy ÷ (strong busy + cheap busy)) = × 0.6172 (L4),
+    × 0.6475 (F4), so the phase's GPU-busy time is charged once and divided by each pool's share of busy time. This
+    assumes the GPU's time in the overlap divides in proportion to each pool's busy time; it is not measured.
+- **Rates are per phase, not per policy:** all policies ran interleaved (batches of 8, random order) in one phase, so
+  one strong and one cheap rate apply to every policy "at that load".
+
+### Pool rates (measured, Kaggle T4, real; both pools on one GPU)
+
+| run | strong pool output tok/s while busy | busy s | cheap pool output tok/s while busy | busy s | GPU-busy (union) s | overlap s | phase window s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| F4 (20261031-173838_followup) | 165.11 | 400.3 | 205.64 | 219.5 | 401.3 | 218.5 | 401.8 |
+| L4 (20261031-210126_leftover) | 178.52 | 479.7 | 207.74 | 297.6 | 479.7 | 297.6 | 480.5 |
+
+### Per policy
+
+Tokens = prompt + completion of every call; "per attempt" = per model call (tokens ÷ calls). $ CALCULATED.
+
+| run | policy | success | aborted | tokens per success | tokens per attempted task | tokens per attempt (call) | wasted on aborted tasks | strong-pool tokens | cheap-pool tokens | **$ per solved task, GPU-time split** | $ per solved task, overlap charged twice |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| F4 | baseline | 95 / 150 | 0 | 1,547.1 | 979.8 | 310.1 | 0 | 146,970 | 0 | **0.000286** | 0.000441 |
+| F4 | escalate_fresh | 10 / 150 | 99 | 13,736.1 | 915.7 | 239.3 | 98,604 | 30,335 | 107,026 | **0.001658** | 0.002561 |
+| F4 | escalate_carry | 4 / 150 | 96 | 36,061.8 | 961.6 | 288.5 | 102,913 | 74,807 | 69,440 | **0.003729** | 0.005759 |
+| L4 | baseline | 95 / 150 | 0 | 1,540.5 | 975.6 | 308.7 | 0 | 146,344 | 0 | **0.000250** | 0.000405 |
+| L4 | escalate_fresh | 10 / 150 | 97 | 13,725.1 | 915.0 | 239.1 | 96,910 | 30,435 | 106,816 | **0.001525** | 0.002471 |
+| L4 | escalate_fresh_strong_final | 22 / 150 | 108 | 6,303.0 | 924.4 | 243.7 | 106,990 | 71,928 | 66,738 | **0.000783** | 0.001268 |
+| L4 | per_step_budget | 10 / 150 | 103 | 13,650.2 | 910.0 | 232.5 | 101,396 | 40,268 | 96,234 | **0.001393** | 0.002257 |
+
+- In dollars as in tokens, baseline (strong pool only) is the cheapest per solved task in both runs. The best escalating
+  policy, escalate_fresh_strong_final, costs **3.1×** baseline per solved task (0.000783 / 0.000250) on either $ method,
+  vs 4.1× in tokens: the cheap pool's tokens are cheaper per token (207.7 vs 178.5 tok/s), not cheap enough.
+- The ranking of policies is the same on tokens per success and on both $ columns.
+
+### Does NOT show (C2)
+
+- Per-request GPU attribution: two processes on one GPU share SMs in time; the split is proportional, not measured.
+- Price: $0.526/h is the repo's cited Azure NC4as_T4_v3 price, not a Kaggle cost.
+

@@ -1,0 +1,23 @@
+LAST                   REASON                MSG
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  KEDAScalersStopped    Stopped scalers watch
+<nil>                  ScaledObjectDeleted   ScaledObject was deleted
+<nil>                  KEDAScalersStopped    Stopped scalers watch
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalersStarted    Scaler prometheus is built
+<nil>                  KEDAScalersStarted    Started scalers watch
+<nil>                  ScaledObjectDeleted   ScaledObject was deleted
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  KEDAScalersStarted    Started scalers watch
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalersStarted    Scaler prometheus is built
+2026-11-03T12:56:34Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 1 to 3
+2026-11-03T13:16:43Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 2 to 3
+2026-11-03T13:19:28Z   ScalingReplicaSet     Scaled down replica set inf-llamacpp-5d577dcf66 from 3 to 2
+2026-11-03T13:22:29Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 1 to 2
+2026-11-03T13:25:44Z   ScalingReplicaSet     Scaled down replica set inf-llamacpp-5d577dcf66 from 2 to 1

@@ -1,0 +1,36 @@
+$ kubectl get pods -A -o wide  (2026-11-03 10:19:49 EST)
+NAMESPACE             NAME                                                    READY   STATUS    RESTARTS       AGE    IP                NODE        NOMINATED NODE   READINESS GATES
+agentgateway-system   agentgateway-dd55f7586-77w66                            1/1     Running   2 (5d ago)     31d    10.42.0.3         ravi-home   <none>           <none>
+inference             inf-llamacpp-5d577dcf66-j9t6j                           1/1     Running   0              11d    10.42.0.122       ravi-home   <none>           <none>
+inference             inf-vllm-sim-7565c9d79d-p6wgf                           1/1     Running   0              19d    10.42.0.57        ravi-home   <none>           <none>
+inference             inf-vllm-sim-7565c9d79d-tx6qc                           1/1     Running   0              15s    10.42.0.181       ravi-home   <none>           <none>
+inference             inference-gateway-59bdfd999f-sxtr9                      1/1     Running   0              19d    10.42.0.55        ravi-home   <none>           <none>
+inference             inference-gateway-59bdfd999f-xp6vn                      1/1     Running   0              19d    10.42.0.56        ravi-home   <none>           <none>
+inference             llamacpp-pool-epp-c6d996684-7vf9f                       1/1     Running   0              11d    10.42.0.119       ravi-home   <none>           <none>
+inference             sim-pool-epp-5d44d8968c-5hng7                           1/1     Running   0              18d    10.42.0.79        ravi-home   <none>           <none>
+keda                  keda-admission-webhooks-7857898dc8-9fshl                1/1     Running   0              19d    10.42.0.27        ravi-home   <none>           <none>
+keda                  keda-operator-c5b97c8c8-7frd6                           1/1     Running   1 (19d ago)    19d    10.42.0.26        ravi-home   <none>           <none>
+keda                  keda-operator-metrics-apiserver-b8c5bfc4c-5n4c8         1/1     Running   0              19d    10.42.0.28        ravi-home   <none>           <none>
+kube-system           coredns-5f5694d56b-gz59m                                1/1     Running   17 (20d ago)   103d   10.42.0.12        ravi-home   <none>           <none>
+kube-system           local-path-provisioner-58d557dc48-spl87                 1/1     Running   17 (20d ago)   103d   10.42.0.13        ravi-home   <none>           <none>
+kube-system           metrics-server-7c86f97b8d-qkx6f                         1/1     Running   17 (20d ago)   103d   10.42.0.9         ravi-home   <none>           <none>
+kube-system           svclb-inference-gateway-86538437-rsbc4                  1/1     Running   1 (20d ago)    28d    10.42.0.5         ravi-home   <none>           <none>
+monitoring            alertmanager-kps-kube-prometheus-stack-alertmanager-0   2/2     Running   0              19d    10.42.0.19        ravi-home   <none>           <none>
+monitoring            kps-grafana-6447cfc797-g2klf                            3/3     Running   0              19d    10.42.0.17        ravi-home   <none>           <none>
+monitoring            kps-kube-prometheus-stack-operator-6f8c9b68b6-7fcvt     1/1     Running   0              19d    10.42.0.16        ravi-home   <none>           <none>
+monitoring            kps-kube-state-metrics-575c5996c6-g4ph5                 1/1     Running   0              19d    10.42.0.18        ravi-home   <none>           <none>
+monitoring            kps-prometheus-node-exporter-smmx9                      1/1     Running   0              19d    192.168.117.204   ravi-home   <none>           <none>
+monitoring            prometheus-kps-kube-prometheus-stack-prometheus-0       2/2     Running   0              19d    10.42.0.20        ravi-home   <none>           <none>
+netcortex             netcortex-rca-7c8b844465-xxwpp                          1/1     Running   14 (20d ago)   79d    10.42.0.7         ravi-home   <none>           <none>
+netcortex             netcortex-telemetry-5986886f86-6qshh                    1/1     Running   16 (20d ago)   86d    10.42.0.11        ravi-home   <none>           <none>
+
+$ kubectl get scaledobject,hpa -A
+NAMESPACE   NAME                                SCALETARGETKIND      SCALETARGETNAME   MIN   MAX   READY   ACTIVE   FALLBACK   PAUSED   TRIGGERS     AUTHENTICATIONS   AGE
+inference   scaledobject.keda.sh/inf-llamacpp   apps/v1.Deployment   inf-llamacpp      1     3     True    False    False      False    prometheus                     28m
+inference   scaledobject.keda.sh/inf-vllm-sim   apps/v1.Deployment   inf-vllm-sim      1     4     True    False    False      True     prometheus                     17s
+
+NAMESPACE   NAME                                                        REFERENCE                 TARGETS     MINPODS   MAXPODS   REPLICAS   AGE
+inference   horizontalpodautoscaler.autoscaling/keda-hpa-inf-llamacpp   Deployment/inf-llamacpp   0/2 (avg)   1         3         1          28m
+
+$ kubectl -n inference get scaledobject inf-vllm-sim -o jsonpath={.metadata.annotations.autoscaling\.keda\.sh/paused-replicas}
+2

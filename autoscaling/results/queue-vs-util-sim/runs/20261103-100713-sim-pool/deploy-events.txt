@@ -1,0 +1,23 @@
+LAST                   REASON                 MSG
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalersStarted     Scaler prometheus is built
+<nil>                  KEDAScalersStarted     Started scalers watch
+<nil>                  ScaledObjectUnpaused   pause annotation removed for ScaledObject
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  ScaledObjectReady      ScaledObject is ready for scaling
+<nil>                  ScaledObjectReady      ScaledObject is ready for scaling
+<nil>                  KEDAScalersStarted     Started scalers watch
+<nil>                  KEDAScalersStarted     Scaler prometheus is built
+<nil>                  ScaledObjectUnpaused   pause annotation removed for ScaledObject
+<nil>                  ScaledObjectDeleted    ScaledObject was deleted
+<nil>                  KEDAScalersStopped     Stopped scalers watch
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo         PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+2026-11-03T15:00:55Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 1 to 2
+2026-11-03T15:01:25Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 2 to 3
+2026-11-03T15:07:49Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 1 to 3
+2026-11-03T15:08:04Z   ScalingReplicaSet      Scaled up replica set inf-vllm-sim-7565c9d79d from 3 to 4
+2026-11-03T15:10:49Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 4 to 3
+2026-11-03T15:11:19Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 3 to 2
+2026-11-03T15:11:49Z   ScalingReplicaSet      Scaled down replica set inf-vllm-sim-7565c9d79d from 2 to 1

@@ -1,0 +1,35 @@
+LAST                   REASON                MSG
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalersStarted    Scaler prometheus is built
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalersStarted    Scaler prometheus is built
+<nil>                  KEDAScalersStarted    Started scalers watch
+<nil>                  KEDAScalersStarted    Started scalers watch
+<nil>                  KEDAScalerInfo        CooldownPeriod is configured but is not relevant. CooldownPeriod is only relevant when minReplicaCount = 0 or idleReplicaCount = 0
+<nil>                  KEDAScalersStopped    Stopped scalers watch
+<nil>                  ScaledObjectDeleted   ScaledObject was deleted
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  KEDAScalersStarted    Started scalers watch
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  ScaledObjectReady     ScaledObject is ready for scaling
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalersStopped    Stopped scalers watch
+<nil>                  ScaledObjectDeleted   ScaledObject was deleted
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalerInfo        PollingInterval is configured but is not relevant. PollingInterval is only relevant when minReplicaCount = 0 or idleReplicaCount = 0 or useCachedMetrics is enabled
+<nil>                  KEDAScalersStarted    Scaler prometheus is built
+2026-11-03T13:50:54Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 1 to 2
+2026-11-03T13:56:55Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 1 to 3
+2026-11-03T14:06:03Z   ScalingReplicaSet     Scaled down replica set inf-llamacpp-5d577dcf66 from 2 to 1
+2026-11-03T14:17:34Z   ScalingReplicaSet     Scaled down replica set inf-llamacpp-5d577dcf66 from 3 to 2
+2026-11-03T14:20:27Z   ScalingReplicaSet     Scaled up replica set inf-llamacpp-5d577dcf66 from 2 to 3

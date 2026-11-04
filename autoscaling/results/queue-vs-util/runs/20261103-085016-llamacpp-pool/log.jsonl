@@ -1,0 +1,16 @@
+{"t": "2026-11-03T08:50:16.514-05:00", "rel_s": 0.0, "event": "run_start", "phase": "idle", "pool": "llamacpp-pool", "deploy": "inf-llamacpp", "concurrency": 6, "max_tokens": 64, "idle": 20.0, "high": 150.0}
+{"t": "2026-11-03T08:50:36.534-05:00", "rel_s": 20.02, "event": "load_start", "phase": "high"}
+{"t": "2026-11-03T08:50:55.222-05:00", "rel_s": 38.71, "event": "hpa_desired_change", "phase": "high", "old": 1, "new": 2, "hpa_metric": [{"external": {"current": {"averageValue": "3833m"}, "metric": {"name": "s0-prometheus", "selector": {"matchLabels": {"scaledobject.keda.sh/name": "inf-llamacpp"}}}}, "type": "External"}]}
+{"t": "2026-11-03T08:50:56.223-05:00", "rel_s": 39.71, "event": "pod_created", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-7knkm", "created": "2026-11-03T13:50:55Z"}
+{"t": "2026-11-03T08:50:59.271-05:00", "rel_s": 42.76, "event": "pod_ready", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-7knkm"}
+{"t": "2026-11-03T08:50:59.273-05:00", "rel_s": 42.76, "event": "pod_first_served", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-7knkm"}
+{"t": "2026-11-03T08:51:10.415-05:00", "rel_s": 53.9, "event": "hpa_desired_change", "phase": "high", "old": 2, "new": 3, "hpa_metric": [{"external": {"current": {"averageValue": "3417m"}, "metric": {"name": "s0-prometheus", "selector": {"matchLabels": {"scaledobject.keda.sh/name": "inf-llamacpp"}}}}, "type": "External"}]}
+{"t": "2026-11-03T08:51:10.417-05:00", "rel_s": 53.9, "event": "pod_created", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-7x9q6", "created": "2026-11-03T13:51:09Z"}
+{"t": "2026-11-03T08:51:13.325-05:00", "rel_s": 56.81, "event": "pod_ready", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-7x9q6"}
+{"t": "2026-11-03T08:51:14.342-05:00", "rel_s": 57.83, "event": "pod_first_served", "phase": "high", "pod": "inf-llamacpp-5d577dcf66-7x9q6"}
+{"t": "2026-11-03T08:53:09.468-05:00", "rel_s": 172.96, "event": "load_stop", "phase": "idle2"}
+{"t": "2026-11-03T08:54:11.023-05:00", "rel_s": 234.51, "event": "hpa_desired_change", "phase": "idle2", "old": 3, "new": 2, "hpa_metric": [{"external": {"current": {"averageValue": "0"}, "metric": {"name": "s0-prometheus", "selector": {"matchLabels": {"scaledobject.keda.sh/name": "inf-llamacpp"}}}}, "type": "External"}]}
+{"t": "2026-11-03T08:54:11.025-05:00", "rel_s": 234.51, "event": "pod_gone", "phase": "idle2", "pod": "inf-llamacpp-5d577dcf66-7x9q6"}
+{"t": "2026-11-03T08:54:41.005-05:00", "rel_s": 264.49, "event": "hpa_desired_change", "phase": "idle2", "old": 2, "new": 1, "hpa_metric": [{"external": {"current": {"averageValue": "0"}, "metric": {"name": "s0-prometheus", "selector": {"matchLabels": {"scaledobject.keda.sh/name": "inf-llamacpp"}}}}, "type": "External"}]}
+{"t": "2026-11-03T08:54:41.006-05:00", "rel_s": 264.49, "event": "pod_gone", "phase": "idle2", "pod": "inf-llamacpp-5d577dcf66-7knkm"}
+{"t": "2026-11-03T08:55:01.576-05:00", "rel_s": 285.06, "event": "run_end", "phase": "idle2", "settled": true}

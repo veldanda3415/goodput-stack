@@ -1,0 +1,22 @@
+{"t": "2026-11-03T10:13:19.002-05:00", "rel_s": 0.0, "event": "run_start", "phase": "idle", "pool": "sim-pool", "deploy": "inf-vllm-sim", "concurrency": 8, "max_tokens": 96, "idle": 20.0, "high": 150.0}
+{"t": "2026-11-03T10:13:39.022-05:00", "rel_s": 20.02, "event": "load_start", "phase": "high"}
+{"t": "2026-11-03T10:14:29.314-05:00", "rel_s": 70.31, "event": "hpa_desired_change", "phase": "high", "old": 1, "new": 2, "hpa_metric": [{"resource": {"current": {"averageUtilization": 62, "averageValue": "62m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T10:14:29.314-05:00", "rel_s": 70.31, "event": "pod_created", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-mxrdk", "created": "2026-11-03T15:14:28Z"}
+{"t": "2026-11-03T10:14:31.314-05:00", "rel_s": 72.31, "event": "pod_ready", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-mxrdk"}
+{"t": "2026-11-03T10:14:31.316-05:00", "rel_s": 72.32, "event": "pod_first_served", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-mxrdk"}
+{"t": "2026-11-03T10:15:14.030-05:00", "rel_s": 115.03, "event": "hpa_desired_change", "phase": "high", "old": 2, "new": 3, "hpa_metric": [{"resource": {"current": {"averageUtilization": 67, "averageValue": "67m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T10:15:14.033-05:00", "rel_s": 115.03, "event": "pod_created", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-nkh7k", "created": "2026-11-03T15:15:12Z"}
+{"t": "2026-11-03T10:15:15.317-05:00", "rel_s": 116.32, "event": "pod_ready", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-nkh7k"}
+{"t": "2026-11-03T10:15:15.319-05:00", "rel_s": 116.32, "event": "pod_first_served", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-nkh7k"}
+{"t": "2026-11-03T10:15:44.034-05:00", "rel_s": 145.03, "event": "hpa_desired_change", "phase": "high", "old": 3, "new": 4, "hpa_metric": [{"resource": {"current": {"averageUtilization": 65, "averageValue": "65m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T10:15:44.035-05:00", "rel_s": 145.03, "event": "pod_created", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-j2djc", "created": "2026-11-03T15:15:43Z"}
+{"t": "2026-11-03T10:15:46.318-05:00", "rel_s": 147.32, "event": "pod_ready", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-j2djc"}
+{"t": "2026-11-03T10:15:46.320-05:00", "rel_s": 147.32, "event": "pod_first_served", "phase": "high", "pod": "inf-vllm-sim-7565c9d79d-j2djc"}
+{"t": "2026-11-03T10:16:10.285-05:00", "rel_s": 171.28, "event": "load_stop", "phase": "idle2"}
+{"t": "2026-11-03T10:17:29.316-05:00", "rel_s": 250.32, "event": "hpa_desired_change", "phase": "idle2", "old": 4, "new": 3, "hpa_metric": [{"resource": {"current": {"averageUtilization": 20, "averageValue": "20m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T10:17:29.323-05:00", "rel_s": 250.32, "event": "pod_gone", "phase": "idle2", "pod": "inf-vllm-sim-7565c9d79d-j2djc"}
+{"t": "2026-11-03T10:17:59.314-05:00", "rel_s": 280.31, "event": "hpa_desired_change", "phase": "idle2", "old": 3, "new": 2, "hpa_metric": [{"resource": {"current": {"averageUtilization": 20, "averageValue": "20m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T10:17:59.317-05:00", "rel_s": 280.32, "event": "pod_gone", "phase": "idle2", "pod": "inf-vllm-sim-7565c9d79d-mxrdk"}
+{"t": "2026-11-03T10:18:59.317-05:00", "rel_s": 340.32, "event": "hpa_desired_change", "phase": "idle2", "old": 2, "new": 1, "hpa_metric": [{"resource": {"current": {"averageUtilization": 21, "averageValue": "21m"}, "name": "cpu"}, "type": "Resource"}]}
+{"t": "2026-11-03T10:18:59.320-05:00", "rel_s": 340.32, "event": "pod_gone", "phase": "idle2", "pod": "inf-vllm-sim-7565c9d79d-nkh7k"}
+{"t": "2026-11-03T10:19:19.467-05:00", "rel_s": 360.47, "event": "run_end", "phase": "idle2", "settled": true}

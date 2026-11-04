@@ -17,6 +17,10 @@ Client side: per request send time, TTFT (first non-empty delta.content, scripts
 At the end: HPA events (SuccessfulRescale) and KEDA operator log lines for the ScaledObject are saved, and a
 10 s step table (replicas, queue, requests, errors, client TTFT p50/p95) is printed and written to summary.md.
 
+Also per sample (Build 17): pod CPU in cores from each pod's cgroup cpu.stat (usage_usec delta, host = node), node CPU
+busy share from /proc/stat, and the HPA's currentMetrics (--hpa names a non-KEDA HPA). Per request: ITL p50/mean.
+At the end: the ScaledObject's Prometheus query over the run window (prom-queue.json, 5 s step).
+
 Output: autoscaling/results/<ts>-<pool>/{log.jsonl,requests.jsonl,samples.jsonl,hpa-events.txt,keda.log,summary.md}
 """
 import argparse, asyncio, datetime as dt, json, pathlib, re, statistics, subprocess, sys, threading, time, urllib.request
@@ -43,6 +47,47 @@ def ts():
 def kubectl_json(*a):
     r = subprocess.run(["kubectl", "-n", NS, *a, "-o", "json"], capture_output=True, text=True, timeout=10)
     return json.loads(r.stdout) if r.returncode == 0 else None
+
+
+PROM = "http://kps-kube-prometheus-stack-prometheus.monitoring.svc:9090"
+KEDA_QUERY = {   # the ScaledObjects' trigger queries (scaledobject-*.yaml)
+    "cpu": 'sum(avg_over_time(llamacpp:requests_processing{namespace="inference",pool="llamacpp-pool"}[30s])) + '
+           'sum(avg_over_time(llamacpp:requests_deferred{namespace="inference",pool="llamacpp-pool"}[30s]))',
+    "sim": "sum(vllm:num_requests_running) + sum(vllm:num_requests_waiting)",
+}
+
+
+def pod_cpu_usec(uid):
+    """Cumulative CPU of a pod's cgroup (all containers), microseconds; None if not found."""
+    u = uid.replace("-", "_")
+    for d in (f"kubepods-burstable.slice/kubepods-burstable-pod{u}.slice", f"kubepods-besteffort.slice/kubepods-besteffort-pod{u}.slice",
+              f"kubepods-pod{u}.slice"):
+        try:
+            for line in open(f"/sys/fs/cgroup/kubepods.slice/{d}/cpu.stat"):
+                if line.startswith("usage_usec "):
+                    return int(line.split()[1])
+        except OSError:
+            continue
+    return None
+
+
+def node_cpu():
+    """(busy, total) jiffies from /proc/stat; the k3s node is this host."""
+    v = [int(x) for x in open("/proc/stat").readline().split()[1:]]
+    idle = v[3] + v[4]
+    return sum(v) - idle, sum(v)
+
+
+def hpa_metric_value(hpa):
+    """Compact currentMetrics: external metric averageValue or resource utilisation, as the HPA last saw it."""
+    out = []
+    for m in (hpa or {}).get("status", {}).get("currentMetrics") or []:
+        if m.get("type") == "External":
+            out.append(m["external"]["current"].get("averageValue") or m["external"]["current"].get("value"))
+        elif m.get("type") == "Resource":
+            c = m["resource"]["current"]
+            out.append(f"{c.get('averageUtilization')}% ({c.get('averageValue')})")
+    return out or None
 
 
 def scrape(ip, port, names):
@@ -90,10 +135,11 @@ class Run:
         c = self.cfg
         sel = "app.kubernetes.io/name=" + ("vllm-sim" if self.a.pool == "sim" else "llamacpp")
         first = True
+        prev_cpu, prev_node = {}, None
         while not self.stop_sampler:
             t_loop = time.monotonic()
             dep = kubectl_json("get", "deploy", c["deploy"])
-            hpa = kubectl_json("get", "hpa", f"keda-hpa-{c['so']}")
+            hpa = kubectl_json("get", "hpa", self.a.hpa or f"keda-hpa-{c['so']}")
             pods = kubectl_json("get", "pods", "-l", sel)
             if not (dep and pods):
                 time.sleep(1); continue
@@ -104,7 +150,8 @@ class Run:
                     self.event("hpa_desired_change", old=self.desired, new=desired,
                                hpa_metric=(hpa or {}).get("status", {}).get("currentMetrics"))
                 self.desired = desired
-            live, q_total, per_pod = set(), 0.0, {}
+            live, q_total, per_pod, per_pod_cpu = set(), 0.0, {}, {}
+            now = time.monotonic()
             for p in pods["items"]:
                 name = p["metadata"]["name"]
                 if p["metadata"].get("deletionTimestamp"):
@@ -122,6 +169,11 @@ class Run:
                     st["ready_at"] = self.rel()
                     if not st["preexisting"]:
                         self.event("pod_ready", pod=name)
+                uid, usec = p["metadata"]["uid"], pod_cpu_usec(p["metadata"]["uid"])
+                if usec is not None and uid in prev_cpu:
+                    per_pod_cpu[name] = round((usec - prev_cpu[uid][0]) / 1e6 / (now - prev_cpu[uid][1]), 3)
+                if usec is not None:
+                    prev_cpu[uid] = (usec, now)
                 m = scrape(ip, c["port"], c["queue"] + c["served"]) if ip else None
                 if m:
                     q = m[c["queue"][0]] + m[c["queue"][1]]
@@ -134,8 +186,13 @@ class Run:
                 if name not in live and not st.get("deleted_at"):
                     st["deleted_at"] = self.rel()
                     self.event("pod_gone", pod=name)
+            nb, nt = node_cpu()
+            node_busy = round((nb - prev_node[0]) / (nt - prev_node[1]), 4) if prev_node and nt > prev_node[1] else None
+            prev_node = (nb, nt)
             s = self.write("samples", {"phase": self.phase, "spec": spec, "ready": ready, "hpa_desired": desired,
-                                       "queue": q_total, "per_pod_queue": per_pod})
+                                       "queue": q_total, "per_pod_queue": per_pod, "per_pod_cpu_cores": per_pod_cpu,
+                                       "pod_cpu_cores": round(sum(per_pod_cpu.values()), 3), "node_cpu_busy": node_busy,
+                                       "hpa_current": hpa_metric_value(hpa)})
             self.samples.append(s)
             first = False
             time.sleep(max(0.0, 1.0 - (time.monotonic() - t_loop)))
@@ -147,13 +204,14 @@ class Run:
             n = 0
             while time.monotonic() < until:
                 n += 1
-                prompt = f"[{i}-{n}-{time.time_ns()}] Write a short story about a lighthouse keeper."
+                prompt = (f"[{i}-{n}] Write a short story about a lighthouse keeper." if self.a.fixed_prompts else
+                          f"[{i}-{n}-{time.time_ns()}] Write a short story about a lighthouse keeper.")
                 t_send = self.rel(); wall = ts()
                 rec = {"worker": i, "send_rel_s": t_send, "send_t": wall}
                 try:
                     r = await stream_chat(cl, GW, prompt, self.a.max_tokens, model=MODEL)
                     rec.update(ok=True, ttft_ms=r["ttft_ms"], total_ms=r["total_ms"], tokens=r["content_chunks"],
-                               finish_reason=r["finish_reason"])
+                               finish_reason=r["finish_reason"], itl_p50_ms=r["itl_p50_ms"], itl_mean_ms=r["itl_mean_ms"])
                 except Exception as e:
                     rec.update(ok=False, error=f"{type(e).__name__}: {e}"[:200])
                     await asyncio.sleep(0.5)
@@ -190,7 +248,7 @@ class Run:
     def collect(self):
         c = self.cfg
         ev = subprocess.run(["kubectl", "-n", NS, "get", "events", "--field-selector",
-                             f"involvedObject.name=keda-hpa-{c['so']}", "--sort-by=.lastTimestamp", "-o",
+                             f"involvedObject.name={self.a.hpa or 'keda-hpa-' + c['so']}", "--sort-by=.lastTimestamp", "-o",
                              "custom-columns=FIRST:.firstTimestamp,LAST:.lastTimestamp,COUNT:.count,REASON:.reason,MSG:.message"],
                             capture_output=True, text=True).stdout
         (self.dir / "hpa-events.txt").write_text(ev)
@@ -202,6 +260,13 @@ class Run:
                                  "custom-columns=LAST:.lastTimestamp,REASON:.reason,MSG:.message"],
                                 capture_output=True, text=True).stdout
         (self.dir / "deploy-events.txt").write_text(dep_ev)
+        try:   # the ScaledObject's own query over the run window, whichever autoscaler owned the Deployment
+            import urllib.parse
+            t1 = time.time(); t0 = t1 - self.rel() - 5
+            q = urllib.parse.urlencode({"query": KEDA_QUERY[self.a.pool], "start": t0, "end": t1, "step": 5})
+            (self.dir / "prom-queue.json").write_text(urllib.request.urlopen(f"{self.a.prom}/api/v1/query_range?{q}", timeout=10).read().decode())
+        except Exception as e:
+            (self.dir / "prom-queue.json").write_text(json.dumps({"error": str(e)}))
 
     def summary(self):
         def pct(xs, p):
@@ -246,6 +311,9 @@ def main():
     p.add_argument("--stagger", type=float, default=0.25)
     p.add_argument("--step", type=float, default=10, help="summary table bucket, s")
     p.add_argument("--out-dir", default="autoscaling/results")
+    p.add_argument("--hpa", help="HPA to sample (default keda-hpa-<ScaledObject>); e.g. a CPU-utilisation HPA")
+    p.add_argument("--fixed-prompts", action="store_true", help="prompt = [worker-n] + template: the same prompt set every cycle")
+    p.add_argument("--prom", default=PROM, help="Prometheus base URL for prom-queue.json")
     a = p.parse_args()
     asyncio.run(Run(a).main())
 

@@ -73,3 +73,34 @@ sizing:
   oob:                          # S1: BMC 1 GbE per node; S10: SN2201 48 x 1G
     ports_per_node: 1
     switch_ports: 48
+
+# ---- fabric/design/scaleout.py (Build 17 C3) ---------------------------------------------------
+# Every measured input is READ from the repo file named here, not typed in.
+scaleout:
+  dtype_bytes: 2                # FP16/BF16 activations (both configs: torch_dtype bfloat16)
+  tp: [2, 4, 8]
+  batch: [1, 64, 384]
+  prompt_tokens: [512, 2048, 8192]
+  models:                       # config.json saved at the pinned revision (S22, S23)
+    - {name: Qwen2.5-3B-Instruct,  repo: Qwen/Qwen2.5-3B-Instruct,  revision: aa8e72537993ba99e69dfaafa59ed015b17504d1,
+       config: fabric/design/models/qwen2.5-3b-instruct.config.json}
+    - {name: Qwen2.5-72B-Instruct, repo: Qwen/Qwen2.5-72B-Instruct, revision: 495f39366efef23836d0cfae4fbe635880d2be31,
+       config: fabric/design/models/qwen2.5-72b-instruct.config.json}
+  pcie_nccl_run: benchmarks/results/t4/20261016-153016_nccl   # Build 7b, fitted by nccl_check.fit (MEASURED)
+  soft_roce:                    # E3, ib_write_bw RDMA write, VM Soft-RoCE across the spine (MEASURED)
+    results: fabric/experiments/e3-results.json
+    path: [rdma, vm-cross-spine, ib_write_bw_1048576]
+  t4_step_ms:                   # measured T4 decode-step time of Qwen2.5-3B-Instruct, by batch (whole model, TP 1)
+    1:   {file: benchmarks/results/t4/20261014-224513_quant/results/quant/quant.jsonl, key: fp16-decode,
+          field: decode_tok_s_median, how: "1000 / batch-1 decode tok/s"}
+    64:  {file: benchmarks/results/t4/20261031-192649_bneck/results/bneck/prof-mns64.breakdown.json,
+          field: steps.decode_only.gpu_period_ms_mean, how: "trace GPU step period, decode-only steps"}
+    384: {file: benchmarks/results/t4/20261031-192649_bneck/results/bneck/prof-mns384.breakdown.json,
+          field: steps.decode_only.gpu_period_ms_mean, how: "trace GPU step period, decode-only steps"}
+  t4_ridge:                     # Build 14 offline ridge, mixed prefill+decode: step = running mean / output tok/s
+    file: benchmarks/results/t4/20261031-082141_ridge/results/ridge/ridge.jsonl
+    keys: {64: offline-mns64, 384: offline-mns384}
+  h100_step_ms: {}              # {model name: {batch: ms}} from Modal run D; empty -> "pending Modal run D"
+  sensitivity: [2, 5, 10]       # T4 compute / k: sensitivity, not a GPU claim
+  slow_link_fraction: 0.5       # one link in the ring at 50 % (DESIGN.md 2.3 method)
+  slow_link_batches: [64, 384]
