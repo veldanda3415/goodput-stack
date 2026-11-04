@@ -1,0 +1,10 @@
+$ /usr/bin/python3 -c 'import sys; from huggingface_hub import snapshot_download as s; print(s(sys.argv[1], revision=sys.argv[2]))' Qwen/Qwen2.5-3B-Instruct-AWQ 3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd
+# rc=0
+/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-3B-Instruct-AWQ/snapshots/3559b226e8ce77211e2c1bd7ddfb7686fec4d6dd
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Fetching 10 files:  20%|██        | 2/10 [00:00<00:00, 16.99it/s]
+Fetching 10 files:  70%|███████   | 7/10 [00:00<00:00, 26.43it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:17<00:00,  2.31s/it]
+Fetching 10 files: 100%|██████████| 10/10 [00:17<00:00,  1.74s/it]

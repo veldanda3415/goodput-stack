@@ -1,0 +1,4 @@
+$ pgrep -fa nvidia-cuda-mps
+# rc=0
+854 nvidia-cuda-mps-control -d
+932 nvidia-cuda-mps-server

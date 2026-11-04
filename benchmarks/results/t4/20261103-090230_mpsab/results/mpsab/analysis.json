@@ -1,0 +1,692 @@
+{
+  "runs": [
+    {
+      "run": "1S",
+      "order": 1,
+      "condition": "S",
+      "repeat": 1,
+      "timestamp_utc": "2026-11-03T14:10:22+00:00",
+      "combined_tok_s": 950.03,
+      "server_counter_tok_s": 958.16,
+      "per_instance_tok_s": {
+        "i1": 950.03
+      },
+      "tok_s_per_mhz": 0.8374,
+      "ttft_p50": 471.699,
+      "ttft_p95": 631.797,
+      "itl_p50": 28.387,
+      "itl_p95": 33.531,
+      "per_instance_itl_p50": {
+        "i1": 28.387
+      },
+      "per_instance_ttft_p50": {
+        "i1": 471.699
+      },
+      "sm_clock_mean": 1134.5,
+      "sm_clock_min": 900.0,
+      "sm_clock_max": 1290.0,
+      "nvml_sm_clock_mean": 1129.83,
+      "power_mean": 67.0,
+      "power_limit": 70.0,
+      "enforced_power_limit": 70.0,
+      "temp_window_mean": 71.28,
+      "temp_window_max": 80.0,
+      "temp_condition_start": "39",
+      "temp_load_start": "55",
+      "idle_before_s": 196.8,
+      "throttle_pct": {
+        "sw_power_cap": 100.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_thermal_slowdown": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "gpu_idle": 0.0,
+        "applications_clocks_setting": 0.0
+      },
+      "gpu_samples": 90,
+      "util_gpu_mean": 100.0,
+      "kv_usage_peak": {
+        "i1": 0.04280697842929604
+      },
+      "running_mean": {
+        "i1": 31.0337
+      },
+      "preemptions": {
+        "i1": 0.0
+      },
+      "errors": 0,
+      "requests_completed": 352,
+      "cancelled_at_end": 32,
+      "usage_completion_tokens": [
+        256
+      ],
+      "window_s": 90.0,
+      "kv_pool_tokens": {
+        "i1": 287072
+      },
+      "startup_s": {
+        "i1": 156.5
+      },
+      "mps_state_ok": true,
+      "engine_cores_as_mps_clients": 0,
+      "mps_client_lines": [],
+      "mps_processes": "",
+      "cpu_sys_mean": 12.88
+    },
+    {
+      "run": "2T",
+      "order": 2,
+      "condition": "T",
+      "repeat": 1,
+      "timestamp_utc": "2026-11-03T14:15:00+00:00",
+      "combined_tok_s": 643.2,
+      "server_counter_tok_s": 642.36,
+      "per_instance_tok_s": {
+        "i1": 321.6,
+        "i2": 321.6
+      },
+      "tok_s_per_mhz": 0.5841,
+      "ttft_p50": 833.183,
+      "ttft_p95": 1045.939,
+      "itl_p50": 43.681,
+      "itl_p95": 49.204,
+      "per_instance_itl_p50": {
+        "i1": 43.666,
+        "i2": 43.695
+      },
+      "per_instance_ttft_p50": {
+        "i1": 833.77,
+        "i2": 832.422
+      },
+      "sm_clock_mean": 1101.17,
+      "sm_clock_min": 990.0,
+      "sm_clock_max": 1170.0,
+      "nvml_sm_clock_mean": 1093.17,
+      "power_mean": 65.92,
+      "power_limit": 70.0,
+      "enforced_power_limit": 70.0,
+      "temp_window_mean": 77.43,
+      "temp_window_max": 80.0,
+      "temp_condition_start": "64",
+      "temp_load_start": "73",
+      "idle_before_s": 30.1,
+      "throttle_pct": {
+        "sw_power_cap": 100.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_thermal_slowdown": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "gpu_idle": 0.0,
+        "applications_clocks_setting": 0.0
+      },
+      "gpu_samples": 90,
+      "util_gpu_mean": 100.0,
+      "kv_usage_peak": {
+        "i1": 0.05628847845206686,
+        "i2": 0.05628847845206686
+      },
+      "running_mean": {
+        "i1": 15.5169,
+        "i2": 15.5506
+      },
+      "preemptions": {
+        "i1": 0.0,
+        "i2": 0.0
+      },
+      "errors": 0,
+      "requests_completed": 224,
+      "cancelled_at_end": 32,
+      "usage_completion_tokens": [
+        256
+      ],
+      "window_s": 90.0,
+      "kv_pool_tokens": {
+        "i1": 109168,
+        "i2": 109168
+      },
+      "startup_s": {
+        "i1": 106.6,
+        "i2": 77.9
+      },
+      "mps_state_ok": true,
+      "engine_cores_as_mps_clients": 0,
+      "mps_client_lines": [],
+      "mps_processes": "",
+      "cpu_sys_mean": 13.09
+    },
+    {
+      "run": "3M",
+      "order": 3,
+      "condition": "M",
+      "repeat": 1,
+      "timestamp_utc": "2026-11-03T14:19:33+00:00",
+      "combined_tok_s": 730.09,
+      "server_counter_tok_s": 729.48,
+      "per_instance_tok_s": {
+        "i1": 365.11,
+        "i2": 364.98
+      },
+      "tok_s_per_mhz": 0.7541,
+      "ttft_p50": 616.323,
+      "ttft_p95": 1017.865,
+      "itl_p50": 38.489,
+      "itl_p95": 42.41,
+      "per_instance_itl_p50": {
+        "i1": 38.498,
+        "i2": 38.481
+      },
+      "per_instance_ttft_p50": {
+        "i1": 617.959,
+        "i2": 616.192
+      },
+      "sm_clock_mean": 968.17,
+      "sm_clock_min": 840.0,
+      "sm_clock_max": 1050.0,
+      "nvml_sm_clock_mean": 972.33,
+      "power_mean": 65.91,
+      "power_limit": 70.0,
+      "enforced_power_limit": 70.0,
+      "temp_window_mean": 77.47,
+      "temp_window_max": 80.0,
+      "temp_condition_start": "64",
+      "temp_load_start": "73",
+      "idle_before_s": 30.1,
+      "throttle_pct": {
+        "sw_power_cap": 100.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_thermal_slowdown": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "gpu_idle": 0.0,
+        "applications_clocks_setting": 0.0
+      },
+      "gpu_samples": 90,
+      "util_gpu_mean": 100.0,
+      "kv_usage_peak": {
+        "i1": 0.056313242410910735,
+        "i2": 0.056313242410910735
+      },
+      "running_mean": {
+        "i1": 15.4157,
+        "i2": 15.5506
+      },
+      "preemptions": {
+        "i1": 0.0,
+        "i2": 0.0
+      },
+      "errors": 0,
+      "requests_completed": 256,
+      "cancelled_at_end": 32,
+      "usage_completion_tokens": [
+        256
+      ],
+      "window_s": 90.0,
+      "kv_pool_tokens": {
+        "i1": 109120,
+        "i2": 109120
+      },
+      "startup_s": {
+        "i1": 75.6,
+        "i2": 75.5
+      },
+      "mps_state_ok": true,
+      "engine_cores_as_mps_clients": 2,
+      "mps_client_lines": [
+        "|    0   N/A  N/A             912    M+C   VLLM::EngineCore                       6798MiB |",
+        "|    0   N/A  N/A            1064    M+C   VLLM::EngineCore                       6798MiB |"
+      ],
+      "mps_processes": "854 nvidia-cuda-mps-control -d\n932 nvidia-cuda-mps-server",
+      "cpu_sys_mean": 14.43
+    },
+    {
+      "run": "4M",
+      "order": 4,
+      "condition": "M",
+      "repeat": 2,
+      "timestamp_utc": "2026-11-03T14:24:15+00:00",
+      "combined_tok_s": 729.46,
+      "server_counter_tok_s": 728.74,
+      "per_instance_tok_s": {
+        "i1": 364.78,
+        "i2": 364.68
+      },
+      "tok_s_per_mhz": 0.7549,
+      "ttft_p50": 606.867,
+      "ttft_p95": 892.511,
+      "itl_p50": 38.211,
+      "itl_p95": 42.148,
+      "per_instance_itl_p50": {
+        "i1": 38.197,
+        "i2": 38.23
+      },
+      "per_instance_ttft_p50": {
+        "i1": 627.198,
+        "i2": 521.359
+      },
+      "sm_clock_mean": 966.33,
+      "sm_clock_min": 810.0,
+      "sm_clock_max": 1065.0,
+      "nvml_sm_clock_mean": 969.67,
+      "power_mean": 65.99,
+      "power_limit": 70.0,
+      "enforced_power_limit": 70.0,
+      "temp_window_mean": 77.31,
+      "temp_window_max": 80.0,
+      "temp_condition_start": "63",
+      "temp_load_start": "72",
+      "idle_before_s": 30.1,
+      "throttle_pct": {
+        "sw_power_cap": 100.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_thermal_slowdown": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "gpu_idle": 0.0,
+        "applications_clocks_setting": 0.0
+      },
+      "gpu_samples": 90,
+      "util_gpu_mean": 100.0,
+      "kv_usage_peak": {
+        "i1": 0.056313242410910735,
+        "i2": 0.056313242410910735
+      },
+      "running_mean": {
+        "i1": 15.5281,
+        "i2": 15.4944
+      },
+      "preemptions": {
+        "i1": 0.0,
+        "i2": 0.0
+      },
+      "errors": 0,
+      "requests_completed": 256,
+      "cancelled_at_end": 32,
+      "usage_completion_tokens": [
+        256
+      ],
+      "window_s": 90.0,
+      "kv_pool_tokens": {
+        "i1": 109120,
+        "i2": 109120
+      },
+      "startup_s": {
+        "i1": 75.5,
+        "i2": 77.5
+      },
+      "mps_state_ok": true,
+      "engine_cores_as_mps_clients": 2,
+      "mps_client_lines": [
+        "|    0   N/A  N/A            1285    M+C   VLLM::EngineCore                       6798MiB |",
+        "|    0   N/A  N/A            1436    M+C   VLLM::EngineCore                       6798MiB |"
+      ],
+      "mps_processes": "1227 nvidia-cuda-mps-control -d\n1305 nvidia-cuda-mps-server",
+      "cpu_sys_mean": 14.09
+    },
+    {
+      "run": "5T",
+      "order": 5,
+      "condition": "T",
+      "repeat": 2,
+      "timestamp_utc": "2026-11-03T14:28:57+00:00",
+      "combined_tok_s": 645.34,
+      "server_counter_tok_s": 644.81,
+      "per_instance_tok_s": {
+        "i1": 320.18,
+        "i2": 325.16
+      },
+      "tok_s_per_mhz": 0.5855,
+      "ttft_p50": 779.322,
+      "ttft_p95": 1022.597,
+      "itl_p50": 43.68,
+      "itl_p95": 50.659,
+      "per_instance_itl_p50": {
+        "i1": 43.761,
+        "i2": 43.628
+      },
+      "per_instance_ttft_p50": {
+        "i1": 781.572,
+        "i2": 774.242
+      },
+      "sm_clock_mean": 1102.17,
+      "sm_clock_min": 1020.0,
+      "sm_clock_max": 1170.0,
+      "nvml_sm_clock_mean": 1097.33,
+      "power_mean": 66.16,
+      "power_limit": 70.0,
+      "enforced_power_limit": 70.0,
+      "temp_window_mean": 77.39,
+      "temp_window_max": 80.0,
+      "temp_condition_start": "63",
+      "temp_load_start": "72",
+      "idle_before_s": 30.1,
+      "throttle_pct": {
+        "sw_power_cap": 100.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_thermal_slowdown": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "gpu_idle": 0.0,
+        "applications_clocks_setting": 0.0
+      },
+      "gpu_samples": 90,
+      "util_gpu_mean": 100.0,
+      "kv_usage_peak": {
+        "i1": 0.05628847845206686,
+        "i2": 0.05628847845206686
+      },
+      "running_mean": {
+        "i1": 15.5056,
+        "i2": 15.573
+      },
+      "preemptions": {
+        "i1": 0.0,
+        "i2": 0.0
+      },
+      "errors": 0,
+      "requests_completed": 224,
+      "cancelled_at_end": 32,
+      "usage_completion_tokens": [
+        256
+      ],
+      "window_s": 90.0,
+      "kv_pool_tokens": {
+        "i1": 109168,
+        "i2": 109168
+      },
+      "startup_s": {
+        "i1": 75.6,
+        "i2": 77.6
+      },
+      "mps_state_ok": true,
+      "engine_cores_as_mps_clients": 0,
+      "mps_client_lines": [],
+      "mps_processes": "",
+      "cpu_sys_mean": 14.44
+    },
+    {
+      "run": "6S",
+      "order": 6,
+      "condition": "S",
+      "repeat": 2,
+      "timestamp_utc": "2026-11-03T14:32:29+00:00",
+      "combined_tok_s": 918.97,
+      "server_counter_tok_s": 916.54,
+      "per_instance_tok_s": {
+        "i1": 918.97
+      },
+      "tok_s_per_mhz": 0.8603,
+      "ttft_p50": 509.678,
+      "ttft_p95": 777.223,
+      "itl_p50": 29.638,
+      "itl_p95": 34.243,
+      "per_instance_itl_p50": {
+        "i1": 29.638
+      },
+      "per_instance_ttft_p50": {
+        "i1": 509.678
+      },
+      "sm_clock_mean": 1068.17,
+      "sm_clock_min": 915.0,
+      "sm_clock_max": 1185.0,
+      "nvml_sm_clock_mean": 1067.67,
+      "power_mean": 65.97,
+      "power_limit": 70.0,
+      "enforced_power_limit": 70.0,
+      "temp_window_mean": 76.89,
+      "temp_window_max": 80.0,
+      "temp_condition_start": "64",
+      "temp_load_start": "68",
+      "idle_before_s": 30.1,
+      "throttle_pct": {
+        "sw_power_cap": 100.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_thermal_slowdown": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "gpu_idle": 0.0,
+        "applications_clocks_setting": 0.0
+      },
+      "gpu_samples": 90,
+      "util_gpu_mean": 100.0,
+      "kv_usage_peak": {
+        "i1": 0.04095563139931746
+      },
+      "running_mean": {
+        "i1": 30.9213
+      },
+      "preemptions": {
+        "i1": 0.0
+      },
+      "errors": 0,
+      "requests_completed": 320,
+      "cancelled_at_end": 32,
+      "usage_completion_tokens": [
+        256
+      ],
+      "window_s": 90.0,
+      "kv_pool_tokens": {
+        "i1": 300048
+      },
+      "startup_s": {
+        "i1": 75.3
+      },
+      "mps_state_ok": true,
+      "engine_cores_as_mps_clients": 0,
+      "mps_client_lines": [],
+      "mps_processes": "",
+      "cpu_sys_mean": 13.07
+    }
+  ],
+  "conditions": {
+    "S": {
+      "n": 2,
+      "runs": [
+        "1S",
+        "6S"
+      ],
+      "combined_tok_s": 934.5,
+      "combined_tok_s_values": [
+        950.03,
+        918.97
+      ],
+      "combined_tok_s_spread_pct": 3.32,
+      "tok_s_per_mhz": 0.8488,
+      "tok_s_per_mhz_values": [
+        0.8374,
+        0.8603
+      ],
+      "tok_s_per_mhz_spread_pct": 2.7,
+      "itl_p50": 29.0125,
+      "itl_p50_values": [
+        28.387,
+        29.638
+      ],
+      "itl_p50_spread_pct": 4.31,
+      "itl_p95": 33.887,
+      "itl_p95_values": [
+        33.531,
+        34.243
+      ],
+      "itl_p95_spread_pct": 2.1,
+      "ttft_p50": 490.6885,
+      "ttft_p50_values": [
+        471.699,
+        509.678
+      ],
+      "ttft_p50_spread_pct": 7.74,
+      "ttft_p95": 704.51,
+      "ttft_p95_values": [
+        631.797,
+        777.223
+      ],
+      "ttft_p95_spread_pct": 20.64,
+      "sm_clock_mean": 1101.335,
+      "sm_clock_mean_values": [
+        1134.5,
+        1068.17
+      ],
+      "sm_clock_mean_spread_pct": 6.02,
+      "power_mean": 66.485,
+      "power_mean_values": [
+        67.0,
+        65.97
+      ],
+      "power_mean_spread_pct": 1.55,
+      "temp_window_mean": 74.085,
+      "temp_window_mean_values": [
+        71.28,
+        76.89
+      ],
+      "temp_window_mean_spread_pct": 7.57,
+      "throttle_pct": {
+        "applications_clocks_setting": 0.0,
+        "gpu_idle": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_power_cap": 100.0,
+        "sw_thermal_slowdown": 0.0
+      }
+    },
+    "T": {
+      "n": 2,
+      "runs": [
+        "2T",
+        "5T"
+      ],
+      "combined_tok_s": 644.27,
+      "combined_tok_s_values": [
+        643.2,
+        645.34
+      ],
+      "combined_tok_s_spread_pct": 0.33,
+      "tok_s_per_mhz": 0.5848,
+      "tok_s_per_mhz_values": [
+        0.5841,
+        0.5855
+      ],
+      "tok_s_per_mhz_spread_pct": 0.24,
+      "itl_p50": 43.6805,
+      "itl_p50_values": [
+        43.681,
+        43.68
+      ],
+      "itl_p50_spread_pct": 0.0,
+      "itl_p95": 49.9315,
+      "itl_p95_values": [
+        49.204,
+        50.659
+      ],
+      "itl_p95_spread_pct": 2.91,
+      "ttft_p50": 806.2525,
+      "ttft_p50_values": [
+        833.183,
+        779.322
+      ],
+      "ttft_p50_spread_pct": 6.68,
+      "ttft_p95": 1034.268,
+      "ttft_p95_values": [
+        1045.939,
+        1022.597
+      ],
+      "ttft_p95_spread_pct": 2.26,
+      "sm_clock_mean": 1101.67,
+      "sm_clock_mean_values": [
+        1101.17,
+        1102.17
+      ],
+      "sm_clock_mean_spread_pct": 0.09,
+      "power_mean": 66.04,
+      "power_mean_values": [
+        65.92,
+        66.16
+      ],
+      "power_mean_spread_pct": 0.36,
+      "temp_window_mean": 77.41,
+      "temp_window_mean_values": [
+        77.43,
+        77.39
+      ],
+      "temp_window_mean_spread_pct": 0.05,
+      "throttle_pct": {
+        "applications_clocks_setting": 0.0,
+        "gpu_idle": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_power_cap": 100.0,
+        "sw_thermal_slowdown": 0.0
+      }
+    },
+    "M": {
+      "n": 2,
+      "runs": [
+        "3M",
+        "4M"
+      ],
+      "combined_tok_s": 729.775,
+      "combined_tok_s_values": [
+        730.09,
+        729.46
+      ],
+      "combined_tok_s_spread_pct": 0.09,
+      "tok_s_per_mhz": 0.7545,
+      "tok_s_per_mhz_values": [
+        0.7541,
+        0.7549
+      ],
+      "tok_s_per_mhz_spread_pct": 0.11,
+      "itl_p50": 38.35,
+      "itl_p50_values": [
+        38.489,
+        38.211
+      ],
+      "itl_p50_spread_pct": 0.72,
+      "itl_p95": 42.279,
+      "itl_p95_values": [
+        42.41,
+        42.148
+      ],
+      "itl_p95_spread_pct": 0.62,
+      "ttft_p50": 611.595,
+      "ttft_p50_values": [
+        616.323,
+        606.867
+      ],
+      "ttft_p50_spread_pct": 1.55,
+      "ttft_p95": 955.188,
+      "ttft_p95_values": [
+        1017.865,
+        892.511
+      ],
+      "ttft_p95_spread_pct": 13.12,
+      "sm_clock_mean": 967.25,
+      "sm_clock_mean_values": [
+        968.17,
+        966.33
+      ],
+      "sm_clock_mean_spread_pct": 0.19,
+      "power_mean": 65.95,
+      "power_mean_values": [
+        65.91,
+        65.99
+      ],
+      "power_mean_spread_pct": 0.12,
+      "temp_window_mean": 77.39,
+      "temp_window_mean_values": [
+        77.47,
+        77.31
+      ],
+      "temp_window_mean_spread_pct": 0.21,
+      "throttle_pct": {
+        "applications_clocks_setting": 0.0,
+        "gpu_idle": 0.0,
+        "hw_power_brake_slowdown": 0.0,
+        "hw_slowdown": 0.0,
+        "hw_thermal_slowdown": 0.0,
+        "sw_power_cap": 100.0,
+        "sw_thermal_slowdown": 0.0
+      }
+    }
+  }
+}

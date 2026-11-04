@@ -1,0 +1,42 @@
+$ tail -n 40 /tmp/goodput-mps/log/control.log
+# rc=0
+[2026-11-03 14:17:13.545 Control   854] Accepting connection...
+[2026-11-03 14:17:13.545 Control   854] NEW CLIENT 1064 from user 0: Server already exists
+[2026-11-03 14:17:50.861 Control   854] Accepting connection...
+[2026-11-03 14:17:50.861 Control   854] NEW UI
+[2026-11-03 14:17:50.861 Control   854] Cmd:get_server_list
+[2026-11-03 14:17:50.861 Control   854] 932
+[2026-11-03 14:17:50.861 Control   854] UI closed
+[2026-11-03 14:19:41.023 Control   854] Accepting connection...
+[2026-11-03 14:19:41.023 Control   854] NEW UI
+[2026-11-03 14:19:41.023 Control   854] Cmd:quit
+[2026-11-03 14:19:41.023 Control   854] Try shutting down server 932, backoff is disabled
+[2026-11-03 14:19:41.147 Control   854] Server 932 exited with status 0
+[2026-11-03 14:19:41.147 Control   854] Exit with status 0
+[2026-11-03 14:19:44.261 Control  1227] Starting control daemon using socket /tmp/goodput-mps/pipe/control
+[2026-11-03 14:19:44.261 Control  1227] To connect CUDA applications to this daemon, set env CUDA_MPS_PIPE_DIRECTORY=/tmp/goodput-mps/pipe
+[2026-11-03 14:19:44.262 Control  1227] CUDA MPS Control binary version: 13000
+[2026-11-03 14:19:46.270 Control  1227] Accepting connection...
+[2026-11-03 14:19:46.270 Control  1227] NEW UI
+[2026-11-03 14:19:46.270 Control  1227] Cmd:get_server_list
+[2026-11-03 14:19:46.270 Control  1227] UI closed
+[2026-11-03 14:20:51.240 Control  1227] Accepting connection...
+[2026-11-03 14:20:51.240 Control  1227] User did not send valid credentials
+[2026-11-03 14:20:51.240 Control  1227] Accepting connection...
+[2026-11-03 14:20:51.240 Control  1227] NEW CLIENT 1285 from user 0: Server is not ready, push client to pending list
+[2026-11-03 14:20:51.241 Control  1305] Starting new server 1305 for user 0
+[2026-11-03 14:20:51.246 Control  1227] Accepting connection...
+[2026-11-03 14:20:51.525 Control  1227] NEW SERVER 1305: Ready
+[2026-11-03 14:20:52.202 Control  1227] Accepting connection...
+[2026-11-03 14:20:52.202 Control  1227] NEW CLIENT 1285 from user 0: Server already exists
+[2026-11-03 14:21:51.943 Control  1227] Accepting connection...
+[2026-11-03 14:21:51.943 Control  1227] User did not send valid credentials
+[2026-11-03 14:21:51.943 Control  1227] Accepting connection...
+[2026-11-03 14:21:51.943 Control  1227] NEW CLIENT 1436 from user 0: Server already exists
+[2026-11-03 14:21:52.493 Control  1227] Accepting connection...
+[2026-11-03 14:21:52.493 Control  1227] NEW CLIENT 1436 from user 0: Server already exists
+[2026-11-03 14:22:32.126 Control  1227] Accepting connection...
+[2026-11-03 14:22:32.126 Control  1227] NEW UI
+[2026-11-03 14:22:32.127 Control  1227] Cmd:get_server_list
+[2026-11-03 14:22:32.127 Control  1227] 1305
+[2026-11-03 14:22:32.127 Control  1227] UI closed

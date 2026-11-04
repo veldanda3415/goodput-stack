@@ -1,0 +1,18 @@
+{
+  "run_id": "20261103-070741_mpsab",
+  "stage": "mpsab",
+  "args": [],
+  "kernel": "raviveldanda/goodput-t4-b17k",
+  "git_sha": "a6d0112",
+  "resume_from": null,
+  "machine_shape": "NvidiaTeslaT4",
+  "pushed_at_utc": "2026-11-03T12:07:43+00:00",
+  "push_output": "Warning: Looks like you're using an outdated `kaggle` version (installed: 2.2.3), please consider upgrading to the latest version (2.2.5)\nKernel version 1 successfully pushed.  Please check progress at https://www.kaggle.com/code/raviveldanda/goodput-t4-b17k",
+  "output_cmd_output": "downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/logs/server-3M-i1.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/logs/server-3M-i2.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/logs/server-4M-i1.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/logs/server-4M-i2.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/logs/server-5T-i1.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/logs/server-5T-i2.log\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/logs/uv-install-vllm-0.31.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/logs/vllm-serve-help-0.31.0.txt\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/mpsab.jsonl\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/prompts.json\nOutput file downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/results/mpsab/stage.json\nKernel log downloaded to /home/veldanda3415/workspace/goodput-stack-b17-kaggle/benchmarks/results/t4/20261103-070741_mpsab/_download/goodput-t4-b17k.log",
+  "finished_at_utc": "2026-11-03T12:37:39+00:00",
+  "status": "complete",
+  "wall_push_to_done_min": 29.9,
+  "script_session_s": 1734.8,
+  "gpu_hours_script": 0.482,
+  "gpu_hours_upper_bound": 0.498
+}

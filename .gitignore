@@ -37,3 +37,6 @@ benchmarks/results/t4/**/wikitext2_test.txt
 
 # Local working log, not tracked
 docs/open-issues.md
+
+# run_kaggle.py push build dirs
+.kaggle-staging/

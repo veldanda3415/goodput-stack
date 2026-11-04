@@ -1,0 +1,2 @@
+$ pgrep -fa nvidia-cuda-mps
+# rc=1

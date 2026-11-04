@@ -1,0 +1,2 @@
+$ /usr/bin/python3 -m pip install -q uv && /usr/bin/python3 -m uv pip install --python /usr/bin/python3 --system -q vllm==0.31.0
+# rc=0
