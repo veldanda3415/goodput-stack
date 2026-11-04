@@ -39,9 +39,11 @@ import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
 
-GEMM_RE = re.compile(r"gemm|gemv|xmma|s1688|h1688|s884|h884|splitKreduce|cublas|cutlass", re.I)
+GEMM_RE = re.compile(r"gemm|gemv|xmma|nvjet|s1688|h1688|s884|h884|splitKreduce|cublas|cutlass", re.I)
 DEQUANT_RE = re.compile(r"dequant", re.I)
 ATTN_RE = re.compile(r"attention|attn|flash|paged|reshape_and_cache|unified_|reduce_segments|fmha|flex", re.I)
+# checked before GEMM_RE: FlashAttention-3 (sm_90) kernels are cutlass templates, e.g. "cutlass::device_kernel<flash::...>"
+ATTN_FIRST_RE = re.compile(r"flash::|FlashAttn|flash_fwd|flash_attn|fmha", re.I)
 NORM_RE = re.compile(r"rms|norm|rsqrt", re.I)
 ACT_RE = re.compile(r"silu|act_and_mul|gelu|swiglu", re.I)
 ROPE_RE = re.compile(r"rotary|rope", re.I)
@@ -53,7 +55,18 @@ SCOPES = ("forward", "postprocess", "sample", "preprocess", "bookkeep", "draft",
 
 # Qwen2.5-3B-Instruct (config.json @ aa8e7253): per layer qkv 2048x2560, o 2048x2048, gate_up 2048x22016, down 11008x2048
 QWEN3B = {"layers": 36, "shapes": [("qkv", 2048, 2560), ("o", 2048, 2048), ("gate_up", 2048, 22016), ("down", 11008, 2048)],
-          "lm_head": (2048, 151936)}
+          "lm_head": (2048, 151936), "kv_bytes_per_token": KV_BYTES_PER_TOKEN}
+
+
+def model_from_config(cfg: dict, kv_elem_bytes: int = 2) -> dict:
+    """The same table for any Llama / Qwen2-style config.json; kv_elem_bytes 1 for an FP8 KV cache."""
+    h, heads = cfg["hidden_size"], cfg["num_attention_heads"]
+    kvh = cfg.get("num_key_value_heads", heads)
+    hd = cfg.get("head_dim") or h // heads
+    inter, layers = cfg["intermediate_size"], cfg["num_hidden_layers"]
+    return {"layers": layers, "shapes": [("qkv", h, (heads + 2 * kvh) * hd), ("o", heads * hd, h), ("gate_up", h, 2 * inter),
+                                         ("down", inter, h)],
+            "lm_head": (h, cfg["vocab_size"]), "kv_bytes_per_token": layers * 2 * kvh * hd * kv_elem_bytes}
 
 
 def linear_params(model: dict = QWEN3B) -> int:
@@ -91,6 +104,8 @@ def category(ev: dict, scope: str | None) -> tuple[str, str]:
         return "memcpy", cat
     if DEQUANT_RE.search(name):
         return "dequant", "dequant"
+    if ATTN_FIRST_RE.search(name):
+        return "attention", "attention"
     if GEMM_RE.search(name):
         return "gemm", "lm_head_or_logits" if scope in ("postprocess", "sample") else "linear"
     if ATTN_RE.search(name):
@@ -189,6 +204,7 @@ def analyze(trace: dict, model: dict = QWEN3B) -> dict:
     for r in inw:
         by_step[r["step"]].append(r)
     lin, lmh = linear_params(model), lm_head_params(model)
+    kvb = model.get("kv_bytes_per_token", KV_BYTES_PER_TOKEN)
     starts = [r["ts"] for r in inw]
     max_dur = max((r["dur"] for r in inw), default=0)
     per_step = []
@@ -207,7 +223,7 @@ def analyze(trace: dict, model: dict = QWEN3B) -> dict:
         attn_t = sum(r["dur"] for r in rs if r["cat"] == "attention" and r["sub"] == "attention")
         per_step.append({"step": si, **info, "gpu_period_us": s1 - s0, "busy_us": union_length(iv),
                          "attn_kernel_us": attn_t,
-                         "attn_kv_gb_s_calculated": (info["kv_tokens"] * KV_BYTES_PER_TOKEN / attn_t / 1e3)
+                         "attn_kv_gb_s_calculated": (info["kv_tokens"] * kvb / attn_t / 1e3)
                          if info.get("kv_tokens") and attn_t else None,
                          "gemm_us": gemm_t, "gemm_kernels": len(gemm_k),
                          "attn_us": sum(r["dur"] for r in rs if r["cat"] == "attention"),
@@ -221,7 +237,8 @@ def analyze(trace: dict, model: dict = QWEN3B) -> dict:
                  "share_pct_of_window": shares, "overlap_us": round(sum(cat_us.values()) - busy, 1),
                  "gap_us": _dist([g for g in gaps(ivals)]),
                  "top_kernels": _top(inw, 25)}
-    out["steps"] = _step_summary(per_step)
+    out["steps"] = _step_summary(per_step, kvb)
+    out["model_table"] = {k: v for k, v in model.items()}
     out["per_shape"] = _per_shape(per_step, model)
     for p in per_step:
         p.pop("_gemms")
@@ -249,7 +266,7 @@ def _top(rows: list[dict], n: int) -> list[dict]:
             for k, v in t.most_common(n)]
 
 
-def _step_summary(per_step: list[dict]) -> dict:
+def _step_summary(per_step: list[dict], kv_bytes_per_token: int = KV_BYTES_PER_TOKEN) -> dict:
     out = {}
     for kind, sel in (("all", lambda p: True), ("decode_only", lambda p: p["ctx_reqs"] == 0),
                       ("mixed", lambda p: p["ctx_reqs"] > 0)):
@@ -272,7 +289,7 @@ def _step_summary(per_step: list[dict]) -> dict:
                      "gemm_kernels_per_step_mode": Counter(p["gemm_kernels"] for p in ps).most_common(1)[0][0],
                      "kv_tokens_per_step_mean": round(statistics.fmean(p["kv_tokens"] for p in ps), 1) if all(p.get("kv_tokens") for p in ps) else None,
                      "attn_kernel_ms_mean": round(statistics.fmean(p["attn_kernel_us"] for p in ps) / 1e3, 3),
-                     "attn_kv_read_gb_s_calculated": round(sum(p["kv_tokens"] for p in ps) * KV_BYTES_PER_TOKEN
+                     "attn_kv_read_gb_s_calculated": round(sum(p["kv_tokens"] for p in ps) * kv_bytes_per_token
                                                           / sum(p["attn_kernel_us"] for p in ps) / 1e3, 1)
                      if all(p.get("kv_tokens") for p in ps) and sum(p["attn_kernel_us"] for p in ps) else None,
                      "cpu_execute_ms_p50": round(statistics.median(cpu_ex) / 1e3, 3) if cpu_ex else None,
@@ -315,8 +332,11 @@ def main() -> None:
     ap.add_argument("trace")
     ap.add_argument("--out")
     ap.add_argument("--keep-steps", action="store_true", help="keep the per_step list in --out")
+    ap.add_argument("--config", help="model config.json (default: the Qwen2.5-3B table)")
+    ap.add_argument("--kv-elem-bytes", type=int, default=2, help="1 for an FP8 KV cache")
     a = ap.parse_args()
-    res = analyze(load(a.trace))
+    model = model_from_config(json.loads(Path(a.config).read_text()), a.kv_elem_bytes) if a.config else QWEN3B
+    res = analyze(load(a.trace), model)
     if not a.keep_steps:
         res.pop("per_step", None)
     text = json.dumps(res, indent=1)

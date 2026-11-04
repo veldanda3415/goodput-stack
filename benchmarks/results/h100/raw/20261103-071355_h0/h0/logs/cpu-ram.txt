@@ -1,0 +1,7 @@
+$ cat /proc/cpuinfo | grep -m1 'model name'; nproc; cat /sys/fs/cgroup/cpu.max 2>/dev/null; cat /sys/fs/cgroup/memory.max 2>/dev/null; free -g
+# rc=0
+model name	: unknown
+8
+               total        used        free      shared  buff/cache   available
+Mem:            1024           0        1023           0           0        1023
+Swap:              0           0           0

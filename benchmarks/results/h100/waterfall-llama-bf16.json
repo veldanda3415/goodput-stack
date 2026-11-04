@@ -1,0 +1,106 @@
+{
+ "title": "Llama-3.1-8B BF16, max-num-seqs 1,024, one H100 (Modal H100 SXM, real)",
+ "breakdown": "raw/20261103-081737_h3/h3/prof-a-bf16-mns1024.breakdown.json",
+ "profile_clock_mhz": 1884.76,
+ "measured_clock_mhz": 1645.61,
+ "factors": {
+  "clock": 0.8311161616161615,
+  "gemm_efficiency": 0.8350717374555668,
+  "attention": 0.634159779614325,
+  "other_kernels": 0.8292788879235449,
+  "idle": 1.0,
+  "prompt_share": 0.7824686133183071
+ },
+ "chain": [
+  [
+   "datasheet decode ceiling (989 TFLOP/s \u00f7 15.01 GFLOP per token)",
+   65892.4059610019
+  ],
+  [
+   "\u00d7 SM clock 1,646 / 1,980 MHz",
+   54764.243521961784
+  ],
+  [
+   "\u00d7 GEMM efficiency per clock (vLLM decode steps)",
+   45732.071988324395
+  ],
+  [
+   "\u2212 attention kernel time",
+   29001.440693422246
+  ],
+  [
+   "\u2212 norm / activation / sampling / memcpy time",
+   24050.282486421842
+  ],
+  [
+   "\u2212 GPU idle (unprofiled step period vs kernel time)",
+   24050.282486421842
+  ],
+  [
+   "\u2212 prompt (prefill) work",
+   18818.591187064067
+  ]
+ ],
+ "predicted": 18818.591187064067,
+ "measured": 19840.93,
+ "measured_key": "a-bf16-mns1024",
+ "measured_run": "20261103-081737_h3",
+ "residual_pct": 5.432600149360223,
+ "inputs": {
+  "p_lin": 6979321856,
+  "p_lm": 525336576,
+  "flop_per_decode_token": 15009316864,
+  "kv_bytes_per_token_bf16": 131072,
+  "weight_bytes_bf16": 15009316864,
+  "engine_steps_unprofiled": {
+   "window_s": 51.45806646347046,
+   "steps": 1046,
+   "step_ms": 49.19509222129107,
+   "tokens_per_step": 1503.6940726577438,
+   "itl_ms": 48.57174434280097,
+   "samples": 52
+  },
+  "trace_busy_ms_per_step": 47.1875368,
+  "trace_gemm_ms_per_step": 28.2485267,
+  "busy_ms_per_step_at_measured_clock": 51.29278358405272,
+  "busy_over_period_uncapped": 1.0426402567419886,
+  "trace_decode": {
+   "steps": 279,
+   "tokens_per_step_mean": 1024.0,
+   "tokens_mode": 1024,
+   "gpu_period_ms_mean": 51.208,
+   "gpu_period_ms_p50": 51.073,
+   "busy_pct": 72.6,
+   "idle_pct": 27.4,
+   "gemm_pct": 38.18,
+   "attn_pct": 26.56,
+   "gemm_tflops_calculated": 786.16,
+   "gemm_kernels_per_step_mode": 129,
+   "kv_tokens_per_step_mean": 250516.3,
+   "attn_kernel_ms_mean": 13.374,
+   "attn_kv_read_gb_s_calculated": 2455.1,
+   "cpu_execute_ms_p50": 28.839,
+   "cpu_period_ms_p50": 51.137,
+   "gen_tokens_per_s_calculated": 19996.6
+  },
+  "trace_all": {
+   "steps": 299,
+   "tokens_per_step_mean": 1455.3,
+   "tokens_mode": 1024,
+   "gpu_period_ms_mean": 60.373,
+   "gpu_period_ms_p50": 51.222,
+   "busy_pct": 78.16,
+   "idle_pct": 21.84,
+   "gemm_pct": 46.79,
+   "attn_pct": 23.36,
+   "gemm_tflops_calculated": 757.177,
+   "gemm_kernels_per_step_mode": 129,
+   "kv_tokens_per_step_mean": 249941.5,
+   "attn_kernel_ms_mean": 13.781,
+   "attn_kv_read_gb_s_calculated": 2377.2,
+   "cpu_execute_ms_p50": 28.888,
+   "cpu_period_ms_p50": 51.239,
+   "gen_tokens_per_s_calculated": 16845.0
+  }
+ }
+}

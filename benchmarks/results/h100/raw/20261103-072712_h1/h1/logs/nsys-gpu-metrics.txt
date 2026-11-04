@@ -1,0 +1,24 @@
+$ nsys profile -f true -o /tmp/nsys-gm --gpu-metrics-devices=0 /usr/local/bin/python -c 'import torch; a = torch.randn(2048, 2048, device='"'"'cuda'"'"', dtype=torch.float16); [a @ a for _ in range(5)]; torch.cuda.synchronize(); print('"'"'ok'"'"')'
+# rc=0
+ok
+GPU 0: General Metrics for NVIDIA GH100
+Collecting data...
+Generating '/tmp/nsys-root/nsys-report-6f1d.qdstrm'
+
+[1/1] [0%                          ] nsys-gm.nsys-rep
+[1/1] [0%                          ] nsys-gm.nsys-rep
+[1/1] [1%                          ] nsys-gm.nsys-rep
+[1/1] [2%                          ] nsys-gm.nsys-rep
+[1/1] [5%                          ] nsys-gm.nsys-rep
+[1/1] [12%                         ] nsys-gm.nsys-rep
+[1/1] [=15%                        ] nsys-gm.nsys-rep
+[1/1] [==19%                       ] nsys-gm.nsys-rep
+[1/1] [==20%                       ] nsys-gm.nsys-rep
+[1/1] [================71%         ] nsys-gm.nsys-rep
+[1/1] [=======================93%  ] nsys-gm.nsys-rep
+[1/1] [=======================96%  ] nsys-gm.nsys-rep
+[1/1] [========================98% ] nsys-gm.nsys-rep
+[1/1] [========================100%] nsys-gm.nsys-rep
+[1/1] [========================100%] nsys-gm.nsys-rep
+Generated:
+	/tmp/nsys-gm.nsys-rep

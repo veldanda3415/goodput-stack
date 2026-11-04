@@ -1,0 +1,103 @@
+{
+  "help_rc": 0,
+  "fields": [
+    "clocks.sm",
+    "clocks.mem",
+    "clocks.max.sm",
+    "clocks.applications.graphics",
+    "power.draw",
+    "power.draw.instant",
+    "power.draw.average",
+    "power.limit",
+    "enforced.power.limit",
+    "power.default_limit",
+    "power.min_limit",
+    "power.max_limit",
+    "temperature.gpu",
+    "pstate",
+    "clocks_throttle_reasons.supported",
+    "clocks_throttle_reasons.active",
+    "clocks_throttle_reasons.gpu_idle",
+    "clocks_throttle_reasons.applications_clocks_setting",
+    "clocks_throttle_reasons.sw_power_cap",
+    "clocks_throttle_reasons.hw_slowdown",
+    "clocks_throttle_reasons.hw_thermal_slowdown",
+    "clocks_throttle_reasons.hw_power_brake_slowdown",
+    "clocks_throttle_reasons.sw_thermal_slowdown",
+    "clocks_throttle_reasons.sync_boost"
+  ],
+  "aliases": {
+    "clocks.sm": [
+      "clocks.current.sm"
+    ],
+    "clocks.mem": [
+      "clocks.current.memory"
+    ],
+    "clocks.applications.graphics": [
+      "clocks.applications.gr"
+    ],
+    "power.draw.instant": [
+      "gpu.power.draw.instant"
+    ],
+    "power.draw.average": [
+      "gpu.power.draw.average"
+    ],
+    "power.limit": [
+      "gpu.power.requested_limit"
+    ],
+    "enforced.power.limit": [
+      "gpu.power.current_limit"
+    ],
+    "power.default_limit": [
+      "gpu.power.default_limit"
+    ],
+    "power.min_limit": [
+      "gpu.power.min_limit"
+    ],
+    "power.max_limit": [
+      "gpu.power.max_limit"
+    ],
+    "clocks_throttle_reasons.supported": [
+      "clocks_event_reasons.supported"
+    ],
+    "clocks_throttle_reasons.active": [
+      "clocks_event_reasons.active"
+    ],
+    "clocks_throttle_reasons.gpu_idle": [
+      "clocks_event_reasons.gpu_idle"
+    ],
+    "clocks_throttle_reasons.applications_clocks_setting": [
+      "clocks_event_reasons.applications_clocks_setting"
+    ],
+    "clocks_throttle_reasons.sw_power_cap": [
+      "clocks_event_reasons.sw_power_cap"
+    ],
+    "clocks_throttle_reasons.hw_slowdown": [
+      "clocks_event_reasons.hw_slowdown"
+    ],
+    "clocks_throttle_reasons.hw_thermal_slowdown": [
+      "clocks_event_reasons.hw_thermal_slowdown"
+    ],
+    "clocks_throttle_reasons.hw_power_brake_slowdown": [
+      "clocks_event_reasons.hw_power_brake_slowdown"
+    ],
+    "clocks_throttle_reasons.sw_thermal_slowdown": [
+      "clocks_event_reasons.sw_thermal_slowdown"
+    ],
+    "clocks_throttle_reasons.sync_boost": [
+      "clocks_event_reasons.sync_boost"
+    ]
+  },
+  "missing": [],
+  "cmd": [
+    "nvidia-smi",
+    "--query-gpu=clocks.sm,clocks.mem,clocks.max.sm,clocks.applications.graphics,power.draw,power.draw.instant,power.draw.average,power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit,temperature.gpu,pstate,clocks_throttle_reasons.supported,clocks_throttle_reasons.active,clocks_throttle_reasons.gpu_idle,clocks_throttle_reasons.applications_clocks_setting,clocks_throttle_reasons.sw_power_cap,clocks_throttle_reasons.hw_slowdown,clocks_throttle_reasons.hw_thermal_slowdown,clocks_throttle_reasons.hw_power_brake_slowdown,clocks_throttle_reasons.sw_thermal_slowdown,clocks_throttle_reasons.sync_boost",
+    "--format=csv,noheader,nounits",
+    "-i",
+    "0",
+    "-lms",
+    "250"
+  ],
+  "interval_s": 0.25,
+  "field_source": "nvidia-smi --help-query-gpu (parsed in-session)"
+}

@@ -1,0 +1,148 @@
+$ vllm collect-env
+# rc=0
+Collecting environment information...
+==============================
+        System Info
+==============================
+OS                           : Ubuntu 24.04.3 LTS (x86_64)
+GCC version                  : (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+Clang version                : Could not collect
+CMake version                : Could not collect
+Libc version                 : glibc-2.39
+
+==============================
+       PyTorch Info
+==============================
+PyTorch version              : 2.13.0+cu130
+Is debug build               : False
+CUDA used to build PyTorch   : 13.0
+ROCM used to build PyTorch   : N/A
+XPU used to build PyTorch    : N/A
+
+==============================
+      Python Environment
+==============================
+Python version               : 3.12.15 (main, Oct 21 2026, 17:49:21) [Clang 23.1.3 ] (64-bit runtime)
+Python platform              : Linux-4.19.0-gvisor-x86_64-with-glibc2.39
+    
+==============================
+       CUDA / GPU Info
+==============================
+Is CUDA available            : True
+CUDA runtime version         : 13.0.88
+CUDA_MODULE_LOADING set to   : 
+GPU models and configuration : GPU 0: NVIDIA H100 80GB HBM3
+Nvidia driver version        : Could not collect
+cuDNN version                : Could not collect
+HIP runtime version          : N/A
+MIOpen runtime version       : N/A
+Is XNNPACK available         : False
+
+==============================
+          CPU Info
+==============================
+Architecture:        x86_64
+CPU op-mode(s):      32-bit, 64-bit
+Address sizes:       46 bits physical, 48 bits virtual
+Byte Order:          Little Endian
+CPU(s):              24
+On-line CPU(s) list: 0-23
+Vendor ID:           AuthenticAMD
+Model name:          unknown
+CPU family:          25
+Model:               1
+Thread(s) per core:  1
+Core(s) per socket:  24
+Socket(s):           1
+Stepping:            unknown
+BogoMIPS:            3339.57
+Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm pni pclmulqdq monitor ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy cr8_legacy abm sse4a misalignsse 3dnowprefetch topoext perfctr_core fsgsbase bmi1 avx2 smep bmi2 invpcid rdseed adx smap clwb sha_ni xsaveopt xsavec xgetbv1 vaes vpclmulqdq rdpid
+Hypervisor vendor:   KVM
+Virtualization type: full
+NUMA node(s):        1
+NUMA node0 CPU(s):   0-23
+
+==============================
+Versions of relevant libraries
+==============================
+[pip3] flashinfer-python==0.7.0.post1
+[pip3] nccl-extensions==0.1.0
+[pip3] nccl4py==0.6.0
+[pip3] numpy==2.3.5
+[pip3] nvidia-cublas==13.1.1.3
+[pip3] nvidia-cuda-cccl==13.3.4.3.1
+[pip3] nvidia-cuda-crt==13.4.92
+[pip3] nvidia-cuda-cupti==13.0.85
+[pip3] nvidia-cuda-nvcc==13.4.92
+[pip3] nvidia-cuda-nvdisasm==13.4.92
+[pip3] nvidia-cuda-nvrtc==13.0.88
+[pip3] nvidia-cuda-runtime==13.0.96
+[pip3] nvidia-cudnn-cu13==9.20.0.48
+[pip3] nvidia-cudnn-frontend==1.31.0
+[pip3] nvidia-cufft==12.0.0.61
+[pip3] nvidia-cufile==1.15.1.6
+[pip3] nvidia-curand==10.4.0.35
+[pip3] nvidia-cusolver==12.0.4.66
+[pip3] nvidia-cusparse==12.6.3.3
+[pip3] nvidia-cusparselt-cu13==0.8.1
+[pip3] nvidia-cutlass-dsl==4.7.1
+[pip3] nvidia-cutlass-dsl-libs-base==4.7.1
+[pip3] nvidia-cutlass-dsl-libs-core==4.7.1
+[pip3] nvidia-cutlass-dsl-libs-cu12==4.7.1
+[pip3] nvidia-cutlass-dsl-libs-cu13==4.7.1
+[pip3] nvidia-ml-py==13.615.71
+[pip3] nvidia-nccl-cu13==2.29.7
+[pip3] nvidia-nvjitlink==13.4.92
+[pip3] nvidia-nvshmem-cu13==3.4.5
+[pip3] nvidia-nvtx==13.0.85
+[pip3] nvidia-nvvm==13.4.92
+[pip3] pyzmq==27.2.0
+[pip3] tokenspeed-triton==3.9.10.post20261028
+[pip3] torch==2.13.0
+[pip3] torch_c_dlpack_ext==0.1.5
+[pip3] torchaudio==2.11.0
+[pip3] torchcodec==0.17.0
+[pip3] torchvision==0.28.0
+[pip3] transformers==5.17.0
+[pip3] triton==3.7.1
+[conda] Could not collect
+
+==============================
+         vLLM Info
+==============================
+ROCM Version                 : Could not collect
+vLLM Version                 : 0.31.0
+vLLM Build Flags:
+  CUDA Archs: Not Set; ROCm: Disabled; XPU: Disabled
+GPU Topology:
+  	[4mGPU0	CPU Affinity	NUMA Affinity	GPU NUMA ID[0m
+GPU0	 X 				N/A
+
+Legend:
+
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+  PIX  = Connection traversing at most a single PCIe bridge
+  NV#  = Connection traversing a bonded set of # NVLinks
+
+==============================
+     Environment Variables
+==============================
+NVIDIA_VISIBLE_DEVICES=GPU-8328fef1-46fe-d8af-a9da-30a07eb94f90
+NVIDIA_REQUIRE_CUDA=cuda>=13.0 brand=unknown,driver>=535,driver<536 brand=grid,driver>=535,driver<536 brand=tesla,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=vapps,driver>=535,driver<536 brand=vpc,driver>=535,driver<536 brand=vcs,driver>=535,driver<536 brand=vws,driver>=535,driver<536 brand=cloudgaming,driver>=535,driver<536 brand=unknown,driver>=550,driver<551 brand=grid,driver>=550,driver<551 brand=tesla,driver>=550,driver<551 brand=nvidia,driver>=550,driver<551 brand=quadro,driver>=550,driver<551 brand=quadrortx,driver>=550,driver<551 brand=nvidiartx,driver>=550,driver<551 brand=vapps,driver>=550,driver<551 brand=vpc,driver>=550,driver<551 brand=vcs,driver>=550,driver<551 brand=vws,driver>=550,driver<551 brand=cloudgaming,driver>=550,driver<551 brand=unknown,driver>=565,driver<566 brand=grid,driver>=565,driver<566 brand=tesla,driver>=565,driver<566 brand=nvidia,driver>=565,driver<566 brand=quadro,driver>=565,driver<566 brand=quadrortx,driver>=565,driver<566 brand=nvidiartx,driver>=565,driver<566 brand=vapps,driver>=565,driver<566 brand=vpc,driver>=565,driver<566 brand=vcs,driver>=565,driver<566 brand=vws,driver>=565,driver<566 brand=cloudgaming,driver>=565,driver<566 brand=unknown,driver>=570,driver<571 brand=grid,driver>=570,driver<571 brand=tesla,driver>=570,driver<571 brand=nvidia,driver>=570,driver<571 brand=quadro,driver>=570,driver<571 brand=quadrortx,driver>=570,driver<571 brand=nvidiartx,driver>=570,driver<571 brand=vapps,driver>=570,driver<571 brand=vpc,driver>=570,driver<571 brand=vcs,driver>=570,driver<571 brand=vws,driver>=570,driver<571 brand=cloudgaming,driver>=570,driver<571 brand=unknown,driver>=575,driver<576 brand=grid,driver>=575,driver<576 brand=tesla,driver>=575,driver<576 brand=nvidia,driver>=575,driver<576 brand=quadro,driver>=575,driver<576 brand=quadrortx,driver>=575,driver<576 brand=nvidiartx,driver>=575,driver<576 brand=vapps,driver>=575,driver<576 brand=vpc,driver>=575,driver<576 brand=vcs,driver>=575,driver<576 brand=vws,driver>=575,driver<576 brand=cloudgaming,driver>=575,driver<576
+NCCL_VERSION=2.28.3-1
+VLLM_CACHE_ROOT=/hf/vllm-cache
+NVIDIA_DRIVER_CAPABILITIES=all
+NVIDIA_PRODUCT_NAME=CUDA
+CUDA_VERSION=13.0.2
+LD_LIBRARY_PATH=/usr/local/lib/python3.12/site-packages/cv2/../../lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cuda/lib64
+OMP_NUM_THREADS=8
+MKL_NUM_THREADS=8
+PYTORCH_NVML_BASED_CUDA_CHECK=1
+TORCHINDUCTOR_COMPILE_THREADS=1
+TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor_root
+VLLM_WORKER_MULTIPROC_METHOD=spawn
+

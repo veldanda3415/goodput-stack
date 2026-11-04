@@ -1,0 +1,4 @@
+$ nvidia-smi -i 0 --query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit,clocks.max.sm,clocks.applications.graphics,persistence_mode,compute_mode,uuid,pci.bus_id --format=csv
+# rc=0
+power.limit [W], enforced.power.limit [W], power.default_limit [W], power.min_limit [W], power.max_limit [W], clocks.max.sm [MHz], clocks.applications.graphics [MHz], persistence_mode, compute_mode, uuid, pci.bus_id
+700.00 W, 700.00 W, 700.00 W, 200.00 W, 700.00 W, 1980 MHz, [Requested functionality has been deprecated], Enabled, Default, GPU-8328fef1-46fe-d8af-a9da-30a07eb94f90, [Unknown Error]
